@@ -175,7 +175,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   Zakon o zaštiti potrošača, Zakon o PDV-u) kao izvor `zakon`.
   *Prihvatanje:* test sa privremenim folderom.
 
-- [ ] **F1.9 Eval alati.** `evals/rag_eval.py --uporedi` ispisuje tabelu svih
+- [x] **F1.9 Eval alati.** `evals/rag_eval.py --uporedi` ispisuje tabelu svih
   prethodnih pokretanja iz `evals/results/log.jsonl`. Napravi `docs/EVAL.md` sa
   šablonom (datum, oznaka, recall@5, MRR, ms po upitu, šta je promenjeno).
   Korisnik sam pravi `evals/questions.jsonl` (~30 pitanja nad svojim podacima).

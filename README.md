@@ -64,6 +64,8 @@ python -m evals.rag_eval --k 5 --oznaka "hybrid-1200"                  # kvalite
 
 Za eval napravi `evals/questions.jsonl` po uzoru na `questions.example.jsonl`
 (~30 pitanja nad svojim podacima). Rezultati se dopisuju u `evals/results/log.jsonl`.
+`python -m evals.rag_eval --uporedi` prikazuje sva prethodna merenja bez povezivanja na
+bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.md).
 
 ## Podešavanja integracija
 
