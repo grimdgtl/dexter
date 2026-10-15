@@ -1,0 +1,52 @@
+[project]
+name = "apu"
+version = "2.0.0"
+description = "APU — lični AI asistent na Telegramu (Python verzija): agent, RAG, dugoročna memorija, glas i slike."
+requires-python = ">=3.12"
+dependencies = [
+  "anthropic>=0.70",
+  "python-telegram-bot>=21.6",
+  "asyncpg>=0.30",
+  "pgvector>=0.3",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+  "httpx>=0.27",
+  "apscheduler>=3.10,<4",
+  "pypdf>=5.0",
+]
+
+[project.optional-dependencies]
+# Lokalni modeli sa Hugging Face-a (faza 4). Teški su (~2 GB sa torch-om),
+# zato nisu podrazumevani.
+local = [
+  "sentence-transformers>=3.0",
+  "faster-whisper>=1.0",
+]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+apu = "apu.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/apu"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "RUF"]
+ignore = ["E501", "RUF001", "RUF002", "RUF003"]  # srpski znakovi i emodži u tekstu su namerni

@@ -1,0 +1,29 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: apu
+      POSTGRES_PASSWORD: apu
+      POSTGRES_DB: apu
+    volumes:
+      - apu-pg:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432" # samo lokalno, za psql i debug
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apu"]
+      interval: 5s
+      retries: 10
+
+  bot:
+    build: .
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - apu-data:/app/data # fajlovi, keš lokalnih modela
+    restart: unless-stopped
+
+volumes:
+  apu-pg:
+  apu-data:
