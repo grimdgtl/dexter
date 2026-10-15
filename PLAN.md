@@ -184,7 +184,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   `pgvector/pgvector:pg17` i `TEST_DATABASE_URL`, tako da integracioni testovi
   rade u CI-ju. Bedž u README-u.
 
-- [ ] **F1.11 Deploy.** Uputstvo u README-u za Hetzner/Coolify (Dockerfile build,
+- [x] **F1.11 Deploy.** Uputstvo u README-u za Hetzner/Coolify (Dockerfile build,
   bez porta i health check-a, volume za `/app/data`, Postgres kao poseban
   servis sa volume-om). Napomena: **drugi Telegram token** dok stari APU radi.
 

@@ -13,7 +13,7 @@ COPY migrations ./migrations
 # Za lokalne modele: uv pip install --system ".[local]"
 RUN uv pip install --system .
 
-RUN useradd -m apu && mkdir -p /app/data && chown -R apu /app
+RUN useradd --uid 10001 -m apu && mkdir -p /app/data && chown -R apu /app
 USER apu
 
 CMD ["apu"]

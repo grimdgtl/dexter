@@ -17,6 +17,8 @@ services:
   bot:
     build: .
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql://apu:apu@db:5432/apu
     depends_on:
       db:
         condition: service_healthy

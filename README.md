@@ -31,6 +31,10 @@ docker compose up -d --build
 docker compose logs -f bot
 ```
 
+Compose koristi `db:5432` iz kontejnera bota, dok lokalni Python koristi `localhost:5432`.
+Lozinke `apu:apu` u ovom Compose fajlu namenjene su lokalnom razvoju; produkcionu bazu
+podesi zasebno kao u uputstvu ispod.
+
 Lokalni razvoj bez Docker-a za bota:
 
 ```bash
@@ -76,6 +80,21 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 
 | Promenljiva | Podrazumevano | Uloga |
 |---|---|---|
+| `TELEGRAM_BOT_TOKEN` | obavezno | Token zasebnog Telegram bota |
+| `TELEGRAM_OWNER_CHAT_ID` | obavezno | Numerički ID vlasnika; ostali razgovori se ignorišu |
+| `ANTHROPIC_API_KEY` | obavezno | Ključ za razgovor i generisanje poruka |
+| `DATABASE_URL` | lokalni `apu:apu@localhost:5432/apu` | PostgreSQL veza; na serveru koristi interni host baze |
+| `MODEL_FAST` / `MODEL_MAIN` / `MODEL_DEEP` | `.env.example` | ID-jevi brzog, glavnog i dubokog modela |
+| `MAX_TOKENS` | `8192` | Ograničenje dužine odgovora modela |
+| `HISTORY_TURNS` | `12` | Broj razmena u istoriji modela |
+| `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
+| `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze i transkripciju |
+| `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
+| `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
+| `TIMEZONE` | `Europe/Belgrade` | Vremenska zona konteksta i zakazanih poslova |
+| `WEATHER_LAT` / `WEATHER_LON` | `44.8125` / `20.4612` | Koordinate prognoze |
+| `WEATHER_LOCATION` | `Beograd` | Naziv lokacije u porukama |
+| `LOG_LEVEL` | `INFO` | Nivo logovanja |
 | `NOTION_API_KEY` | prazno | Token Notion integracije; podeli roditeljsku stranicu sa integracijom |
 | `SEMANTIC_INDEX_CRON` | `0 4 * * *` | Dnevno osvežavanje znanja po `TIMEZONE` |
 | `GOOGLE_CLIENT_ID` | prazno | OAuth klijent iz Google Cloud projekta |
@@ -112,6 +131,55 @@ Ponovljeni uvoz preskače nepromenjen sadržaj. Pokvaren fajl se prijavljuje, os
 obrađuju, a izlazni kod je 1 ako je makar jedan fajl izazvao grešku. Skripta ne briše
 ranije dokumente. Skenirani PDF bez teksta preskače se sa objašnjenjem; OCR je u F5.1.
 Pravne dokumente i privatne podatke drži van repozitorijuma ili u ignorisanom `data/`.
+
+## Deploy na Hetzner / Coolify
+
+APU je pozadinski proces sa Telegram long polling-om. Potreban je server sa Docker-om,
+Coolify instancom i izlaznim HTTPS pristupom za Telegram, Anthropic, OpenAI i podešene
+integracije. Instalacija servera i kupovina resursa nisu deo ove procedure.
+
+1. Na istom serveru napravi **poseban PostgreSQL servis** sa image-om
+   `pgvector/pgvector:pg17`. Podesi bazu i korisnika `apu`, svoju jaku lozinku i trajni
+   volume na **`/var/lib/postgresql/data`**. Koristi internu Docker mrežu; javni port
+   baze nije potreban. Coolify podržava odvojene resurse i
+   [trajno skladište](https://coolify.io/docs/core/persistent-storage/storage-mounts/overview).
+2. Kreiraj aplikaciju iz ovog Git repozitorijuma. Izaberi **Dockerfile** build,
+   build context koren repoa, Dockerfile `/Dockerfile`, podrazumevanu komandu `apu`.
+   Docker build uključuje SQL migracije u instalirani Python paket.
+   Detalji podešavanja su u [Coolify Dockerfile dokumentaciji](https://coolify.io/docs/applications/builds/dockerfile).
+3. Za bota ostavi **Domains, Ports Exposes i port mappings prazne** i isključi
+   **HTTP Health Check**. Bot nema HTTP server; stanje se proverava kroz logove i Telegram.
+   Health check PostgreSQL servisa ostaje uključen.
+4. U aplikaciji podesi trajni **Volume Mount** naziva npr. `apu-data`, sa Destination
+   Path **`/app/data`**. Novi named volume ne traži Source Path. Tu se čuvaju keš
+   lokalnih modela i radni fajlovi; razgovori, memorija i indeks su u bazi.
+   Image radi kao korisnik `apu` sa UID **10001**. Ako koristiš postojeći bind mount ili
+   vraćen volume, njegov vlasnik mora omogućiti pisanje tom UID-ju.
+5. U Runtime Environment Variables unesi vrednosti iz `.env.example`. `DATABASE_URL`
+   mora koristiti **interni host produkcione baze**, npr.
+   `postgresql://apu:<lozinka>@<interni-db-host>:5432/apu`. Specijalne znakove u lozinci
+   URL-kodiraj. Bota i bazu poveži u istoj Docker mreži. API ključevi se unose pri
+   pokretanju, bez build argumenata i bez `.env` fajla u image-u.
+6. Koristi **drugi Telegram bot token dok stari APU radi**. Pokreni jednu repliku
+   novog bota. Dva procesa na istom tokenu izazivaju `409 Conflict`, a Faza 1b još
+   prenosi ostale stare funkcije. Glavni token preuzima se tek prema F1b.11.
+7. Pokreni bazu, zatim Deploy aplikacije. `db.connect` automatski primenjuje nove
+   migracije u transakciji i pamti ih u `schema_migrations`. Ako aplikacioni DB nalog
+   nema pravo za instalaciju ekstenzija, administrator prvo izvršava
+   `CREATE EXTENSION IF NOT EXISTS vector;` u izabranoj bazi. Aplikacioni nalog mora
+   imati pravo da kreira tabele i indekse za migracije.
+8. U logovima proveri poruke „Baza spremna”, „Aktivni alati” i „Scheduler pokrenut”.
+   U Telegramu proveri `/start`, `/status` i `/poslovi 24`. Potvrdi da dokumenti i
+   činjenice ostaju posle redeploy-a. Notion zahteva deljenje stranica sa integracijom;
+   Google token se dobija lokalno preko `python -m scripts.google_auth`.
+
+Podesi redovan backup baze (`pg_dump`) i app volume-a, uz proveru vraćanja kopije u
+posebnu bazu. Pre izmene šeme napravi backup. Za lokalni Compose named volume-i su
+`apu-pg` i `apu-data`; `docker compose down` ih zadržava, dok `down -v` briše njihove podatke.
+Zadržavanje samo app volume-a ne čuva razgovore ni indeks — potreban je i PostgreSQL volume.
+
+U ovoj fazi kreirani su kod i uputstvo. Ručna provera pravog Telegram-a, Google naloga,
+GitHub CI izvršavanja i server deploy-a zavisi od tvojih naloga i okruženja.
 
 ## Plan razvoja
 
