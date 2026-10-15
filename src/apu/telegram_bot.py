@@ -19,7 +19,7 @@ from telegram.ext import (
     filters,
 )
 
-from apu import memory, status, usage
+from apu import jobs, memory, status, usage
 from apu.agent import history, loop
 from apu.config import settings
 from apu.pismo import ima_cirilice, u_latinicu
@@ -190,6 +190,18 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(part)
 
 
+async def cmd_jobs(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _owner(update):
+        return
+    try:
+        hours = int(ctx.args[0]) if ctx.args else 24
+        text = await jobs.report(hours)
+    except ValueError:
+        text = "Upotreba: /poslovi [sati], broj sati između 1 i 8760."
+    for part in _split(u_latinicu(text)):
+        await update.message.reply_text(part)
+
+
 async def cmd_memory(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _owner(update):
         return
@@ -205,6 +217,7 @@ async def cmd_memory(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 def build(app: Application) -> None:
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("status", cmd_status))
+    app.add_handler(CommandHandler("poslovi", cmd_jobs))
     app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(CommandHandler("troskovi", cmd_costs))
     app.add_handler(CommandHandler("memorija", cmd_memory))

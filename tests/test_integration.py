@@ -55,7 +55,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -374,12 +374,14 @@ async def test_migrations_are_idempotent_and_preserve_existing_data(migration_co
 
     conn = migration_conn
     if legacy:
-        for path in sorted(dbmod.MIGRATIONS_DIR.glob("*.sql")):
+        for path in sorted(dbmod.MIGRATIONS_DIR.glob("*.sql"))[:2]:
             await conn.execute(path.read_text().replace("{{EMBED_DIM}}", "1536"))
         await conn.execute(
             "INSERT INTO messages (chat_id, role, content) VALUES (1, 'user', '\"Poruka\"')"
         )
-    assert await dbmod.migrate(conn, 1536) == ["001", "002"]
+    assert await dbmod.migrate(conn, 1536) == [
+        p.name.split("_", 1)[0] for p in sorted(dbmod.MIGRATIONS_DIR.glob("*.sql"))
+    ]
     rows = await conn.fetch("SELECT * FROM schema_migrations ORDER BY version")
     assert await dbmod.migrate(conn, 1536) == []
     assert await conn.fetch("SELECT * FROM schema_migrations ORDER BY version") == rows
@@ -405,3 +407,55 @@ async def test_status_reports_database_counts(db):
     text = await status.report()
     assert "Baza: dostupna" in text
     assert "Dokumenti: 0, delovi: 0, činjenice: 0" in text
+
+
+@pytest.mark.parametrize("success", [True, False])
+async def test_jobs_retry_record_and_notify_once(db, monkeypatch, success):
+    from apu import jobs
+
+    sleep = AsyncMock()
+    monkeypatch.setattr(jobs.asyncio, "sleep", sleep)
+    bot = SimpleNamespace(send_message=AsyncMock())
+    fn = AsyncMock(
+        side_effect=[
+            RuntimeError("Prva"),
+            RuntimeError("Druga"),
+            42 if success else RuntimeError("Коначна грешка"),
+        ]
+    )
+    result = await jobs.run_job("Test", fn, bot=bot)
+    assert result == (42 if success else None)
+    assert [c.args[0] for c in sleep.await_args_list] == [30, 60]
+    row = await db.fetchrow("SELECT * FROM job_runs")
+    assert row["ok"] == success and row["pokusaja"] == 3
+    assert row["kraj"] >= row["start"]
+    if success:
+        bot.send_message.assert_not_awaited()
+        assert row["greska"] is None
+    else:
+        bot.send_message.assert_awaited_once()
+        assert "Konačna greška" in bot.send_message.await_args.args[1]
+        assert row["greska"] == "Konačna greška"
+    assert "Test: " in await jobs.report()
+
+
+async def test_job_success_is_not_retried_if_recording_fails(db, monkeypatch):
+    from apu import jobs
+
+    # Drugi poziv execute upisuje ishod, pošto je fn već uspeo.
+    real_execute = db.execute
+    calls = 0
+
+    async def execute(*args):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("Prekid baze")
+        return await real_execute(*args)
+
+    fake_pool = SimpleNamespace(fetchval=db.fetchval, execute=execute)
+    monkeypatch.setattr(jobs, "pool", lambda: fake_pool)
+    fn = AsyncMock(return_value=1)
+    with pytest.raises(RuntimeError, match="Prekid baze"):
+        await jobs.run_job("Test", fn, bot=SimpleNamespace(send_message=AsyncMock()))
+    fn.assert_awaited_once()

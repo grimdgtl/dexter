@@ -147,7 +147,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   pa se `enabled` i razlog izvode iz toga.
   *Prihvatanje:* test za razloge; ručno u Telegramu.
 
-- [ ] **F1.5 Izvršavanje zakazanih poslova (port `jobs.js`).** Omotač
+- [x] **F1.5 Izvršavanje zakazanih poslova (port `jobs.js`).** Omotač
   `run_job(ime, fn)`: do 3 pokušaja sa rastućim razmakom, upis u tabelu
   `job_runs(ime, start, kraj, ok, greska, pokusaja)`, jedna Telegram poruka kad
   svi pokušaji padnu. Komanda `/poslovi [sati]` prikazuje izvršavanja.

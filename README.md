@@ -45,6 +45,7 @@ DATABASE_URL=postgresql://apu:apu@localhost:5432/apu .venv/bin/apu
 | Komanda | Šta radi |
 |---|---|
 | `/status` | Aktivni i ugašeni alati, nedostajuća podešavanja, modeli i stanje baze |
+| `/poslovi [sati]` | Evidencija zakazanih poslova, uspeha i grešaka (24h podrazumevano) |
 | `/troskovi [dana]` | Cena, broj poziva, procenat keša i latencija po modelu |
 | `/memorija` | Sve što APU pamti o tebi |
 | `/reset` | Briše istoriju razgovora (memorija ostaje) |
