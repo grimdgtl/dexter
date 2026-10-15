@@ -8,6 +8,7 @@ Dve lekcije iz stare verzije su ovde pravila u kodu:
 """
 
 from apu.db import pool
+from apu.pismo import u_latinicu
 
 
 def is_user_turn(m: dict) -> bool:
@@ -78,13 +79,36 @@ async def load(chat_id: int, max_turns: int) -> list[dict]:
     return sanitize(trim_turns(msgs, max_turns))
 
 
-async def append(chat_id: int, messages: list[dict]) -> None:
+async def add_note(chat_id: int, text: str) -> None:
+    await pool().execute(
+        "INSERT INTO pending_notes (chat_id, text) VALUES ($1, $2)", chat_id, u_latinicu(text)
+    )
+
+
+async def load_notes(chat_id: int) -> list[dict]:
+    rows = await pool().fetch(
+        "SELECT id, text FROM pending_notes WHERE chat_id = $1 ORDER BY id", chat_id
+    )
+    return [dict(row) for row in rows]
+
+
+async def append(chat_id: int, messages: list[dict], *, note_ids: list[int] | None = None) -> None:
     if messages:
-        await pool().executemany(
-            "INSERT INTO messages (chat_id, role, content) VALUES ($1, $2, $3)",
-            [(chat_id, m["role"], m["content"]) for m in messages],
-        )
+        async with pool().acquire() as conn, conn.transaction():
+            await conn.executemany(
+                "INSERT INTO messages (chat_id, role, content) VALUES ($1, $2, $3)",
+                [(chat_id, m["role"], m["content"]) for m in messages],
+            )
+            if note_ids:
+                # Ne gubimo napomene pri grešci niti brišemo one pristigle tokom odgovora.
+                await conn.execute(
+                    "DELETE FROM pending_notes WHERE chat_id = $1 AND id = ANY($2::bigint[])",
+                    chat_id,
+                    note_ids,
+                )
 
 
 async def clear(chat_id: int) -> None:
-    await pool().execute("DELETE FROM messages WHERE chat_id = $1", chat_id)
+    async with pool().acquire() as conn, conn.transaction():
+        await conn.execute("DELETE FROM messages WHERE chat_id = $1", chat_id)
+        await conn.execute("DELETE FROM pending_notes WHERE chat_id = $1", chat_id)

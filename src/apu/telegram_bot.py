@@ -152,14 +152,15 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     action, token = q.data.split(":", 1)
     if action == "ok":
         result = await registry.confirm(token)
-        await q.edit_message_text(f"{q.message.text}\n\n✅ Izvršeno.\n{u_latinicu(result)[:3000]}")
+        reply = f"{q.message.text}\n\n✅ Izvršeno.\n{u_latinicu(result)[:3000]}"
         note = f"[Sistem: korisnik je potvrdio akciju. Rezultat: {result[:1500]}]"
     else:
         registry.cancel(token)
-        await q.edit_message_text(f"{q.message.text}\n\n❌ Otkazano.")
+        reply = f"{q.message.text}\n\n❌ Otkazano."
         note = "[Sistem: korisnik je otkazao predloženu akciju.]"
     # Agent mora da zna šta se desilo sa akcijom kad nastavi razgovor.
-    await history.append(update.effective_chat.id, [{"role": "user", "content": note}])
+    await history.add_note(update.effective_chat.id, note)
+    await q.edit_message_text(u_latinicu(reply))
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

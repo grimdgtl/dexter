@@ -13,7 +13,9 @@ import re
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import asyncpg
 import pytest
+from pydantic import BaseModel
 
 DB_URL = os.environ.get("TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(not DB_URL, reason="TEST_DATABASE_URL nije postavljen")
@@ -52,7 +54,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE messages, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -205,3 +207,149 @@ async def test_parallel_messages_in_same_chat_preserve_history(db, monkeypatch):
     ]
     if loop._background:
         await asyncio.gather(*loop._background)
+
+
+@pytest.fixture
+async def note_model(monkeypatch):
+    from apu import llm, memory
+    from apu.agent import loop
+
+    answer = {"type": "text", "text": "U redu."}
+    block = SimpleNamespace(**answer, model_dump=lambda **kwargs: answer.copy())
+    create = AsyncMock(return_value=SimpleNamespace(content=[block], stop_reason="end_turn"))
+    monkeypatch.setattr(llm, "create", create)
+    monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
+    yield create
+    if loop._background:
+        await asyncio.gather(*loop._background)
+
+
+@pytest.mark.parametrize("action", ["ok", "no"])
+async def test_button_note_joins_next_user_context(db, monkeypatch, note_model, action):
+    from apu import telegram_bot
+    from apu.agent import history, loop
+    from apu.agent.prompts import SYSTEM_PROMPT
+    from apu.tools import registry
+
+    class Args(BaseModel):
+        pass
+
+    fn = AsyncMock(return_value="Сачувано.")
+    tool = registry.Tool("test_potvrda", "Test potvrde.", Args, fn, confirm=True)
+    monkeypatch.setattr(registry, "_PENDING", {"token": registry.Pending(tool, Args())})
+    query = SimpleNamespace(
+        data=f"{action}:token",
+        message=SimpleNamespace(text="Predlog akcije"),
+        answer=AsyncMock(),
+        edit_message_text=AsyncMock(),
+    )
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id=1), callback_query=query)
+    await history.append(
+        1,
+        [
+            {"role": "user", "content": "Pripremi akciju."},
+            {"role": "assistant", "content": "Čeka potvrdu."},
+        ],
+    )
+    await history.add_note(99, "Drugi razgovor.")
+    await telegram_bot.on_button(update, SimpleNamespace())
+
+    notes = await history.load_notes(1)
+    assert len(notes) == 1
+    note = notes[0]["text"]
+    if action == "ok":
+        fn.assert_awaited_once()
+        assert "potvrdio akciju" in note and "Sačuvano." in note
+    else:
+        fn.assert_not_awaited()
+        assert "otkazao" in note
+    assert "token" not in registry._PENDING
+    assert await db.fetchval("SELECT count(*) FROM messages WHERE chat_id = 1") == 2
+
+    # I slike moraju da dobiju napomenu unutar iste korisničke poruke.
+    content = (
+        "Šta je urađeno?"
+        if action == "ok"
+        else [
+            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": ""}},
+            {"type": "text", "text": "Pogledaj sliku."},
+        ]
+    )
+    await loop.run(1, content)
+    request = note_model.await_args.kwargs
+    assert request["system"][0]["text"] == SYSTEM_PROMPT
+    context = request["messages"][-1]["content"][0]["text"]
+    assert note in context and context.endswith("</kontekst>")
+    assert [m["role"] for m in await history.load(1, 12)] == [
+        "user",
+        "assistant",
+        "user",
+        "assistant",
+    ]
+    assert await history.load_notes(1) == []
+    assert len(await history.load_notes(99)) == 1
+
+    await loop.run(1, "Nastavimo.")
+    assert note not in note_model.await_args.kwargs["messages"][-1]["content"][0]["text"]
+
+
+@pytest.mark.parametrize("error", [RuntimeError, asyncio.CancelledError])
+async def test_note_survives_failed_model_call(db, note_model, error):
+    from apu.agent import history, loop
+
+    await history.add_note(1, "Potvrđena akcija.")
+    notes = await history.load_notes(1)
+    note_model.side_effect = error("Prekinut odgovor")
+    with pytest.raises(error):
+        await loop.run(1, "Šta je urađeno?")
+    assert await history.load_notes(1) == notes
+    assert await history.load(1, 12) == []
+
+
+async def test_note_added_during_answer_waits_for_next_turn(db, note_model):
+    from apu.agent import history, loop
+
+    await history.add_note(1, "Prva napomena.")
+    await history.add_note(1, "Druga napomena.")
+
+    async def create(**kwargs):
+        await history.add_note(1, "Kasnija napomena.")
+        return note_model.return_value
+
+    note_model.side_effect = create
+    await loop.run(1, "Nastavi.")
+    context = note_model.await_args.kwargs["messages"][-1]["content"][0]["text"]
+    assert context.index("Prva napomena.") < context.index("Druga napomena.")
+    assert "Kasnija napomena." not in context
+    assert [n["text"] for n in await history.load_notes(1)] == ["Kasnija napomena."]
+
+
+async def test_failed_history_write_keeps_notes(db):
+    from apu.agent import history
+
+    await history.add_note(1, "Potvrđena akcija.")
+    notes = await history.load_notes(1)
+    with pytest.raises(asyncpg.CheckViolationError):
+        await history.append(
+            1,
+            [
+                {"role": "user", "content": "Nastavi."},
+                {"role": "neispravna", "content": "Greška pri upisu"},
+            ],
+            note_ids=[n["id"] for n in notes],
+        )
+    assert await history.load_notes(1) == notes
+    assert await history.load(1, 12) == []
+
+
+async def test_reset_clears_only_current_chat_notes(db):
+    from apu.agent import history
+
+    for chat_id in (1, 2):
+        await history.add_note(chat_id, "Napomena.")
+        await history.append(chat_id, [{"role": "user", "content": "Poruka."}])
+    await history.clear(1)
+    assert await history.load_notes(1) == []
+    assert await history.load(1, 12) == []
+    assert len(await history.load_notes(2)) == 1
+    assert len(await history.load(2, 12)) == 1

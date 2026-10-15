@@ -126,7 +126,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   *Prihvatanje:* test sa dva paralelna `loop.run` (mock model) daje istoriju gde
   se razmene ne prepliću.
 
-- [ ] **F1.2 Sistemske napomene bez dve uzastopne user poruke.** Posle dugmeta
+- [x] **F1.2 Sistemske napomene bez dve uzastopne user poruke.** Posle dugmeta
   (potvrđeno/otkazano) sada se upisuje zasebna `user` poruka. Umesto toga čuvaj
   napomenu u tabeli `pending_notes(chat_id, text, created_at)` i ubaci je u
   `<kontekst>` sledeće korisnikove poruke, pa obriši.

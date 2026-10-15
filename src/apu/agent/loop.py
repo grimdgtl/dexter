@@ -72,7 +72,11 @@ async def run(chat_id: int, user_content: str | list[dict]) -> AgentResult:
         model = cfg.model_main
 
     facts = await memory.recall(user_text) if user_text.strip() else []
-    blocks = [{"type": "text", "text": turn_context(facts)}, *blocks]
+    notes = await history.load_notes(chat_id)
+    blocks = [
+        {"type": "text", "text": turn_context(facts, notes=[n["text"] for n in notes])},
+        *blocks,
+    ]
     new_messages: list[dict] = [{"role": "user", "content": blocks}]
 
     past = await history.load(chat_id, cfg.history_turns)
@@ -114,7 +118,7 @@ async def run(chat_id: int, user_content: str | list[dict]) -> AgentResult:
         final_text = "Zahtev traži previše koraka — pokušaj da ga podeliš."
         new_messages.append({"role": "assistant", "content": final_text})
 
-    await history.append(chat_id, new_messages)
+    await history.append(chat_id, new_messages, note_ids=[n["id"] for n in notes])
 
     # Memorija se izvlači u pozadini — korisnik ne čeka na to.
     task = asyncio.create_task(memory.extract_and_save(user_text, final_text))

@@ -5,6 +5,7 @@ disku. To radi za jednog korisnika, ali nema pretrage, nema upita i ceo fajl
 se učitava u memoriju. Ovde je sve u tabelama:
 
   messages   — istorija razgovora (svaka poruka jedan red)
+  pending_notes — ishodi potvrda za kontekst sledeće korisničke poruke
   facts      — dugoročna memorija, sa vektorom za pretragu po značenju
   documents  — izvori za RAG (Notion stranica, PDF, mejl...)
   chunks     — delovi dokumenata sa vektorom i full-text indeksom
@@ -36,6 +37,14 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS messages_chat_idx ON messages (chat_id, id);
+
+CREATE TABLE IF NOT EXISTS pending_notes (
+    id          BIGSERIAL PRIMARY KEY,
+    chat_id     BIGINT NOT NULL,
+    text        TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS pending_notes_chat_idx ON pending_notes (chat_id, id);
 
 CREATE TABLE IF NOT EXISTS facts (
     id          BIGSERIAL PRIMARY KEY,
