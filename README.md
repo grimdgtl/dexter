@@ -65,6 +65,18 @@ python -m evals.rag_eval --k 5 --oznaka "hybrid-1200"                  # kvalite
 Za eval napravi `evals/questions.jsonl` po uzoru na `questions.example.jsonl`
 (~30 pitanja nad svojim podacima). Rezultati se dopisuju u `evals/results/log.jsonl`.
 
+## Podešavanja integracija
+
+| Promenljiva | Podrazumevano | Uloga |
+|---|---|---|
+| `NOTION_API_KEY` | prazno | Token Notion integracije; podeli roditeljsku stranicu sa integracijom |
+| `SEMANTIC_INDEX_CRON` | `0 4 * * *` | Dnevno osvežavanje znanja po `TIMEZONE` |
+
+`notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
+`knowledge_reindex` osvežava sve podešene izvore ili zadati `izvor`.
+Nepromenjen tekst ne troši nove embedding pozive; nestali dokumenti brišu se tek posle
+uspešnog obilaska celog izvora. API verzija Notion-a je fiksirana na `2025-09-03`.
+
 ## Plan razvoja
 
 Ceo plan po fazama, sa kriterijumima prihvatanja, je u [`PLAN.md`](PLAN.md).

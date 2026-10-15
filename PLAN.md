@@ -153,7 +153,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   svi pokušaji padnu. Komanda `/poslovi [sati]` prikazuje izvršavanja.
   *Prihvatanje:* testovi za retry i evidenciju.
 
-- [ ] **F1.6 Notion klijent + izvor za bazu znanja.** `services/notion.py`
+- [x] **F1.6 Notion klijent + izvor za bazu znanja.** `services/notion.py`
   (`notion-client`, AsyncClient). Alati `notion_search`, `notion_read_page`
   (vidi Dodatak A). Modul `sources/notion.py`: prolazi kroz SVE stranice dostupne
   integraciji (paginacija, bez limita 25), tekst stranice + podstranice →

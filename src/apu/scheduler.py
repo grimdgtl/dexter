@@ -16,7 +16,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from telegram import Bot
 
-from apu import jobs, llm
+from apu import jobs, llm, sources
 from apu.agent.prompts import SYSTEM_PROMPT
 from apu.config import settings
 from apu.pismo import u_latinicu
@@ -46,6 +46,9 @@ def start(bot: Bot) -> AsyncIOScheduler:
 
     sched.add_job(safe, CronTrigger.from_crontab("0 6 * * *", timezone=tz),
                   args=[morning_greeting, bot], id="morning")  # fmt: skip
+    if sources.available():
+        sched.add_job(safe, CronTrigger.from_crontab(settings().semantic_index_cron, timezone=tz),
+                      args=[sources.reindex], id="knowledge_index")  # fmt: skip
     sched.start()
     log.info("Scheduler pokrenut (%d poslova).", len(sched.get_jobs()))
     return sched

@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import asyncpg
+import httpx
 import pytest
 from pydantic import BaseModel
 
@@ -459,3 +460,76 @@ async def test_job_success_is_not_retried_if_recording_fails(db, monkeypatch):
     with pytest.raises(RuntimeError, match="Prekid baze"):
         await jobs.run_job("Test", fn, bot=SimpleNamespace(send_message=AsyncMock()))
     fn.assert_awaited_once()
+
+
+async def test_notion_source_full_pagination_skip_and_safe_removal(db, monkeypatch, respx_mock):
+    from apu import config
+    from apu.rag import store
+    from apu.sources import notion
+
+    monkeypatch.setenv("NOTION_API_KEY", "test-notion")
+    config.settings.cache_clear()
+    pages = [
+        {"id": str(uuid4()), "object": "page", "properties": {}, "url": "https://notion.so/test"}
+        for _ in range(26)
+    ]
+    fail = False
+
+    def search(request):
+        import json
+
+        cursor = json.loads(request.content).get("start_cursor")
+        return httpx.Response(
+            200,
+            json={
+                "results": pages[25:] if cursor else pages[:25],
+                "has_more": not bool(cursor),
+                "next_cursor": None if cursor else "jos",
+            },
+        )
+
+    respx_mock.post("https://api.notion.com/v1/search").mock(side_effect=search)
+
+    def blocks(request):
+        if fail:
+            return httpx.Response(
+                403, json={"code": "restricted_resource", "message": "Zabranjeno"}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [
+                                {
+                                    "plain_text": "Sadržaj stranice o projektu i dogovorenim poslovima."
+                                }
+                            ]
+                        },
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+
+    respx_mock.get(url__regex=r"https://api\.notion\.com/v1/blocks/.*/children").mock(
+        side_effect=blocks
+    )
+    await store.upsert_document("notion:stari", "notion", "Stari", "Stari dokument")
+    await store.upsert_document("drive:drugi", "drive", "Drive", "Drugi izvor")
+    assert (await notion.reindex())["ukupno"] == 26
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE id = 'notion:stari'") == 0
+    embed = AsyncMock(wraps=store.embed)
+    monkeypatch.setattr(store, "embed", embed)
+    result = await notion.reindex()
+    assert result["preskoceno"] == 26 and result["indeksirano"] == 0
+    embed.assert_not_awaited()
+    await store.upsert_document("notion:zadrzi", "notion", "Zadrži", "Privremeno nedostupan")
+    fail = True
+    with pytest.raises(Exception, match="Zabranjeno"):
+        await notion.reindex()
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE id = 'notion:zadrzi'") == 1
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'drive'") == 1
+    config.settings.cache_clear()

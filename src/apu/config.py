@@ -29,6 +29,8 @@ class Settings(BaseSettings):
 
     embed_provider: Literal["openai", "local"] = "openai"
     openai_api_key: str | None = None
+    notion_api_key: str | None = None
+    semantic_index_cron: str = "0 4 * * *"
 
     transcribe_provider: Literal["openai", "local"] = "openai"
     whisper_local_model: str = "small"

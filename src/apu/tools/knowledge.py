@@ -7,6 +7,7 @@ upit i da pretraži ponovo ako prvi rezultati nisu dobri.
 
 from pydantic import BaseModel, Field
 
+from apu import sources
 from apu.rag import store
 from apu.tools.registry import tool
 
@@ -19,6 +20,21 @@ class SearchArgs(BaseModel):
         None, description="Opciono suzi na izvor: notion, drive, mejl, fajl, zakon."
     )
     limit: int = Field(6, ge=1, le=15)
+
+
+class ReindexArgs(BaseModel):
+    izvor: str | None = Field(None, description="Izvor za osvežavanje; izostavi za sve podešene.")
+
+
+@tool(
+    "knowledge_reindex",
+    "Osvežava indeks za semantičku pretragu. Bot ovo radi sam jednom "
+    "dnevno — pozovi samo ako korisnik izričito traži ili ako pretraga ne nalazi nešto "
+    "što je tek dodato.",
+    enabled=lambda: bool(sources.available()),
+)
+async def knowledge_reindex(args: ReindexArgs) -> dict:
+    return await sources.reindex(args.izvor)
 
 
 @tool(
