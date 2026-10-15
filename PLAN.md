@@ -120,7 +120,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
 
 ### Faza 1 — Osnova i prvi podaci (do 21.10)
 
-- [ ] **F1.1 Zaključavanje po razgovoru.** Dve poruke koje stignu skoro istovremeno
+- [x] **F1.1 Zaključavanje po razgovoru.** Dve poruke koje stignu skoro istovremeno
   sada mogu da isprepletu istoriju. Dodaj `asyncio.Lock` po `chat_id` oko
   `loop.run` (u `telegram_bot._answer`); druga poruka čeka prvu.
   *Prihvatanje:* test sa dva paralelna `loop.run` (mock model) daje istoriju gde

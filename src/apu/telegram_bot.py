@@ -31,6 +31,8 @@ log = logging.getLogger(__name__)
 
 TG_LIMIT = 4000
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+# Istorija se učitava i dopisuje u istoj razmeni, pa sledeća mora da sačeka.
+_chat_locks: dict[int, asyncio.Lock] = {}
 
 
 def _owner(update: Update) -> bool:
@@ -65,7 +67,9 @@ async def _answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE, content) -> No
     stop = asyncio.Event()
     typing = asyncio.create_task(_keep_typing(ctx.bot, chat_id, stop))
     try:
-        result = await loop.run(chat_id, content)
+        lock = _chat_locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            result = await loop.run(chat_id, content)
     except Exception:
         log.exception("Agent pukao")
         await ctx.bot.send_message(chat_id, "⚠️ Nešto je puklo. Probaj ponovo za koji trenutak.")

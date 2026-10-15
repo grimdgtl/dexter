@@ -5,11 +5,13 @@ Pokreću se samo kad postoji TEST_DATABASE_URL (prazna test baza!), npr:
     TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test pytest
 """
 
+import asyncio
 import hashlib
 import math
 import os
 import re
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -148,3 +150,58 @@ async def test_agent_loop_parallel_tools_caching_and_history(db, monkeypatch):
 
 async def _noop():
     return 0
+
+
+async def test_parallel_messages_in_same_chat_preserve_history(db, monkeypatch):
+    from apu import llm, memory, telegram_bot
+    from apu.agent import history, loop
+
+    monkeypatch.setattr(telegram_bot, "_chat_locks", {})
+    monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
+    run = AsyncMock(wraps=loop.run)
+    monkeypatch.setattr(loop, "run", run)
+    first_started = asyncio.Event()
+    release_first = asyncio.Event()
+    requests = []
+
+    async def fake_create(**kwargs):
+        requests.append(kwargs["messages"])
+        text = kwargs["messages"][-1]["content"][-1]["text"]
+        if text == "Prva":
+            first_started.set()
+            await release_first.wait()
+        answer = {"type": "text", "text": f"Odgovor: {text}"}
+        block = SimpleNamespace(**answer, model_dump=lambda **kwargs: answer.copy())
+        return SimpleNamespace(content=[block], stop_reason="end_turn")
+
+    monkeypatch.setattr(llm, "create", fake_create)
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id=42))
+    ctx = SimpleNamespace(
+        bot=SimpleNamespace(send_message=AsyncMock(), send_chat_action=AsyncMock())
+    )
+    async with asyncio.timeout(5):
+        async with asyncio.TaskGroup() as group:
+            group.create_task(telegram_bot._answer(update, ctx, "Prva"))
+            await first_started.wait()
+            group.create_task(telegram_bot._answer(update, ctx, "Druga"))
+            # Daj drugoj poruci priliku da uđe dok prvi model još čeka.
+            await asyncio.sleep(0)
+            try:
+                assert run.await_count == 1
+                assert len(requests) == 1
+            finally:
+                release_first.set()
+
+    assert len(requests) == 2
+    assert [m["role"] for m in requests[1]] == ["user", "assistant", "user"]
+    assert requests[1][1]["content"][0]["text"] == "Odgovor: Prva"
+    saved = await history.load(42, 12)
+    assert [m["role"] for m in saved] == ["user", "assistant", "user", "assistant"]
+    assert [m["content"][-1]["text"] for m in saved] == [
+        "Prva",
+        "Odgovor: Prva",
+        "Druga",
+        "Odgovor: Druga",
+    ]
+    if loop._background:
+        await asyncio.gather(*loop._background)
