@@ -85,3 +85,10 @@ def pool() -> asyncpg.Pool:
     if _pool is None:
         raise RuntimeError("Baza nije povezana — pozovi db.connect() pri startu.")
     return _pool
+
+
+async def close() -> None:
+    global _pool
+    current, _pool = _pool, None
+    if current is not None:
+        await current.close()

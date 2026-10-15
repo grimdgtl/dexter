@@ -91,6 +91,21 @@ Testing režimu može da izgubi odobrenje posle sedam dana; za stalni rad korist
 `drive_read` vraća do 6000 znakova modelu; indeks čuva ceo tekst Docs, Sheets/CSV, PDF i
 tekstualnih fajlova, kroz sve strane rezultata. PDF bez teksta zahteva kasniji OCR (F5.1).
 
+## Uvoz lokalnih dokumenata
+
+Sačuvaj važeće tekstove Zakona o radu, Zakona o zaštiti potrošača i Zakona o PDV-u
+kao PDF/txt/md u privatni folder, pa pokreni:
+
+```bash
+python -m scripts.ingest_folder /putanja/do/zakona --izvor zakon
+```
+
+Uvoz obilazi podfoldere i čuva relativnu putanju u ID-ju (npr. `zakon:rad/zakon.pdf`).
+Ponovljeni uvoz preskače nepromenjen sadržaj. Pokvaren fajl se prijavljuje, ostali se
+obrađuju, a izlazni kod je 1 ako je makar jedan fajl izazvao grešku. Skripta ne briše
+ranije dokumente. Skenirani PDF bez teksta preskače se sa objašnjenjem; OCR je u F5.1.
+Pravne dokumente i privatne podatke drži van repozitorijuma ili u ignorisanom `data/`.
+
 ## Plan razvoja
 
 Ceo plan po fazama, sa kriterijumima prihvatanja, je u [`PLAN.md`](PLAN.md).

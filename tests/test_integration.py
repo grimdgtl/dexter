@@ -588,3 +588,29 @@ async def test_drive_source_preserves_full_text_and_handles_missing_files(
     assert (await drive.reindex())["obrisano"] == 2
     assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'notion'") == 1
     config.settings.cache_clear()
+
+
+async def test_folder_import_pdf_text_markdown_and_unchanged_files(db, tmp_path, pdf_bytes):
+    from scripts.ingest_folder import ingest_folder
+
+    (tmp_path / "podfolder").mkdir()
+    (tmp_path / "zakon.txt").write_text("Закон о раду и услови за престанак радног односа. " * 3)
+    (tmp_path / "podfolder" / "zakon.txt").write_text(
+        "Drugi zakon sa drugim pravilima i dodatnim obrazloženjem. " * 3
+    )
+    (tmp_path / "beleška.md").write_text(
+        "# Napomena\n" + "Objašnjenje zakona i primene propisa. " * 3
+    )
+    (tmp_path / "propis.pdf").write_bytes(pdf_bytes)
+    (tmp_path / "slika.png").write_bytes(b"nije za indeksiranje")
+    results = await ingest_folder(tmp_path, "zakon")
+    assert len(results) == 4 and all(r["ok"] and r["delova"] for r in results)
+    ids = {r["id"] for r in await db.fetch("SELECT id FROM documents WHERE source = 'zakon'")}
+    assert {"zakon:zakon.txt", "zakon:podfolder/zakon.txt", "zakon:propis.pdf"} <= ids
+    assert "Zakon o radu" in await db.fetchval(
+        "SELECT text FROM chunks WHERE document_id = 'zakon:zakon.txt'"
+    )
+    assert all(r["delova"] == 0 for r in await ingest_folder(tmp_path, "zakon"))
+    (tmp_path / "los.pdf").write_bytes(b"pokvaren PDF")
+    results = await ingest_folder(tmp_path, "zakon")
+    assert len(results) == 5 and sum(not r["ok"] for r in results) == 1

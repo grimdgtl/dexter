@@ -170,7 +170,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   `rag.ingest.pdf_text`), txt/md → indeks, id `drive:<fileId>`.
   *Prihvatanje:* mock testovi; ručna provera sa pravim nalogom.
 
-- [ ] **F1.8 Uvoz foldera.** `scripts/ingest_folder.py <putanja> --izvor zakon` indeksira
+- [x] **F1.8 Uvoz foldera.** `scripts/ingest_folder.py <putanja> --izvor zakon` indeksira
   sve PDF/txt/md fajlove iz foldera. Koristi se za 2–3 srpska zakona (Zakon o radu,
   Zakon o zaštiti potrošača, Zakon o PDV-u) kao izvor `zakon`.
   *Prihvatanje:* test sa privremenim folderom.
