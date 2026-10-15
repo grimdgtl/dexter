@@ -133,7 +133,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   *Prihvatanje:* posle potvrde + nove poruke, istorija nema dve uzastopne `user`
   poruke koje nisu tool_result; model u kontekstu vidi napomenu.
 
-- [ ] **F1.3 Migracije baze.** Folder `migrations/NNN_ime.sql`, tabela
+- [x] **F1.3 Migracije baze.** Folder `migrations/NNN_ime.sql`, tabela
   `schema_migrations(version, applied_at)`, `db.connect` primenjuje nove redom u
   transakciji. Trenutnu šemu prebaci u `001_init.sql`; dimenzija vektora kao
   `{{EMBED_DIM}}` koju `db.py` zamenjuje. Dodaj `002_state.sql` sa generičkom

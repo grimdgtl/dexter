@@ -9,6 +9,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 COPY pyproject.toml README.md ./
 COPY src ./src
+COPY migrations ./migrations
 # Za lokalne modele: uv pip install --system ".[local]"
 RUN uv pip install --system .
 

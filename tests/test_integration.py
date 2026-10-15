@@ -12,6 +12,7 @@ import os
 import re
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import asyncpg
 import pytest
@@ -353,3 +354,46 @@ async def test_reset_clears_only_current_chat_notes(db):
     assert await history.load(1, 12) == []
     assert len(await history.load_notes(2)) == 1
     assert len(await history.load(2, 12)) == 1
+
+
+@pytest.fixture
+async def migration_conn(db):
+    name = "migration_" + uuid4().hex
+    await db.execute(f'CREATE DATABASE "{name}"')
+    conn = await asyncpg.connect(DB_URL, database=name)
+    try:
+        yield conn
+    finally:
+        await conn.close()
+        await db.execute(f'DROP DATABASE "{name}"')
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_migrations_are_idempotent_and_preserve_existing_data(migration_conn, legacy):
+    from apu import db as dbmod
+
+    conn = migration_conn
+    if legacy:
+        for path in sorted(dbmod.MIGRATIONS_DIR.glob("*.sql")):
+            await conn.execute(path.read_text().replace("{{EMBED_DIM}}", "1536"))
+        await conn.execute(
+            "INSERT INTO messages (chat_id, role, content) VALUES (1, 'user', '\"Poruka\"')"
+        )
+    assert await dbmod.migrate(conn, 1536) == ["001", "002"]
+    rows = await conn.fetch("SELECT * FROM schema_migrations ORDER BY version")
+    assert await dbmod.migrate(conn, 1536) == []
+    assert await conn.fetch("SELECT * FROM schema_migrations ORDER BY version") == rows
+    assert await conn.fetchval("SELECT count(*) FROM messages") == int(legacy)
+    assert await conn.fetchval("SELECT to_regclass('kv_state')")
+    assert await conn.fetchval("SELECT to_regclass('pending_notes')")
+
+
+async def test_migration_failure_rolls_back_schema_and_version(migration_conn, tmp_path):
+    from apu import db as dbmod
+
+    (tmp_path / "001_test.sql").write_text("CREATE TABLE migration_probe (id int);")
+    (tmp_path / "002_bad.sql").write_text("SELECT missing_migration_function();")
+    with pytest.raises(asyncpg.UndefinedFunctionError):
+        await dbmod.migrate(migration_conn, 1536, tmp_path)
+    assert await migration_conn.fetchval("SELECT to_regclass('migration_probe')") is None
+    assert await migration_conn.fetchval("SELECT to_regclass('schema_migrations')") is None

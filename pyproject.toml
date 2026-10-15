@@ -50,3 +50,6 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "RUF"]
 ignore = ["E501", "RUF001", "RUF002", "RUF003"]  # srpski znakovi i emodži u tekstu su namerni
+
+[tool.hatch.build.targets.wheel.force-include]
+"migrations" = "apu/migrations"

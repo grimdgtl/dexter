@@ -12,8 +12,10 @@ se učitava u memoriju. Ovde je sve u tabelama:
   usage      — tokeni, cena i latencija svakog poziva modela
 """
 
+import asyncio
 import json
 import logging
+from pathlib import Path
 
 import asyncpg
 from pgvector.asyncpg import register_vector
@@ -25,73 +27,34 @@ log = logging.getLogger(__name__)
 _pool: asyncpg.Pool | None = None
 
 
-def schema_sql(dim: int) -> str:
-    return f"""
-CREATE EXTENSION IF NOT EXISTS vector;
+MIGRATIONS_DIR = Path(__file__).with_name("migrations")
+if not MIGRATIONS_DIR.is_dir():
+    MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
-CREATE TABLE IF NOT EXISTS messages (
-    id          BIGSERIAL PRIMARY KEY,
-    chat_id     BIGINT NOT NULL,
-    role        TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-    content     JSONB NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS messages_chat_idx ON messages (chat_id, id);
 
-CREATE TABLE IF NOT EXISTS pending_notes (
-    id          BIGSERIAL PRIMARY KEY,
-    chat_id     BIGINT NOT NULL,
-    text        TEXT NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS pending_notes_chat_idx ON pending_notes (chat_id, id);
-
-CREATE TABLE IF NOT EXISTS facts (
-    id          BIGSERIAL PRIMARY KEY,
-    text        TEXT NOT NULL,
-    category    TEXT NOT NULL DEFAULT 'ostalo',
-    source      TEXT NOT NULL DEFAULT 'korisnik',   -- korisnik | izvuceno
-    embedding   vector({dim}),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS facts_embedding_idx
-    ON facts USING hnsw (embedding vector_cosine_ops);
-
-CREATE TABLE IF NOT EXISTS documents (
-    id          TEXT PRIMARY KEY,                    -- npr. notion:abc, pdf:ugovor.pdf
-    source      TEXT NOT NULL,
-    title       TEXT NOT NULL,
-    url         TEXT,
-    content_hash TEXT NOT NULL,
-    indexed_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS chunks (
-    id          BIGSERIAL PRIMARY KEY,
-    document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-    ord         INT NOT NULL,
-    text        TEXT NOT NULL,
-    embedding   vector({dim}),
-    tsv         tsvector GENERATED ALWAYS AS (to_tsvector('simple', text)) STORED
-);
-CREATE INDEX IF NOT EXISTS chunks_embedding_idx
-    ON chunks USING hnsw (embedding vector_cosine_ops);
-CREATE INDEX IF NOT EXISTS chunks_tsv_idx ON chunks USING gin (tsv);
-
-CREATE TABLE IF NOT EXISTS usage (
-    id                  BIGSERIAL PRIMARY KEY,
-    model               TEXT NOT NULL,
-    purpose             TEXT NOT NULL,                -- chat | memory | scheduler ...
-    input_tokens        INT NOT NULL,
-    output_tokens       INT NOT NULL,
-    cache_read_tokens   INT NOT NULL DEFAULT 0,
-    cache_write_tokens  INT NOT NULL DEFAULT 0,
-    cost_usd            NUMERIC(12, 6) NOT NULL,
-    latency_ms          INT NOT NULL,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-"""
+async def migrate(conn: asyncpg.Connection, dim: int, directory: Path | None = None) -> list[str]:
+    """Primenjuje neizvršene migracije zajedno, da neuspeh ne ostavi pola šeme."""
+    if not isinstance(dim, int) or dim <= 0:
+        raise ValueError("Dimenzija vektora mora biti pozitivan ceo broj.")
+    paths = sorted((directory or MIGRATIONS_DIR).glob("[0-9][0-9][0-9]_*.sql"))
+    versions = [p.name.split("_", 1)[0] for p in paths]
+    if not paths or len(versions) != len(set(versions)):
+        raise ValueError("Migracije nedostaju ili imaju ponovljen broj.")
+    applied = []
+    async with conn.transaction():
+        # Paralelni startovi ne smeju istovremeno da menjaju šemu.
+        await conn.execute("SELECT pg_advisory_xact_lock(27182026)")
+        await conn.execute("""CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())""")
+        existing = {r["version"] for r in await conn.fetch("SELECT version FROM schema_migrations")}
+        for version, path in zip(versions, paths, strict=True):
+            if version in existing:
+                continue
+            sql = await asyncio.to_thread(path.read_text, encoding="utf-8")
+            await conn.execute(sql.replace("{{EMBED_DIM}}", str(dim)))
+            await conn.execute("INSERT INTO schema_migrations (version) VALUES ($1)", version)
+            applied.append(version)
+    return applied
 
 
 async def _init_conn(conn: asyncpg.Connection) -> None:
@@ -100,7 +63,7 @@ async def _init_conn(conn: asyncpg.Connection) -> None:
 
 
 async def connect() -> asyncpg.Pool:
-    """Otvara pool i pravi šemu ako ne postoji (idempotentno)."""
+    """Otvara pool i primenjuje nove migracije."""
     global _pool
     if _pool is not None:
         return _pool
@@ -109,7 +72,7 @@ async def connect() -> asyncpg.Pool:
     # Ekstenzija mora da postoji PRE nego što se registruje vector tip.
     bootstrap = await asyncpg.connect(cfg.database_url)
     try:
-        await bootstrap.execute(schema_sql(cfg.embed_dim))
+        await migrate(bootstrap, cfg.embed_dim)
     finally:
         await bootstrap.close()
 
