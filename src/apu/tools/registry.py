@@ -30,6 +30,8 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from apu.config import settings
+
 log = logging.getLogger(__name__)
 
 MAX_RESULT_CHARS = 12_000
@@ -46,6 +48,19 @@ class Tool:
     confirm: bool = False
     # Kako da se akcija prikaže korisniku pre potvrde (samo za confirm=True)
     preview: Callable[[Any], str] | None = None
+    requires: tuple[str, ...] = ()
+
+    def disabled_reason(self) -> str | None:
+        cfg = settings()
+        missing = [name for name in self.requires if not getattr(cfg, name.lower(), None)]
+        if missing:
+            return "Nedostaje: " + ", ".join(missing)
+        if not self.enabled():
+            return "Isključeno podešavanjima."
+        return None
+
+    def is_enabled(self) -> bool:
+        return self.disabled_reason() is None
 
     def schema(self) -> dict:
         s = self.args_model.model_json_schema()
@@ -71,6 +86,7 @@ def tool(
     enabled: Callable[[], bool] = lambda: True,
     confirm: bool = False,
     preview: Callable[[Any], str] | None = None,
+    requires: list[str] | None = None,
 ):
     """Dekorator koji registruje alat. Tip prvog argumenta je pydantic model ulaza."""
 
@@ -78,14 +94,16 @@ def tool(
         args_model = next(iter(fn.__annotations__.values()))
         if name in _TOOLS:
             raise ValueError(f"Alat {name} je već registrovan.")
-        _TOOLS[name] = Tool(name, description, args_model, fn, enabled, confirm, preview)
+        _TOOLS[name] = Tool(
+            name, description, args_model, fn, enabled, confirm, preview, tuple(requires or ())
+        )
         return fn
 
     return wrap
 
 
 def enabled_tools() -> list[Tool]:
-    return [t for t in _TOOLS.values() if t.enabled()]
+    return [t for t in _TOOLS.values() if t.is_enabled()]
 
 
 def schemas() -> list[dict]:
@@ -115,7 +133,7 @@ class Outcome:
 
 async def execute(name: str, raw_input: dict) -> Outcome:
     t = _TOOLS.get(name)
-    if t is None or not t.enabled():
+    if t is None or not t.is_enabled():
         return Outcome(f"Alat {name} ne postoji ili nije uključen.", True)
 
     try:

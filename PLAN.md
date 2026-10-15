@@ -141,7 +141,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   `pending_notes`.
   *Prihvatanje:* prazna baza → sve migracije; ponovni start → nijedna; test.
 
-- [ ] **F1.4 `/status`.** Lista aktivnih i ugašenih alata, sa razlogom za ugašene
+- [x] **F1.4 `/status`.** Lista aktivnih i ugašenih alata, sa razlogom za ugašene
   (koja env promenljiva fali), modeli, embedding provajder, broj dokumenata /
   delova / činjenica, stanje baze. Proširi `@tool` sa `requires=["NOTION_API_KEY", …]`
   pa se `enabled` i razlog izvode iz toga.

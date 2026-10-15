@@ -397,3 +397,11 @@ async def test_migration_failure_rolls_back_schema_and_version(migration_conn, t
         await dbmod.migrate(migration_conn, 1536, tmp_path)
     assert await migration_conn.fetchval("SELECT to_regclass('migration_probe')") is None
     assert await migration_conn.fetchval("SELECT to_regclass('schema_migrations')") is None
+
+
+async def test_status_reports_database_counts(db):
+    from apu import status
+
+    text = await status.report()
+    assert "Baza: dostupna" in text
+    assert "Dokumenti: 0, delovi: 0, činjenice: 0" in text
