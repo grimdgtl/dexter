@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     notion_api_key: str | None = None
     semantic_index_cron: str = "0 4 * * *"
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_refresh_token: str | None = None
+    google_redirect_uri: str = "http://localhost:3000/oauth2callback"
+    google_calendar_id: str = "primary"
 
     transcribe_provider: Literal["openai", "local"] = "openai"
     whisper_local_model: str = "small"

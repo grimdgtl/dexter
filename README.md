@@ -71,11 +71,25 @@ Za eval napravi `evals/questions.jsonl` po uzoru na `questions.example.jsonl`
 |---|---|---|
 | `NOTION_API_KEY` | prazno | Token Notion integracije; podeli roditeljsku stranicu sa integracijom |
 | `SEMANTIC_INDEX_CRON` | `0 4 * * *` | Dnevno osvežavanje znanja po `TIMEZONE` |
+| `GOOGLE_CLIENT_ID` | prazno | OAuth klijent iz Google Cloud projekta |
+| `GOOGLE_CLIENT_SECRET` | prazno | Tajna istog OAuth klijenta |
+| `GOOGLE_REFRESH_TOKEN` | prazno | Trajno odobrenje sa Calendar i Drive scope-ovima |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:3000/oauth2callback` | Lokalni callback pomoćne skripte |
+| `GOOGLE_CALENDAR_ID` | `primary` | Zajednička priprema za kalendar u Fazi 1b |
 
 `notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
 `knowledge_reindex` osvežava sve podešene izvore ili zadati `izvor`.
 Nepromenjen tekst ne troši nove embedding pozive; nestali dokumenti brišu se tek posle
 uspešnog obilaska celog izvora. API verzija Notion-a je fiksirana na `2025-09-03`.
+
+Za Google uključi Calendar API i Drive API u istom Google Cloud projektu. Napravi OAuth
+klijenta tipa Web application i unesi tačan `GOOGLE_REDIRECT_URI` u dozvoljene redirect URI-je.
+Popuni client ID i secret, pa pokreni `python -m scripts.google_auth`. Skripta traži iste
+Calendar + Drive dozvole kao stari APU i ispisuje refresh token za `.env`.
+Ako je stari token imao samo Calendar pristup, ponovi odobrenje. OAuth aplikacija u
+Testing režimu može da izgubi odobrenje posle sedam dana; za stalni rad koristi Production.
+`drive_read` vraća do 6000 znakova modelu; indeks čuva ceo tekst Docs, Sheets/CSV, PDF i
+tekstualnih fajlova, kroz sve strane rezultata. PDF bez teksta zahteva kasniji OCR (F5.1).
 
 ## Plan razvoja
 

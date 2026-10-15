@@ -163,7 +163,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   *Prihvatanje:* mock testovi (respx) za paginaciju, preskakanje nepromenjenih i
   brisanje nestalih.
 
-- [ ] **F1.7 Google nalog + Drive.** `scripts/google_auth.py` (ekvivalent
+- [x] **F1.7 Google nalog + Drive.** `scripts/google_auth.py` (ekvivalent
   `scripts/google-auth.js`, isti scope za Calendar + Drive), `services/google.py`
   sa zajedničkim kredencijalima. Alati `drive_search`, `drive_read`,
   `drive_create`. `sources/drive.py`: Google Docs (export text/plain), PDF (kroz

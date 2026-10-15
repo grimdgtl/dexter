@@ -533,3 +533,58 @@ async def test_notion_source_full_pagination_skip_and_safe_removal(db, monkeypat
     assert await db.fetchval("SELECT count(*) FROM documents WHERE id = 'notion:zadrzi'") == 1
     assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'drive'") == 1
     config.settings.cache_clear()
+
+
+async def test_drive_source_preserves_full_text_and_handles_missing_files(
+    db, monkeypatch, respx_mock
+):
+    from apu import config
+    from apu.rag import store
+    from apu.services import google
+    from apu.sources import drive
+
+    for name in google.REQUIRES:
+        monkeypatch.setenv(name, "test")
+    config.settings.cache_clear()
+    respx_mock.post("https://oauth2.googleapis.com/token").respond(
+        200, json={"access_token": "access-test", "expires_in": 3600, "token_type": "Bearer"}
+    )
+    base = "https://www.googleapis.com/drive/v3/files"
+    files = [
+        {"id": "1", "name": "Doc", "mimeType": google.DOC},
+        {"id": "2", "name": "Tekst.md", "mimeType": "text/markdown"},
+    ]
+
+    def listing(request):
+        return httpx.Response(
+            200,
+            json={
+                "files": files[1:] if request.url.params.get("pageToken") else files[:1],
+                **({} if request.url.params.get("pageToken") else {"nextPageToken": "drugi"}),
+            },
+        )
+
+    route = respx_mock.get(base).mock(side_effect=listing)
+    respx_mock.get(f"{base}/1/export").respond(
+        200, text="Važan dokument o razvoju. " * 400 + "KRAJ-DOKUMENTA"
+    )
+    respx_mock.get(f"{base}/2", params__contains={"alt": "media"}).respond(
+        200, text="Drugi dokument."
+    )
+    await store.upsert_document("drive:stari", "drive", "Stari", "Stari dokument")
+    await store.upsert_document("notion:drugi", "notion", "Notion", "Drugi izvor")
+    result = await drive.reindex()
+    assert result["ukupno"] == 2 and result["obrisano"] == 1
+    assert await db.fetchval("SELECT count(*) FROM chunks WHERE text LIKE '%KRAJ-DOKUMENTA%'") == 1
+    embed = AsyncMock(wraps=store.embed)
+    monkeypatch.setattr(store, "embed", embed)
+    assert (await drive.reindex())["preskoceno"] == 2
+    embed.assert_not_awaited()
+    route.respond(200, json={"files": [], "incompleteSearch": True})
+    with pytest.raises(RuntimeError, match="nije potpuna"):
+        await drive.reindex()
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'drive'") == 2
+    route.respond(200, json={"files": []})
+    assert (await drive.reindex())["obrisano"] == 2
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'notion'") == 1
+    config.settings.cache_clear()
