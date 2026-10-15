@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: apu
+          POSTGRES_PASSWORD: apu
+          POSTGRES_DB: apu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U apu -d apu_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://apu:apu@localhost:5432/apu_test
+      TELEGRAM_BOT_TOKEN: test
+      TELEGRAM_OWNER_CHAT_ID: "1"
+      ANTHROPIC_API_KEY: test
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Instalacija
+        run: python -m pip install -e ".[dev]"
+      - name: Formatiranje
+        run: ruff format --check src tests evals scripts
+      - name: Ruff
+        run: ruff check src tests evals scripts
+      - name: Testovi sa bazom
+        run: pytest

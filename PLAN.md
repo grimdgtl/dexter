@@ -180,7 +180,7 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   šablonom (datum, oznaka, recall@5, MRR, ms po upitu, šta je promenjeno).
   Korisnik sam pravi `evals/questions.jsonl` (~30 pitanja nad svojim podacima).
 
-- [ ] **F1.10 CI.** `.github/workflows/ci.yml`: ruff + pytest sa servisom
+- [x] **F1.10 CI.** `.github/workflows/ci.yml`: ruff + pytest sa servisom
   `pgvector/pgvector:pg17` i `TEST_DATABASE_URL`, tako da integracioni testovi
   rade u CI-ju. Bedž u README-u.
 

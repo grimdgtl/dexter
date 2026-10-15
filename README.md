@@ -1,5 +1,7 @@
 # APU 2 — lični AI asistent (Python)
 
+[![CI](https://github.com/grimdgtl/dexter/actions/workflows/ci.yml/badge.svg)](https://github.com/grimdgtl/dexter/actions/workflows/ci.yml)
+
 Nova verzija APU-a: isti Telegram asistent, ali sa pravom AI osnovom.
 Stari APU (Node.js) radi paralelno dok ovaj ne preuzme sve funkcije.
 
@@ -54,6 +56,9 @@ DATABASE_URL=postgresql://apu:apu@localhost:5432/apu .venv/bin/apu
 Pošalji PDF ili .txt → ide u bazu znanja i pretraživ je odmah.
 
 ## Testovi i evaluacija
+
+GitHub Actions pokreće ruff i ceo pytest skup uz `pgvector/pgvector:pg17`, uključujući
+integracione testove. Koriste se samo test kredencijali i mock odgovori spoljnih API-ja.
 
 ```bash
 pytest                                   # logika, bez baze i mreže
