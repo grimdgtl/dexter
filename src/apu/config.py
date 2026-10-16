@@ -8,6 +8,7 @@ tip — umesto da bot padne tek kad prvi put zatreba ta vrednost.
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,13 @@ class Settings(BaseSettings):
     google_refresh_token: str | None = None
     google_redirect_uri: str = "http://localhost:3000/oauth2callback"
     google_calendar_id: str = "primary"
+    imap_host: str | None = None
+    imap_port: int = Field(993, ge=1, le=65535)
+    imap_user: str | None = None
+    imap_password: str | None = None
+    mail_index_months: int = Field(12, ge=1)
+    mail_index_exclude: str = ""
+    mail_index_sent_folder: str | None = None
 
     transcribe_provider: Literal["openai", "local"] = "openai"
     whisper_local_model: str = "small"

@@ -256,10 +256,14 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
 
 Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
-- [ ] **F2.1 Mejl kao izvor.** `sources/mail.py`: poslednjih `MAIL_INDEX_MONTHS`
+- [x] **F2.1 Mejl kao izvor.** `sources/mail.py`: poslednjih `MAIL_INDEX_MONTHS`
   (podrazumevano 12) iz INBOX-a i Sent-a, id `mail:<Message-ID>`, naslov =
   subjekat + pošiljalac + datum. Folderi za izostavljanje u
   `MAIL_INDEX_EXCLUDE`. Ne indeksiraj priloge veće od 5 MB.
+
+  > IZMENA: Na izričit zahtev korisnika Faza 2 počinje pre nezavršene Faze 1b.
+  > F2.1 zato uvodi samo zajedničko IMAP čitanje za indeks; mejl alati, draftovi
+  > i slanje iz F1b.3 ostaju zaseban zadatak.
 - [ ] **F2.2 Razgovori kao izvor.** Posao u 03:30: za svaki dan sa porukama brzi
   model napiše sažetak (teme, odluke, dogovori, imena) → dokument
   `razgovor:YYYY-MM-DD`. Tako radi "šta smo pričali o X u septembru".

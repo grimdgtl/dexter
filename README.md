@@ -102,6 +102,13 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `GOOGLE_REFRESH_TOKEN` | prazno | Trajno odobrenje sa Calendar i Drive scope-ovima |
 | `GOOGLE_REDIRECT_URI` | `http://localhost:3000/oauth2callback` | Lokalni callback pomoćne skripte |
 | `GOOGLE_CALENDAR_ID` | `primary` | Zajednička priprema za kalendar u Fazi 1b |
+| `IMAP_HOST` | prazno | TLS IMAP server za indeksiranje mejla |
+| `IMAP_PORT` | `993` | TLS IMAP port |
+| `IMAP_USER` | prazno | Korisničko ime IMAP naloga |
+| `IMAP_PASSWORD` | prazno | IMAP lozinka ili app password provajdera |
+| `MAIL_INDEX_MONTHS` | `12` | Broj kalendarskih meseci mejla za indeksiranje |
+| `MAIL_INDEX_EXCLUDE` | prazno | CSV spisak punih naziva foldera koji se izostavljaju |
+| `MAIL_INDEX_SENT_FOLDER` | automatski | Pun naziv Sent foldera kada ga server ne označava standardno |
 
 `notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
 `knowledge_reindex` osvežava sve podešene izvore ili zadati `izvor`.
@@ -116,6 +123,27 @@ Ako je stari token imao samo Calendar pristup, ponovi odobrenje. OAuth aplikacij
 Testing režimu može da izgubi odobrenje posle sedam dana; za stalni rad koristi Production.
 `drive_read` vraća do 6000 znakova modelu; indeks čuva ceo tekst Docs, Sheets/CSV, PDF i
 tekstualnih fajlova, kroz sve strane rezultata. PDF bez teksta zahteva kasniji OCR (F5.1).
+
+Mejl izvor (`mail`) se uključuje kada su popunjeni `IMAP_HOST`, `IMAP_USER` i
+`IMAP_PASSWORD`. Indeksira pročitane i nepročitane poruke iz INBOX-a i poslatih poruka,
+od datuma koji određuje `MAIL_INDEX_MONTHS`, u okviru dnevnog `SEMANTIC_INDEX_CRON` posla.
+Možeš zatražiti `knowledge_reindex` sa `izvor="mail"`, pa `knowledge_search` sa istim izvorom.
+Čitanje ne menja oznake niti sadržaj sandučeta. Datum IMAP pretrage je datum prijema
+poruke na serveru; datum zaglavlja ulazi u naslov dokumenta, uz subjekat i pošiljaoca.
+
+Sent se prvo prepoznaje po oznaci servera, pa po uobičajenim nazivima. Za drugačiji naziv
+podesi npr. `MAIL_INDEX_SENT_FOLDER=INBOX.Sent`. `MAIL_INDEX_EXCLUDE` poredi pune nazive
+bez obzira na velika i mala slova, npr. `INBOX,[Gmail]/Sent Mail`; naziv koji sadrži zarez
+stavi u CSV navodnike. Nepostojeći Sent folder prekida osvežavanje uz očuvanje starog
+indeksa. Poruke van perioda ili iz isključenih foldera uklanjaju se samo iz indeksa,
+tek posle uspešnog obilaska svih izabranih foldera.
+
+ID dokumenta je `mail:<Message-ID>`; kopije iste poruke u više foldera se spajaju.
+Poruke bez tog zaglavlja dobijaju stabilan SHA-256 ID. Indeks čuva telo i čitljiv tekst
+PDF/tekstualnih priloga do uključivo 5 MiB; veći i nepodržani prilozi se preskaču.
+HTML se svodi na tekst bez skripti i stilova. Poruka se preuzima kao MIME celina,
+pa granica priloga ograničava indeksiranje, a ne IMAP mrežni saobraćaj.
+Alati za čitanje pojedinačnog mejla, draftovi i slanje ostaju u zasebnoj Fazi 1b.
 
 ## Uvoz lokalnih dokumenata
 

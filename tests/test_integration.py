@@ -614,3 +614,70 @@ async def test_folder_import_pdf_text_markdown_and_unchanged_files(db, tmp_path,
     (tmp_path / "los.pdf").write_bytes(b"pokvaren PDF")
     results = await ingest_folder(tmp_path, "zakon")
     assert len(results) == 5 and sum(not r["ok"] for r in results) == 1
+
+
+async def test_mail_source_evaluation_deduplication_and_safe_cleanup(
+    db, imap_server, make_mail, monkeypatch
+):
+    import json
+    import time
+
+    from apu.rag import store
+    from apu.sources import mail
+    from evals.rag_eval import metrics
+
+    shared = make_mail(
+        subject="Ponuda Orion",
+        text="Orion plan projekta i ugovor za razvoj sajta.",
+        message_id="<orion@example.com>",
+    )
+    imap_server.messages["INBOX"] = [
+        shared,
+        make_mail(
+            subject="Atlas", text="Dogovor o isporuci za Atlas.", message_id="<atlas@example.com>"
+        ),
+        make_mail(message_id="<stari@example.com>", when="Wed, 15 Oct 2024 10:00:00 +0200"),
+    ]
+    imap_server.messages["Poslato"] = [
+        shared,
+        make_mail(
+            subject="Poslata ponuda",
+            text="Poslata specifikacija implementacije.",
+            message_id="<poslato@example.com>",
+        ),
+    ]
+    expected = ["mail:<orion@example.com>"]
+    start = time.perf_counter()
+    before = metrics(
+        [[h.document_id for h in await store.search("Orion", source="mail")]], expected, 5
+    )
+    before["ms_po_upitu"] = round(1000 * (time.perf_counter() - start), 2)
+    result = await mail.reindex()
+    assert result["indeksirano"] == result["ukupno"] == 3
+    assert (
+        await db.fetchval("SELECT count(*) FROM documents WHERE id = 'mail:<stari@example.com>'")
+        == 0
+    )
+    start = time.perf_counter()
+    after = metrics(
+        [[h.document_id for h in await store.search("Orion", source="mail")]], expected, 5
+    )
+    after["ms_po_upitu"] = round(1000 * (time.perf_counter() - start), 2)
+    assert before["recall_at_k"] == before["mrr"] == 0
+    assert after["recall_at_k"] == after["mrr"] == 1
+    print("F2.1 test eval:", json.dumps({"pre": before, "posle": after, "dokumenata": 3}))
+
+    embed = AsyncMock(wraps=store.embed)
+    monkeypatch.setattr(store, "embed", embed)
+    assert (await mail.reindex())["preskoceno"] == 3
+    embed.assert_not_awaited()
+    await store.upsert_document("notion:drugi", "notion", "Drugi izvor", "Ne diraj Notion.")
+    imap_server.messages["Poslato"] = []
+    imap_server.fail_folder = "Poslato"
+    with pytest.raises(RuntimeError, match="IMAP prekid"):
+        await mail.reindex()
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'mail'") == 3
+    assert imap_server.closed
+    imap_server.fail_folder = None
+    assert (await mail.reindex())["obrisano"] == 1
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'notion'") == 1

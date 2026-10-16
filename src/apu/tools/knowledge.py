@@ -17,7 +17,7 @@ class SearchArgs(BaseModel):
         description="Šta se traži. Može prirodnim jezikom ili tačnim pojmom (PIB, ime)."
     )
     izvor: str | None = Field(
-        None, description="Opciono suzi na izvor: notion, drive, mejl, fajl, zakon."
+        None, description="Opciono suzi na izvor: notion, drive, mail, fajl, zakon."
     )
     limit: int = Field(6, ge=1, le=15)
 

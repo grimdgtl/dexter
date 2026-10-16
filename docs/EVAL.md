@@ -26,6 +26,33 @@ u oznaci i zaglavlju. Recall@k meri udeo pitanja čiji je dokument među prvih k
 dokumenata; MRR meri prosečnu recipročnu poziciju očekivanog dokumenta u pretraženim
 rezultatima. Vreme obuhvata embedding upita i pretragu, bez povezivanja na bazu.
 
+## F2.1 — mejl kao izvor (15.10.2026)
+
+Kontrolisani integracioni test koristi tri jedinstvene sintetičke poruke, jednu kopiju
+u INBOX-u i Sent-u, jednu poruku van perioda i jedan upit „Orion”. IMAP server je lažan;
+MIME parser, PostgreSQL i pgvector su pravi. Embeddinzi su deterministički test vektori.
+Ovo potvrđuje indeksiranje i tok pretrage; ne meri produkcioni kvalitet embedding modela.
+
+| Stanje | Mejl dokumenata | recall@5 | MRR | ms po upitu |
+|---|---|---|---|---|
+| Pre, prazan mejl indeks | 0 | 0.0 | 0.0 | 7.72 |
+| Posle F2.1 | 3 | 1.0 | 1.0 | 8.67 |
+
+Merenje je sa lokalnog PostgreSQL 14 + pgvector 0.8.1 i jednog kontrolnog upita;
+vreme je samo provera prolaska kroz bazu. Ponovljeno indeksiranje preskače sva tri
+dokumenta i ne zove ponovo embedding funkciju. Test prekida Sent čitanje i proverava
+da postojeći indeks ostaje sačuvan, kao i da čišćenje ne dira Notion dokumente.
+
+Reprodukcija sa test bazom:
+
+```bash
+TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test \
+pytest tests/test_integration.py::test_mail_source_evaluation_deduplication_and_safe_cleanup -s
+```
+
+Produkcioni pre/posle eval čeka korisnikov `evals/questions.jsonl` i sopstveni mejl nalog.
+Stvarni mejlovi i privatna eval pitanja nisu preuzimani niti dodavani u git.
+
 ## Šablon zapisa promene
 
 - Datum i verzija/commit:
