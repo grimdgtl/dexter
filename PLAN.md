@@ -280,7 +280,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
 ### Faza 3 — Brzina i cena (10.11–16.11)
 
-- [ ] **F3.1 Benchmark troška.** `evals/cost_bench.py` pušta fiksnih 50 poruka
+- [x] **F3.1 Benchmark troška.** `evals/cost_bench.py` pušta fiksnih 50 poruka
   (`evals/prompts.jsonl`, alati mock-ovani) i meri cenu, procenat keša i
   latenciju; prekidač `PROMPT_CACHE=off` za poređenje. Rezultat u `EVAL.md`.
 - [ ] **F3.2 Klasifikator za izbor modela.** Brzi model klasifikuje poruku

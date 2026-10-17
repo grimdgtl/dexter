@@ -1230,3 +1230,23 @@ async def test_metadata_only_updates_and_rechunk_preserve_source_date(db, monkey
     await reindex_all("razgovor")
     restored = await db.fetchval("SELECT modified_at FROM documents WHERE source='razgovor'")
     assert restored.isoformat() == "2026-09-14T22:00:00+00:00"
+
+
+async def test_cost_benchmark_cache_comparison_and_isolation(db, monkeypatch):
+    from pathlib import Path
+
+    from apu.config import settings
+    from evals.cost_bench import benchmark, read_prompts
+
+    rows = read_prompts(Path("evals/prompts.jsonl"))
+    reports = []
+    for mode in ("off", "on"):
+        monkeypatch.setattr(settings(), "prompt_cache", mode)
+        reports.append(await benchmark(rows, simulation=True))
+    assert reports[0]["poruka"] == reports[1]["poruka"] == 50
+    assert reports[0]["poziva"] == reports[1]["poziva"] == 60
+    assert reports[0]["cache_percent"] == 0 < reports[1]["cache_percent"]
+    assert reports[0]["cost_usd"] > reports[1]["cost_usd"]
+    assert await db.fetchval("SELECT count(*) FROM messages") == 0
+    assert await db.fetchval("SELECT count(*) FROM facts") == 0
+    print("F3.1 test eval:", reports)

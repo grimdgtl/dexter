@@ -14,6 +14,20 @@ from apu.config import settings
 _client: AsyncAnthropic | None = None
 
 
+def request_options(kwargs: dict) -> dict:
+    if settings().prompt_cache == "on":
+        return kwargs
+
+    def without_cache(value):
+        if isinstance(value, dict):
+            return {k: without_cache(v) for k, v in value.items() if k != "cache_control"}
+        if isinstance(value, list):
+            return [without_cache(v) for v in value]
+        return value
+
+    return without_cache(kwargs)
+
+
 def client() -> AsyncAnthropic:
     global _client
     if _client is None:
@@ -24,7 +38,7 @@ def client() -> AsyncAnthropic:
 async def create(*, purpose: str, **kwargs):
     """messages.create sa merenjem. `purpose` ide u tabelu usage (chat, memory...)."""
     start = time.perf_counter()
-    response = await client().messages.create(**kwargs)
+    response = await client().messages.create(**request_options(kwargs))
     latency = int((time.perf_counter() - start) * 1000)
     await usage.record(usage.from_response(kwargs["model"], response.usage), purpose, latency)
     return response

@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     model_main: str = "claude-sonnet-5-5"
     model_deep: str = "claude-opus-5-5"
     max_tokens: int = 8192
+    prompt_cache: Literal["on", "off"] = "on"
 
     database_url: str = "postgresql://apu:apu@localhost:5432/apu"
 

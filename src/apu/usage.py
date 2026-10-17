@@ -8,11 +8,25 @@ https://platform.claude.com/docs/en/about-claude/pricing i ažuriraj tabelu.
 """
 
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 from apu.db import pool
 
 log = logging.getLogger(__name__)
+_capture: ContextVar[list | None] = ContextVar("usage_capture", default=None)
+
+
+@contextmanager
+def capture():
+    rows = []
+    token = _capture.set(rows)
+    try:
+        yield rows
+    finally:
+        _capture.reset(token)
+
 
 # model: (input, output, faktor za čitanje iz keša)
 PRICES: dict[str, tuple[float, float, float]] = {
@@ -54,6 +68,9 @@ def from_response(model: str, u) -> Usage:
 
 
 async def record(u: Usage, purpose: str, latency_ms: int) -> None:
+    captured = _capture.get()
+    if captured is not None:
+        captured.append({"usage": u, "purpose": purpose, "latency_ms": latency_ms})
     try:
         await pool().execute(
             """INSERT INTO usage (model, purpose, input_tokens, output_tokens,

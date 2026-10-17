@@ -88,6 +88,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `MAX_TOKENS` | `8192` | Ograničenje dužine odgovora modela |
 | `HISTORY_TURNS` | `12` | Broj razmena u istoriji modela |
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
+| `PROMPT_CACHE` | `on` | `off` uklanja sve cache breakpointe iz zahteva za poređenje troška |
 | `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
 | `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
 | `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
@@ -284,3 +285,11 @@ Pravila za AI agente (Codex) su u [`AGENTS.md`](AGENTS.md).
 | `rag/` | Seckanje, embeddinzi (OpenAI ili Hugging Face), hybrid pretraga |
 | `usage.py` | Tokeni, cena, latencija |
 | `pismo.py` | Latinica nametnuta u kodu |
+
+Benchmark troška: napravi zasebnu PostgreSQL bazu sa sufiksom `_bench` ili `_test`,
+podesi `DATABASE_URL`, pa pokreni `python -m evals.cost_bench --uporedi`.
+Pušta 50 fiksnih javnih poruka; alati i izvlačenje memorije su lažni. Model je pravi,
+a `--simulacija` uključuje kontrolni model bez API poziva. Izveštaj sadrži cenu,
+udeo keša, prosečnu/p95 latenciju i otisak skupa. Privremena istorija se briše;
+redovi `usage` ostaju u izdvojenoj bazi. `PROMPT_CACHE=off` uklanja breakpointe iz
+celog zahteva bez promene statičkog sistemskog prompta.

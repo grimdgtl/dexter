@@ -205,3 +205,25 @@ istog perioda na privatnim podacima. Stvarne API metapodatke i Telegram upit pro
 - Faza 3: cena po poruci, udeo prompt keša i latencija pre/posle optimizacije.
 - Faza 4: API i lokalni embeddinzi, Whisper WER i vreme obrade.
 - Faza 6: ocena persone pre i posle izmene system prompt-a.
+
+## F3.1 — benchmark troška (17.10.2026)
+
+`evals/prompts.jsonl` sadrži 50 javnih sintetičkih poruka, od kojih deset u simulaciji
+traži alat. `cost_bench.py` prolazi kroz pravu agentsku petlju, istoriju i `usage`;
+alati i automatsko izvlačenje memorije su zamenjeni, pa nema spoljnih akcija.
+
+| Režim simulacije | Poziva | USD ukupno | Keš ulaza | ms/poruka | p95 ms |
+|---|---|---|---|---|---|
+| PROMPT_CACHE=off | 60 | 0.379110 | 0.00% | 2.89 | 3.27 |
+| PROMPT_CACHE=on | 60 | 0.180648 | 60.10% | 2.66 | 3.17 |
+
+Ovo je kontrolni obračun: tokeni su procenjeni iz dužine teksta, keš simulira samo
+statički prefiks, a cena koristi postojeći `usage.PRICES`. Brojke ne dokazuju uštedu,
+latenciju ili ponašanje keša pravog pružaoca. SHA-256 skupa:
+`f7fd9f7e30f9b1f9ded6ece3cf82956a62d6accedcdfb9bd098d5526ae748aa3`.
+
+Reprodukcija: `python -m evals.cost_bench --simulacija --uporedi` u zasebnoj bazi
+čije ime završava sa `_test` ili `_bench`. Bez `--simulacija` poziva pravi model,
+meri prijavljene tokene i celokupno trajanje razmene; alati i tada ostaju lažni.
+Za produkciono poređenje proveriti cenovnik, koristiti iste modele/alate/skup i
+izdvojene pokušaje radi toplog/hladnog keša. Test: `test_cost_benchmark_cache_comparison_and_isolation`.
