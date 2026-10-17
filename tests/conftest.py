@@ -188,12 +188,15 @@ def imap_server(monkeypatch):
             if command.upper() == "SEARCH":
                 criteria = args[-1].decode()
                 match = re.search(r"SINCE (\d{1,2}-[A-Za-z]{3}-\d{4})", criteria)
-                assert match and "UNSEEN" not in criteria
-                since = datetime.strptime(match[1], "%d-%b-%Y").date()
+                assert match or "UNSEEN" in criteria
+                since = (
+                    datetime.strptime(match[1], "%d-%b-%Y").date() if match else datetime.min.date()
+                )
                 ids = [
                     str(i)
                     for i, raw in enumerate(messages, 1)
                     if parsedate_to_datetime(message_from_bytes(raw)["Date"]).date() >= since
+                    and ("UNSEEN" not in criteria or i % 2 == 0)
                 ]
                 return "OK", [" ".join(ids).encode()]
             assert command.upper() == "FETCH" and "BODY.PEEK[]" in args[1]

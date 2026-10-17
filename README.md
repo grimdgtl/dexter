@@ -110,6 +110,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `WEATHER_LOCATION` | `Beograd` | Naziv lokacije u porukama |
 | `LOG_LEVEL` | `INFO` | Nivo logovanja |
 | `NOTION_API_KEY` | prazno | Token Notion integracije; podeli roditeljsku stranicu sa integracijom |
+| `NOTION_TASKS_DB_ID` | prazno | TASK BOARD za proaktivni uvid: Name/Status i opciona Date kolona Rok |
 | `SEMANTIC_INDEX_CRON` | `0 4 * * *` | Dnevno osvežavanje znanja po `TIMEZONE` |
 | `GOOGLE_CLIENT_ID` | prazno | OAuth klijent iz Google Cloud projekta |
 | `GOOGLE_CLIENT_SECRET` | prazno | Tajna istog OAuth klijenta |
@@ -528,3 +529,22 @@ slanje u tihim satima; jednak početak i kraj znači celodnevnu tišinu. Pokuša
 rezerviše se u bazi pre Telegram poziva da retry/restart ne pošalje duplikat.
 Ako veza pukne, ishod može biti neizvestan: automatsko ponovno slanje je izostavljeno,
 a `reminder_error` i `reminder_sent_at` omogućavaju ručnu proveru. `/reset` ne briše obaveze.
+
+Dnevni uvid (F6.2) radi u 08:30 po `TIMEZONE`. Čita kalendar danas/sutra, TASK BOARD,
+otvorene obaveze, do 30 poslednjih nepročitanih mejlova i relevantne činjenice.
+Mejl čitanje je read-only/PEEK. TASK BOARD koristi stare kolone `Name` i `Status`
+(`Not started` / `In progress` / `Done`); opciona Date kolona `Rok` omogućava oznaku
+kašnjenja. Bez nje rok ostaje nepoznat, a model ga ne izmišlja. Nedostupna ili
+nepodešena integracija je tako označena u podacima, nikad predstavljena kao prazna.
+
+Glavni model vraća strogo validiran JSON odluke, bez alata za izvršavanje akcija.
+`proactive_log` prikazuje razloge slanja/ćutanja i greške. Migracija 011 čuva sve
+pokušaje, dostupnost izvora, odluke i Telegram ID. Trajna dnevna rezervacija i DB
+lock sprečavaju dva pokretanja da pošalju isti uvid; odluka „ne šalji” se tog dana
+ne ponavlja. Tihi sati se proveravaju i pre izvora i posle modelskog poziva.
+Nepoznat ishod slanja je `uncertain`; nema automatskog ponavljanja koje bi moglo
+napraviti duplikat. Greške ovih poslova ostaju u evidenciji, bez dodatnog job alarma
+koji bi mogao prekršiti tihe sate. Uvid ne šalje mejlove niti menja spoljne podatke.
+
+F1b alati i ostali stari poslovi ostaju zaseban, nezavršen deo plana: ova čitanja
+su uvedena radi izričito tražene Faze 6, bez označavanja F1b kao završene.

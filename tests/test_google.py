@@ -128,3 +128,42 @@ def test_auth_script_rejects_remote_callback(monkeypatch):
     monkeypatch.setenv("GOOGLE_REDIRECT_URI", "https://example.com/callback")
     with pytest.raises(ValueError, match="lokalni http"):
         google_auth.authorize()
+
+
+async def test_overview_calendar_paginates_native_sdk_without_writes(respx_mock, token):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu.services import overview
+
+    route = respx_mock.get("https://www.googleapis.com/calendar/v3/calendars/primary/events").mock(
+        side_effect=[
+            httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {
+                            "id": "1",
+                            "summary": "Састанак",
+                            "start": {"dateTime": "2026-10-17T10:00:00+02:00"},
+                            "end": {},
+                        }
+                    ],
+                    "nextPageToken": "dalje",
+                },
+            ),
+            httpx.Response(
+                200,
+                json={
+                    "items": [
+                        {"id": "2", "summary": "Odmor", "start": {"date": "2026-10-18"}, "end": {}}
+                    ]
+                },
+            ),
+        ]
+    )
+    start = datetime(2026, 10, 17, tzinfo=ZoneInfo("Europe/Belgrade"))
+    rows = await overview.calendar(start, start.replace(day=19))
+    assert [r["id"] for r in rows] == ["1", "2"] and rows[0]["naslov"] == "Sastanak"
+    assert route.calls[1].request.url.params["pageToken"] == "dalje"
+    assert route.calls[0].request.url.params["singleEvents"] == "true"

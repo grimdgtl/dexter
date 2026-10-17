@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     rag_min_similarity: float = Field(0.3, ge=0, le=1)
     openai_api_key: str | None = None
     notion_api_key: str | None = None
+    notion_tasks_db_id: str | None = None
     semantic_index_cron: str = "0 4 * * *"
     google_client_id: str | None = None
     google_client_secret: str | None = None

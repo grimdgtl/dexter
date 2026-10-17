@@ -341,7 +341,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F6.1 Obaveze.** Izvlačenje memorije izvlači i obaveze sa rokom ("poslaću
   ponudu Marku do petka") → tabela `commitments(tekst, osoba, rok, status)`.
   Alati `commitments_list`, `commitment_done`. Podsetnik dan pre roka.
-- [ ] **F6.2 Dnevni uvid.** Posao u 08:30: skupi kalendar (danas, sutra),
+- [x] **F6.2 Dnevni uvid.** Posao u 08:30: skupi kalendar (danas, sutra),
   zakasnele zadatke, obaveze, važne nepročitane mejlove, relevantne činjenice;
   glavni model vrati JSON `{posalji: bool, poruka: str, razlog: str}`. Šalje
   najviše jednu poruku dnevno, nikad u tihim satima (`QUIET_HOURS=22-07`). Sve

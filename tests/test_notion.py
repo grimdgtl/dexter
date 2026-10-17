@@ -108,3 +108,42 @@ async def test_notion_reports_permission_failure(respx_mock):
     )
     with pytest.raises(APIResponseError):
         await notion.search("test")
+
+
+async def test_overview_tasks_paginates_data_sources_and_keeps_unknown_due(respx_mock, monkeypatch):
+    from apu.services import overview
+
+    monkeypatch.setattr(config.settings(), "notion_tasks_db_id", ROOT)
+    respx_mock.get(f"{BASE}/databases/{ROOT}").respond(200, json={"data_sources": [{"id": CHILD}]})
+    page = {
+        "id": ROOT,
+        "properties": {
+            "Name": {"type": "title", "title": [{"plain_text": "Понуда"}]},
+            "Status": {"status": {"name": "In progress"}},
+        },
+    }
+    route = respx_mock.post(f"{BASE}/data_sources/{CHILD}/query").mock(
+        side_effect=[
+            httpx.Response(200, json={"results": [page], "has_more": True, "next_cursor": "dalje"}),
+            httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            **page,
+                            "id": CHILD,
+                            "properties": {
+                                **page["properties"],
+                                "Rok": {"date": {"start": "2026-10-16"}},
+                            },
+                        }
+                    ],
+                    "has_more": False,
+                },
+            ),
+        ]
+    )
+    rows = await overview.tasks()
+    assert len(rows) == 2 and rows[0]["naslov"] == "Ponuda" and rows[0]["rok"] is None
+    assert rows[1]["rok"] == "2026-10-16"
+    assert json.loads(route.calls[1].request.content)["start_cursor"] == "dalje"

@@ -22,6 +22,7 @@ async def run_job(
     bot: Bot,
     attempts: int = 3,
     delay: float = 30,
+    notify_failure: bool = True,
 ) -> Any:
     if not 1 <= attempts <= 3 or delay < 0:
         raise ValueError("Dozvoljeno je 1–3 pokušaja i nenegativan razmak.")
@@ -52,7 +53,7 @@ async def run_job(
     await pool().execute(
         "UPDATE job_runs SET kraj = now(), ok = $2, greska = $3 WHERE id = $1", run_id, ok, error
     )
-    if not ok:
+    if not ok and notify_failure:
         try:
             await bot.send_message(
                 settings().telegram_owner_chat_id,

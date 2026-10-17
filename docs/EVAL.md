@@ -503,3 +503,17 @@ Dva paralelna podsetnika za isti lokalni dan daju jedan Telegram poziv. Tišina 
 proverava na granicama 22:00 i 07:00. Mrežna greška ostaje u bazi, bez slepog retry-a.
 Modelski odgovori i Telegram su kontrolni; stvarno prepoznavanje rokova i isporuku
 podsetnika treba ručno proveriti. SYSTEM_PROMPT nije menjan.
+
+## F6.2 — dnevni uvid (17.10.2026)
+
+Pre: nema uslovnog dnevnog javljanja ni evidencije ćutanja. Posle: posao u 08:30
+skuplja izvore i poziva glavni model za strogi JSON. Nepodešeni/neuspešni izvori su
+razlikovani od praznih rezultata. Task bez opcionog datuma Rok nema izmišljeno kašnjenje.
+Google i Notion SDK testovi kroz respx potvrđuju paginaciju; IMAP test proverava
+UNSEEN + read-only/PEEK. Nema upisa u spoljna čitanja.
+
+Test stvarne baze pokreće dva paralelna dnevna uvida i zatim novo pokretanje: jedan
+model poziv, jedna rezervacija i jedan Telegram poziv. „Ne šalji”, tišina i neizvesna
+mrežna isporuka ostaju zabeleženi. Prelaz 21:59 → 22:00 tokom modelskog poziva sprečava
+slanje. Pravi Anthropic SDK sa respx odgovorom proverava JSON i usage, uz promenljive
+podatke izvan statičnog prompta. Ručno proveriti relevantnost uvida i stvarne naloge.

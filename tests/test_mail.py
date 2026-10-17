@@ -163,3 +163,16 @@ async def test_scanned_pdf_attachment_is_ocr_processed_before_yield(
         item = await anext(docs)
     assert "Rok za isporuku je petak." in item.text
     assert not item.pdf_attachments and imap_server.closed
+
+
+async def test_overview_unread_uses_readonly_peek_and_no_seen_mutation(imap_server, make_mail):
+    from apu.services import overview
+
+    imap_server.messages["INBOX"] = [
+        make_mail(subject="Već pročitano"),
+        make_mail(subject="Рок је сутра"),
+    ]
+    rows = await overview.unread()
+    assert len(rows) == 1 and rows[0]["naslov"] == "Rok je sutra"
+    assert any(c[0] == "FETCH" and "BODY.PEEK[]" in c[2] for c in imap_server.calls)
+    assert imap_server.closed

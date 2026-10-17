@@ -56,7 +56,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE proactive_deliveries, proactive_runs, commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -1957,3 +1957,160 @@ async def test_commitment_delivery_error_is_durable_and_not_retried_blindly(db):
     assert await commitments.remind(bot, now) == 0
     assert bot.send_message.await_count == 1
     assert await db.fetchval("SELECT reminder_error FROM commitments") == "Prekid veze"
+
+
+async def test_daily_insight_one_delivery_with_parallel_calls_and_restart(db, monkeypatch):
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import llm, proactive
+
+    monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={"obaveze": []}))
+    monkeypatch.setattr(
+        llm,
+        "create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                stop_reason="end_turn",
+                content=[
+                    SimpleNamespace(
+                        type="text",
+                        text=json.dumps(
+                            {
+                                "posalji": True,
+                                "poruka": "Провери рок за Орион пре састанка.",
+                                "razlog": "Rok je sutra.",
+                            }
+                        ),
+                    )
+                ],
+            )
+        ),
+    )
+    bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=123)))
+    now = datetime(2026, 10, 17, 8, 30, tzinfo=ZoneInfo("Europe/Belgrade"))
+    assert sum(await asyncio.gather(proactive.daily(bot, now), proactive.daily(bot, now))) == 1
+    assert not await proactive.daily(bot, now)
+    assert bot.send_message.await_count == 1 and llm.create.await_count == 1
+    assert bot.send_message.await_args.args[1].startswith("Proveri rok")
+    assert await db.fetchval("SELECT count(*) FROM proactive_deliveries") == 1
+    assert (
+        await db.fetchval("SELECT telegram_message_id FROM proactive_runs WHERE status='sent'")
+        == 123
+    )
+
+
+async def test_daily_silence_no_send_and_uncertain_delivery_are_logged(db, monkeypatch):
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import llm, proactive
+
+    monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={}))
+    create = AsyncMock(
+        return_value=SimpleNamespace(
+            stop_reason="end_turn",
+            content=[
+                SimpleNamespace(
+                    type="text",
+                    text=json.dumps(
+                        {"posalji": False, "poruka": "", "razlog": "Nema novog korisnog uvida."}
+                    ),
+                )
+            ],
+        )
+    )
+    monkeypatch.setattr(llm, "create", create)
+    bot = SimpleNamespace(send_message=AsyncMock(side_effect=RuntimeError("Neizvestan ishod")))
+    tz = ZoneInfo("Europe/Belgrade")
+    assert not await proactive.daily(bot, datetime(2026, 10, 17, 23, tzinfo=tz))
+    create.assert_not_awaited()
+    assert not await proactive.daily(bot, datetime(2026, 10, 17, 8, 30, tzinfo=tz))
+    assert not await proactive.daily(bot, datetime(2026, 10, 17, 9, tzinfo=tz))
+    assert create.await_count == 1
+    create.return_value.content[0].text = json.dumps(
+        {"posalji": True, "poruka": "Važan rok sutra.", "razlog": "Rok"}
+    )
+    nextday = datetime(2026, 10, 18, 8, 30, tzinfo=tz)
+    assert not await proactive.daily(bot, nextday)
+    assert not await proactive.daily(bot, nextday)
+    assert bot.send_message.await_count == 1
+    states = [r["status"] for r in await db.fetch("SELECT status FROM proactive_runs")]
+    assert {"quiet", "skipped", "already_decided", "uncertain"} <= set(states)
+
+
+async def test_insight_rechecks_quiet_hours_after_model_and_keeps_json_failure(db, monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import llm, proactive
+
+    tz = ZoneInfo("Europe/Belgrade")
+    times = iter([datetime(2026, 10, 17, 21, 59, tzinfo=tz), datetime(2026, 10, 17, 22, tzinfo=tz)])
+    monkeypatch.setattr(proactive, "local_now", lambda now=None: next(times))
+    monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={}))
+    monkeypatch.setattr(
+        llm,
+        "create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                stop_reason="end_turn",
+                content=[
+                    SimpleNamespace(
+                        type="text", text='{"posalji":true,"poruka":"Rok je sutra.","razlog":"Rok"}'
+                    )
+                ],
+            )
+        ),
+    )
+    bot = SimpleNamespace(send_message=AsyncMock())
+    assert not await proactive.daily(bot)
+    bot.send_message.assert_not_awaited()
+    assert await db.fetchval("SELECT status FROM proactive_runs") == "policy_blocked"
+
+
+async def test_daily_insight_real_sdk_json_and_usage_are_isolated(
+    db, monkeypatch, respx_mock, anthropic_client
+):
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import llm, proactive
+
+    monkeypatch.setattr(
+        proactive,
+        "collect",
+        AsyncMock(
+            return_value={"vreme": "promenljivo", "mejl": {"status": "greška", "podaci": []}}
+        ),
+    )
+    monkeypatch.setattr(llm, "client", lambda: anthropic_client)
+    route = respx_mock.post("https://api.anthropic.com/v1/messages").respond(
+        200,
+        json={
+            "id": "insight",
+            "type": "message",
+            "role": "assistant",
+            "model": "test",
+            "content": [
+                {
+                    "type": "text",
+                    "text": '{"posalji":false,"poruka":"","razlog":"Nema pouzdanih podataka."}',
+                }
+            ],
+            "stop_reason": "end_turn",
+            "usage": {"input_tokens": 100, "output_tokens": 20},
+        },
+    )
+    bot = SimpleNamespace(send_message=AsyncMock())
+    assert not await proactive.daily(
+        bot, datetime(2026, 10, 17, 8, 30, tzinfo=ZoneInfo("Europe/Belgrade"))
+    )
+    request = json.loads(route.calls[0].request.content)
+    assert request["system"] == proactive.SYSTEM and "promenljivo" not in request["system"]
+    assert "promenljivo" in request["messages"][0]["content"]
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='daily_insight'") == 1
+    bot.send_message.assert_not_awaited()
