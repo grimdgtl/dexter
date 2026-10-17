@@ -130,6 +130,19 @@ top k sadrži očekivani dokument, a `negative_accuracy` udeo negativnih pitanja
 Ako nema vraćenih rezultata, obe preciznosti su 0; bez negativnih pitanja njihova tačnost
 je null. Za kalibraciju poredi ista pitanja sa npr. `RAG_MIN_SIMILARITY=0`, `0.15`, `0.3`
 i `0.45` kroz `python -m evals.rag_eval --oznaka prag-03`, pa pogledaj `--uporedi`.
+`knowledge_search` prihvata `od` i `do` kao uključive datume `YYYY-MM-DD` u `TIMEZONE`.
+Na primer, `izvor="razgovor", od="2026-09-01", do="2026-09-30"` pretražuje septembar.
+Isti opciono zadati `izvor`, `od` i `do` mogu stajati u redu eval pitanja.
+Filter se primenjuje pre limita kandidata i pre preslaganja, u obe grane pretrage.
+
+`documents.modified_at` označava poslednju izmenu Notion/Drive dokumenta, datum slanja
+mejla iz zaglavlja, lokalni dan razgovora, `mtime` lokalnog fajla ili vreme uvoza fajla
+poslatog Telegramom. Odgovor alata sadrži i `datum` izvora. To nije vreme indeksiranja:
+promena seckanja ga čuva, a nova izmena samo metapodataka ne troši embeddinge.
+Starim dokumentima migracija ostavlja nepoznat datum kao null. Takvi dokumenti ostaju
+pretraživi bez perioda, a pri filtriranju se izostavljaju. Osveži izvore/ponovo uvezi fajlove
+da se datumi popune; `scripts.reindex_all` može obnoviti datum starog sažetka iz njegovog ID-ja.
+Izmena lokalnog zakonskog fajla označava izmenu fajla, a ne datum stupanja zakona na snagu.
 Nepromenjen tekst ne troši nove embedding pozive; nestali dokumenti brišu se tek posle
 uspešnog obilaska celog izvora. API verzija Notion-a je fiksirana na `2025-09-03`.
 

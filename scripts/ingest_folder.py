@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
 from apu import db
@@ -28,7 +29,10 @@ async def ingest_folder(folder: Path, source: str = "zakon") -> list[dict]:
         name = path.relative_to(folder).as_posix()
         try:
             data = await asyncio.to_thread(path.read_bytes)
-            count, message = await ingest_file(name, data, source=source)
+            stat = await asyncio.to_thread(path.stat)
+            count, message = await ingest_file(
+                name, data, source=source, modified_at=datetime.fromtimestamp(stat.st_mtime, UTC)
+            )
             results.append({"fajl": name, "delova": count, "poruka": message, "ok": True})
         except Exception as exc:
             results.append({"fajl": name, "delova": 0, "poruka": u_latinicu(str(exc)), "ok": False})

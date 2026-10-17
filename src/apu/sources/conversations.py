@@ -131,12 +131,19 @@ async def reindex() -> dict:
                 doc_id,
             )
             if previous and previous.get("input_hash") == fingerprint:
+                await db.execute(
+                    "UPDATE documents SET modified_at=$2 WHERE id=$1",
+                    doc_id,
+                    datetime.combine(day, time.min, tz),
+                )
                 skipped += 1
                 continue
             summary = await summarize(str(day), entries)
             title = f"Razgovor {day}"
             text = f"Datum razgovora: {day} ({cfg.timezone})\n\n{summary}"
-            await store.upsert_document(doc_id, "razgovor", title, text)
+            await store.upsert_document(
+                doc_id, "razgovor", title, text, modified_at=datetime.combine(day, time.min, tz)
+            )
             # Napredak beležimo tek posle indeksa: neuspešan poziv će se ponoviti.
             await db.execute(
                 """INSERT INTO kv_state (key, value) VALUES ($1, $2)

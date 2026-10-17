@@ -6,7 +6,7 @@ import csv
 import hashlib
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from email.message import Message
 from html.parser import HTMLParser
 from pathlib import Path
@@ -107,6 +107,7 @@ class MailDocument:
     title: str
     text: str
     skipped_attachments: int = 0
+    modified_at: datetime | None = None
 
 
 def message_id(message: MailMessage) -> str:
@@ -191,7 +192,11 @@ def document(message: MailMessage) -> MailDocument:
         if text.strip():
             lines += [f"Prilog: {attachment.filename}", text]
     return MailDocument(
-        f"mail:{message_id(message)}", title, u_latinicu("\n\n".join(lines)), skipped
+        f"mail:{message_id(message)}",
+        title,
+        u_latinicu("\n\n".join(lines)),
+        skipped,
+        modified_at=message.date if message.date_str and message.date.tzinfo else None,
     )
 
 

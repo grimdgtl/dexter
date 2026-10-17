@@ -1,6 +1,7 @@
 """Sve dostupne Notion stranice, bez limita prve strane rezultata."""
 
 from apu.rag import store
+from apu.rag.dates import timestamp
 from apu.services import notion
 
 
@@ -17,7 +18,12 @@ async def reindex() -> dict:
             text = await notion.read_blocks(api, page["id"])
             title = notion.title_of(page)
             n = await store.upsert_document(
-                doc_id, "notion", title, f"{title}\n{text}", page.get("url")
+                doc_id,
+                "notion",
+                title,
+                f"{title}\n{text}",
+                page.get("url"),
+                modified_at=timestamp(page.get("last_edited_time")),
             )
             alive.add(doc_id)
             indexed += bool(n)

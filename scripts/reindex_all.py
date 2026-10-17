@@ -2,10 +2,12 @@
 
 import argparse
 import asyncio
+from datetime import date
 
 from apu import db
 from apu.pismo import u_latinicu
 from apu.rag import store
+from apu.rag.dates import day_start
 
 
 async def reindex_all(source: str | None = None) -> dict:
@@ -21,8 +23,20 @@ async def reindex_all(source: str | None = None) -> dict:
         )
     indexed = skipped = chunks = 0
     for row in rows:
+        modified_at = row["modified_at"]
+        if (
+            modified_at is None
+            and row["source"] == "razgovor"
+            and row["id"].startswith("razgovor:")
+        ):
+            modified_at = day_start(date.fromisoformat(row["id"].split(":", 1)[1]))
         count = await store.upsert_document(
-            row["id"], row["source"], row["title"], row["content_text"], row["url"]
+            row["id"],
+            row["source"],
+            row["title"],
+            row["content_text"],
+            row["url"],
+            modified_at=modified_at,
         )
         indexed += bool(count)
         skipped += not count

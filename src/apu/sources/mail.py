@@ -16,7 +16,9 @@ async def reindex() -> dict:
     indexed = skipped = skipped_attachments = 0
     async with aclosing(mail.documents(since)) as documents:
         async for doc in documents:
-            n = await store.upsert_document(doc.id, "mail", doc.title, doc.text)
+            n = await store.upsert_document(
+                doc.id, "mail", doc.title, doc.text, modified_at=doc.modified_at
+            )
             alive.add(doc.id)
             indexed += bool(n)
             skipped += not n

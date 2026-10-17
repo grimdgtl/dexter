@@ -24,12 +24,13 @@ import argparse
 import asyncio
 import json
 import time
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from apu import db
 from apu.pismo import u_latinicu
 from apu.rag import store
+from apu.rag.dates import period_bounds
 
 HERE = Path(__file__).parent
 
@@ -124,6 +125,20 @@ def read_questions(path: Path) -> list[dict]:
             )
         ):
             raise ValueError(f"Pitanje {i} mora imati tekst pitanja i dokument (ID ili null).")
+        try:
+            for key in ("od", "do"):
+                if question.get(key) is not None:
+                    date.fromisoformat(question[key])
+            period_bounds(
+                date.fromisoformat(question["od"]) if question.get("od") else None,
+                date.fromisoformat(question["do"]) if question.get("do") else None,
+            )
+            if question.get("izvor") is not None and (
+                not isinstance(question["izvor"], str) or not question["izvor"].strip()
+            ):
+                raise ValueError("Izvor mora biti neprazan tekst.")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Pitanje {i} ima neispravan period ili izvor.") from exc
     return qs
 
 
@@ -136,7 +151,13 @@ async def main(k: int, label: str) -> dict:
         ranked, misses = [], []
         start = time.perf_counter()
         for q in qs:
-            hits = await store.search(q["pitanje"], limit=k * 3)
+            hits = await store.search(
+                q["pitanje"],
+                limit=k * 3,
+                source=q.get("izvor"),
+                date_from=date.fromisoformat(q["od"]) if q.get("od") else None,
+                date_to=date.fromisoformat(q["do"]) if q.get("do") else None,
+            )
             docs = [h.document_id for h in hits]
             ranked.append(docs)
             top_k = list(dict.fromkeys(docs))[:k]

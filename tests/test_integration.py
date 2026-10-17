@@ -380,6 +380,9 @@ async def test_migrations_are_idempotent_and_preserve_existing_data(migration_co
         await conn.execute(
             "INSERT INTO messages (chat_id, role, content) VALUES (1, 'user', '\"Poruka\"')"
         )
+        await conn.execute(
+            "INSERT INTO documents (id, source, title, content_hash) VALUES ('legacy:1','fajl','Stari','staro')"
+        )
     assert await dbmod.migrate(conn, 1536) == [
         p.name.split("_", 1)[0] for p in sorted(dbmod.MIGRATIONS_DIR.glob("*.sql"))
     ]
@@ -389,6 +392,11 @@ async def test_migrations_are_idempotent_and_preserve_existing_data(migration_co
     assert await conn.fetchval("SELECT count(*) FROM messages") == int(legacy)
     assert await conn.fetchval("SELECT to_regclass('kv_state')")
     assert await conn.fetchval("SELECT to_regclass('pending_notes')")
+    if legacy:
+        row = await conn.fetchrow(
+            "SELECT modified_at, content_text FROM documents WHERE id='legacy:1'"
+        )
+        assert row["modified_at"] is row["content_text"] is None
 
 
 async def test_migration_failure_rolls_back_schema_and_version(migration_conn, tmp_path):
@@ -470,7 +478,13 @@ async def test_notion_source_full_pagination_skip_and_safe_removal(db, monkeypat
     monkeypatch.setenv("NOTION_API_KEY", "test-notion")
     config.settings.cache_clear()
     pages = [
-        {"id": str(uuid4()), "object": "page", "properties": {}, "url": "https://notion.so/test"}
+        {
+            "id": str(uuid4()),
+            "object": "page",
+            "properties": {},
+            "url": "https://notion.so/test",
+            "last_edited_time": "2026-09-15T12:00:00Z",
+        }
         for _ in range(26)
     ]
     fail = False
@@ -520,12 +534,25 @@ async def test_notion_source_full_pagination_skip_and_safe_removal(db, monkeypat
     await store.upsert_document("notion:stari", "notion", "Stari", "Stari dokument")
     await store.upsert_document("drive:drugi", "drive", "Drive", "Drugi izvor")
     assert (await notion.reindex())["ukupno"] == 26
+    assert (
+        str(await db.fetchval("SELECT modified_at FROM documents WHERE source='notion' LIMIT 1"))
+        == "2026-09-15 12:00:00+00:00"
+    )
     assert await db.fetchval("SELECT count(*) FROM documents WHERE id = 'notion:stari'") == 0
     embed = AsyncMock(wraps=store.embed)
     monkeypatch.setattr(store, "embed", embed)
+    pages[0]["last_edited_time"] = "2026-10-01T12:00:00Z"
     result = await notion.reindex()
     assert result["preskoceno"] == 26 and result["indeksirano"] == 0
     embed.assert_not_awaited()
+    assert (
+        str(
+            await db.fetchval(
+                "SELECT modified_at FROM documents WHERE id=$1", f"notion:{pages[0]['id']}"
+            )
+        )
+        == "2026-10-01 12:00:00+00:00"
+    )
     await store.upsert_document("notion:zadrzi", "notion", "Zadrži", "Privremeno nedostupan")
     fail = True
     with pytest.raises(Exception, match="Zabranjeno"):
@@ -551,8 +578,13 @@ async def test_drive_source_preserves_full_text_and_handles_missing_files(
     )
     base = "https://www.googleapis.com/drive/v3/files"
     files = [
-        {"id": "1", "name": "Doc", "mimeType": google.DOC},
-        {"id": "2", "name": "Tekst.md", "mimeType": "text/markdown"},
+        {"id": "1", "name": "Doc", "mimeType": google.DOC, "modifiedTime": "2026-09-16T12:00:00Z"},
+        {
+            "id": "2",
+            "name": "Tekst.md",
+            "mimeType": "text/markdown",
+            "modifiedTime": "2026-09-17T12:00:00Z",
+        },
     ]
 
     def listing(request):
@@ -575,6 +607,10 @@ async def test_drive_source_preserves_full_text_and_handles_missing_files(
     await store.upsert_document("notion:drugi", "notion", "Notion", "Drugi izvor")
     result = await drive.reindex()
     assert result["ukupno"] == 2 and result["obrisano"] == 1
+    assert (
+        str(await db.fetchval("SELECT modified_at FROM documents WHERE id='drive:1'"))
+        == "2026-09-16 12:00:00+00:00"
+    )
     assert await db.fetchval("SELECT count(*) FROM chunks WHERE text LIKE '%KRAJ-DOKUMENTA%'") == 1
     embed = AsyncMock(wraps=store.embed)
     monkeypatch.setattr(store, "embed", embed)
@@ -603,8 +639,15 @@ async def test_folder_import_pdf_text_markdown_and_unchanged_files(db, tmp_path,
     )
     (tmp_path / "propis.pdf").write_bytes(pdf_bytes)
     (tmp_path / "slika.png").write_bytes(b"nije za indeksiranje")
+    os.utime(tmp_path / "zakon.txt", (1_789_473_600, 1_789_473_600))
     results = await ingest_folder(tmp_path, "zakon")
     assert len(results) == 4 and all(r["ok"] and r["delova"] for r in results)
+    assert (
+        await db.fetchval(
+            "SELECT extract(epoch FROM modified_at) FROM documents WHERE id='zakon:zakon.txt'"
+        )
+        == 1_789_473_600
+    )
     ids = {r["id"] for r in await db.fetch("SELECT id FROM documents WHERE source = 'zakon'")}
     assert {"zakon:zakon.txt", "zakon:podfolder/zakon.txt", "zakon:propis.pdf"} <= ids
     assert "Zakon o radu" in await db.fetchval(
@@ -654,6 +697,14 @@ async def test_mail_source_evaluation_deduplication_and_safe_cleanup(
     before["ms_po_upitu"] = round(1000 * (time.perf_counter() - start), 2)
     result = await mail.reindex()
     assert result["indeksirano"] == result["ukupno"] == 3
+    assert (
+        str(
+            await db.fetchval(
+                "SELECT modified_at FROM documents WHERE id='mail:<orion@example.com>'"
+            )
+        )
+        == "2026-10-15 08:00:00+00:00"
+    )
     assert (
         await db.fetchval("SELECT count(*) FROM documents WHERE id = 'mail:<stari@example.com>'")
         == 0
@@ -771,6 +822,10 @@ async def test_conversation_source_evaluation_dates_retry_and_reset(
     assert after["recall_at_k"] == after["mrr"] == 1
     print("F2.2 test eval:", json.dumps({"pre": before, "posle": after, "dokumenata": 2}))
     assert conversation_model.await_count == 2
+    assert (
+        str(await db.fetchval("SELECT modified_at FROM documents WHERE id='razgovor:2026-09-30'"))
+        == "2026-09-29 22:00:00+00:00"
+    )
     assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='conversation_summary'") == 2
     assert not any("DRUGI_KORISNIK" in str(c) for c in conversation_model.call_args_list)
     assert "Dogovor sa Markom" in (await store.search("Orion", source="razgovor"))[0].text
@@ -1030,3 +1085,148 @@ async def test_relevance_threshold_calibration(db, monkeypatch):
     hits = await store.search("108073515")
     assert len(hits) == 1 and hits[0].keyword_rank == 1
     assert hits[0].similarity < 0.1
+
+
+async def test_date_filter_evaluation_applies_before_candidate_limits(db):
+    import json
+    import time
+    from datetime import date, datetime
+
+    from apu.rag import store
+    from evals.rag_eval import metrics
+
+    for i in range(35):
+        await store.upsert_document(
+            f"test:stari:{i}",
+            "test",
+            "Orion",
+            "Orion " * 50,
+            modified_at=datetime.fromisoformat("2026-08-15T12:00:00+00:00"),
+        )
+    await store.upsert_document(
+        "test:septembar",
+        "test",
+        "Orion septembar",
+        "Orion: u septembru je Marko potvrdio rok i budžet projekta.",
+        modified_at=datetime.fromisoformat("2026-09-30T21:59:00+00:00"),
+    )
+    await store.upsert_document(
+        "test:oktobar",
+        "test",
+        "Orion oktobar",
+        "Orion " * 60,
+        modified_at=datetime.fromisoformat("2026-09-30T22:00:00+00:00"),
+    )
+    await store.upsert_document("test:nepoznat", "test", "Orion bez datuma", "Orion " * 60)
+    start = time.perf_counter()
+    before = metrics(
+        [[h.document_id for h in await store.search("Orion", limit=5)]], ["test:septembar"], 5
+    )
+    before["ms_po_upitu"] = round((time.perf_counter() - start) * 1000, 2)
+    start = time.perf_counter()
+    hits = await store.search(
+        "Orion", limit=5, date_from=date(2026, 9, 1), date_to=date(2026, 9, 30)
+    )
+    after = metrics([[h.document_id for h in hits]], ["test:septembar"], 5)
+    after["ms_po_upitu"] = round((time.perf_counter() - start) * 1000, 2)
+    assert before["recall_at_k"] == 0 and after["recall_at_k"] == after["mrr"] == 1
+    assert [h.document_id for h in hits] == ["test:septembar"]
+    print("F2.6 test eval:", json.dumps({"pre": before, "posle": after, "dokumenata": 38}))
+
+
+async def test_date_filter_boundaries_open_ranges_unknown_dates_and_dst(db, monkeypatch):
+    from datetime import date, datetime
+
+    from apu.config import settings
+    from apu.rag import store
+
+    stamps = {
+        "pre": "2026-08-31T21:59:59+00:00",
+        "od": "2026-08-31T22:00:00+00:00",
+        "do": "2026-09-30T21:59:59.999999+00:00",
+        "posle": "2026-09-30T22:00:00+00:00",
+        "dst-pocetak": "2026-10-24T22:00:00+00:00",
+        "dst-kraj": "2026-10-25T22:59:59+00:00",
+        "dst-posle": "2026-10-25T23:00:00+00:00",
+    }
+    for key, stamp in stamps.items():
+        await store.upsert_document(
+            key, "test", "Period", "Period za proveru.", modified_at=datetime.fromisoformat(stamp)
+        )
+    await store.upsert_document("bez-datuma", "test", "Period", "Period za proveru.")
+    await store.upsert_document(
+        "drugi-izvor",
+        "drugi",
+        "Period",
+        "Period za proveru.",
+        modified_at=datetime.fromisoformat(stamps["od"]),
+    )
+
+    async def ids(**kwargs):
+        return {
+            h.document_id for h in await store.search("Period", limit=15, source="test", **kwargs)
+        }
+
+    assert await ids(date_from=date(2026, 9, 1), date_to=date(2026, 9, 30)) == {"od", "do"}
+    assert await ids(date_to=date(2026, 9, 30)) == {"pre", "od", "do"}
+    assert "bez-datuma" in await ids()
+    assert "bez-datuma" not in await ids(date_from=date(2026, 9, 1))
+    assert await ids(date_from=date(2026, 10, 25), date_to=date(2026, 10, 25)) == {
+        "dst-pocetak",
+        "dst-kraj",
+    }
+    # I opcioni model vidi samo kandidate koji su već prošli filter.
+    from apu.rag import rerank
+
+    reorder = AsyncMock(side_effect=lambda query, hits: hits)
+    monkeypatch.setattr(rerank, "rerank", reorder)
+    monkeypatch.setattr(settings(), "rerank", "on")
+    assert await ids(date_from=date(2026, 9, 1), date_to=date(2026, 9, 30)) == {"od", "do"}
+    assert {h.document_id for h in reorder.await_args.args[1]} == {"od", "do"}
+    embed = AsyncMock()
+    monkeypatch.setattr(store, "embed_one", embed)
+    with pytest.raises(ValueError, match="Datum od"):
+        await store.search("Period", date_from=date(2026, 10, 1), date_to=date(2026, 9, 1))
+    embed.assert_not_awaited()
+
+
+async def test_metadata_only_updates_and_rechunk_preserve_source_date(db, monkeypatch):
+    from datetime import datetime
+
+    from apu.config import settings
+    from apu.rag import store
+    from scripts.reindex_all import reindex_all
+
+    stamp = datetime.fromisoformat("2026-09-15T12:00:00+00:00")
+    await store.upsert_document(
+        "test:meta", "test", "Metapodaci", "Dugačak tekst. " * 200, modified_at=stamp
+    )
+    old_ids = await db.fetch("SELECT id FROM chunks ORDER BY id")
+    embed = AsyncMock(wraps=store.embed)
+    monkeypatch.setattr(store, "embed", embed)
+    later = datetime.fromisoformat("2026-10-01T12:00:00+00:00")
+    assert (
+        await store.upsert_document(
+            "test:meta",
+            "test",
+            "Metapodaci",
+            "Dugačak tekst. " * 200,
+            "https://example.com",
+            modified_at=later,
+        )
+        == 0
+    )
+    embed.assert_not_awaited()
+    assert await db.fetch("SELECT id FROM chunks ORDER BY id") == old_ids
+    assert await db.fetchval("SELECT modified_at FROM documents") == later
+    monkeypatch.setattr(settings(), "chunk_chars", 600)
+    await reindex_all()
+    assert await db.fetchval("SELECT modified_at FROM documents") == later
+    assert await db.fetchval("SELECT url FROM documents") == "https://example.com"
+    # Datum razgovora iz ID-ja može se obnoviti i kada je sirova istorija već obrisana.
+    await store.upsert_document(
+        "razgovor:2026-09-15", "razgovor", "Sažetak", "Dogovor u septembru."
+    )
+    await reindex_all("razgovor")
+    restored = await db.fetchval("SELECT modified_at FROM documents WHERE source='razgovor'")
+    assert restored.isoformat() == "2026-09-14T22:00:00+00:00"

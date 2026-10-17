@@ -275,7 +275,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F2.5 Negativna pitanja i prag.** Eval podržava `"dokument": null`
   (očekivano: ništa relevantno) i meri preciznost. Uvedi prag (npr. bez
   keyword pogotka i kosinus ispod X → prazno) kalibrisan na evalu.
-- [ ] **F2.6 Filtriranje po vremenu.** `documents.modified_at`; `knowledge_search`
+- [x] **F2.6 Filtriranje po vremenu.** `documents.modified_at`; `knowledge_search`
   dobija opcione `od` / `do`.
 
 ### Faza 3 — Brzina i cena (10.11–16.11)

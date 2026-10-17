@@ -1,6 +1,7 @@
 """Indeksiranje punog teksta sa Drive-a, uz paginaciju i bezbedno čišćenje."""
 
 from apu.rag import store
+from apu.rag.dates import timestamp
 from apu.services import google
 
 
@@ -21,6 +22,7 @@ async def reindex() -> dict:
                 result["name"],
                 f"{result['name']}\n{result['content']}",
                 meta.get("webViewLink"),
+                modified_at=timestamp(meta.get("modifiedTime")),
             )
             alive.add(doc_id)
             indexed += bool(n)

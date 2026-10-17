@@ -162,6 +162,34 @@ Reprodukcija: `pytest tests/test_integration.py::test_relevance_threshold_calibr
 uz `TEST_DATABASE_URL`. Privatna kalibracija: za svaku vrednost postavi
 `RAG_MIN_SIMILARITY`, pokreni `python -m evals.rag_eval --oznaka prag-03` i uporedi logove.
 
+## F2.6 — filtriranje po vremenu (17.10.2026)
+
+Kontrolni test koristi 38 sintetičkih dokumenata i upit „Orion” za septembar:
+35 boljih doslovnih pogodaka iz avgusta, jedan očekivani septembarski dokument,
+jedan oktobarski i jedan bez poznatog datuma. PostgreSQL/pgvector su pravi;
+embeddinzi su deterministički. Bez filtera očekivani dokument nije u top 5.
+
+| Stanje | recall@5 | MRR | ms po upitu |
+|---|---|---|---|
+| Pre, bez perioda | 0.0 | 0.0 | 5.53 |
+| Posle, od 2026-09-01 do 2026-09-30 | 1.0 | 1.0 | 1.01 |
+
+Filter se primenjuje u SQL-u pre limita od 30 kandidata po grani: avgustovski pogoci
+ne mogu da istisnu septembarski dokument. To potvrđuje tok filtriranja, ne opšti dobitak
+u kvalitetu ili brzini na privatnim podacima. Vremena su za jedan kontrolni upit.
+
+Migracija `005_document_dates.sql` dodaje vreme izvora i indeks. Provereni su uključive
+granice dana, otvoreni periodi, kombinovanje sa izvorom, nepoznati datumi, dan od 25 sati
+pri promeni vremena i filtriranje pre opcionog preslaganja. Testovi izvora proveravaju
+Notion `last_edited_time`, Drive `modifiedTime`, datum zaglavlja mejla, lokalni datum
+razgovora i `mtime` fajla. Nova izmena samo metapodataka ne traži embeddinge, a ponovno
+seckanje ne menja vreme izvora. Stari sažetak dobija datum iz ID-ja čak i bez sirove istorije.
+Stari dokumenti bez pouzdanog datuma ostaju null i izostavljaju se samo kada se zada period.
+
+Reprodukcija: `pytest tests/test_integration.py::test_date_filter_evaluation_applies_before_candidate_limits -s`
+uz `TEST_DATABASE_URL`. Eval pitanja sada mogu da sadrže `izvor`, `od` i `do` za merenje
+istog perioda na privatnim podacima. Stvarne API metapodatke i Telegram upit proveriti ručno.
+
 ## Šablon zapisa promene
 
 - Datum i verzija/commit:

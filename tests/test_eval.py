@@ -106,3 +106,25 @@ async def test_negative_question_is_miss_only_when_something_is_returned(
     search.return_value = [SimpleNamespace(document_id="doc:1")]
     assert (await rag_eval.main(5, "pogrešno"))["negative_accuracy"] == 0
     assert "PROMAŠAJ:" in capsys.readouterr().out
+
+
+async def test_eval_forwards_source_and_period(tmp_path, monkeypatch):
+    from datetime import date
+
+    monkeypatch.setattr(rag_eval, "HERE", tmp_path)
+    path = tmp_path / "questions.jsonl"
+    path.write_text(
+        '{"pitanje":"Orion?","dokument":null,"izvor":"razgovor",'
+        '"od":"2026-09-01","do":"2026-09-30"}\n'
+    )
+    monkeypatch.setattr(rag_eval.db, "connect", AsyncMock())
+    monkeypatch.setattr(rag_eval.db, "close", AsyncMock())
+    search = AsyncMock(return_value=[])
+    monkeypatch.setattr(rag_eval.store, "search", search)
+    await rag_eval.main(5, "period")
+    search.assert_awaited_once_with(
+        "Orion?", limit=15, source="razgovor", date_from=date(2026, 9, 1), date_to=date(2026, 9, 30)
+    )
+    path.write_text('{"pitanje":"Orion?","dokument":null,"od":"2026-10-01","do":"2026-09-30"}\n')
+    with pytest.raises(ValueError, match="neispravan period"):
+        rag_eval.read_questions(path)
