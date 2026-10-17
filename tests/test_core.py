@@ -30,7 +30,7 @@ def test_latinica():
 
 def test_chunks_cover_whole_document():
     text = "\n\n".join(f"Pasus {i}. " + "reč " * 80 for i in range(30))
-    chunks = chunk_text(text, title="Dok")
+    chunks = chunk_text(text, title="Dok", size=1200, overlap=200)
     assert len(chunks) > 1
     assert all(c.startswith("Dok\n") for c in chunks)
     assert all(len(c) <= 1200 + 250 for c in chunks)  # veličina + naslov + preklapanje

@@ -88,6 +88,8 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `MAX_TOKENS` | `8192` | Ograničenje dužine odgovora modela |
 | `HISTORY_TURNS` | `12` | Broj razmena u istoriji modela |
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
+| `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
+| `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
 | `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze i transkripciju |
 | `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
 | `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
@@ -163,6 +165,15 @@ kroz isti omotač poslova kao ostali zakazani zadaci. `/reset` briše sirovu ist
 ali već indeksirani sažeci ostaju u znanju; poruke obrisane pre sažimanja ne mogu se vratiti.
 
 ## Uvoz lokalnih dokumenata
+
+Posle promene seckanja pokreni `python -m scripts.reindex_all` (opciono `--izvor zakon`).
+Tekstovi se ponovo seckaju iz baze bez preuzimanja izvora. Otisak indeksa uključuje
+veličinu, preklapanje i embedding provajdera, pa promena zaobilazi keš sadržaja.
+Migracija dodaje izvorni tekst; stare dokumente bez njega prvo obnovi preko
+`knowledge_reindex` ili ponovnim uvozom lokalnih fajlova. Skripta prijavljuje sve takve
+ID-jeve pre izmena i ne pokušava da rekonstruiše tekst iz preklopljenih delova.
+Za stari sažetak čija je sirova istorija već obrisana potreban je ponovni uvoz sačuvanog
+teksta; automatska obnova tada nije moguća. Novi sažeci čuvaju tekst u bazi.
 
 Sačuvaj važeće tekstove Zakona o radu, Zakona o zaštiti potrošača i Zakona o PDV-u
 kao PDF/txt/md u privatni folder, pa pokreni:

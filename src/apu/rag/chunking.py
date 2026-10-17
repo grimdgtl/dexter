@@ -1,7 +1,7 @@
 """Seckanje dokumenata na delove (chunks) pre vektorizacije.
 
 Stara verzija je pravila JEDAN vektor od prvih 2000 znakova dokumenta — sve
-posle toga pretraga nije videla. Ovde se dokument deli na delove od ~1200
+posle toga pretraga nije videla. Ovde se dokument deli na delove iz CHUNK_CHARS
 znakova (oko 300 tokena), sa preklapanjem, da rečenica koja pada na granicu
 ne izgubi kontekst.
 
@@ -14,8 +14,7 @@ Ovo su parametri koje vredi menjati i meriti eval setom (faza 2).
 
 import re
 
-CHUNK_CHARS = 1200
-OVERLAP_CHARS = 200
+from apu.config import settings
 
 _PARAGRAPH = re.compile(r"\n\s*\n|\n(?=#{1,6} )|\n(?=Član \d+)")
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
@@ -31,7 +30,11 @@ def _split_long(text: str, limit: int) -> list[str]:
             pieces.append(sent)
             continue
         words, cur = sent.split(), ""
-        for w in words:
+        for w in (
+            part
+            for word in words
+            for part in (word[i : i + limit] for i in range(0, len(word), limit))
+        ):
             if cur and len(cur) + 1 + len(w) > limit:
                 pieces.append(cur)
                 cur = w
@@ -45,9 +48,13 @@ def _split_long(text: str, limit: int) -> list[str]:
 def chunk_text(
     text: str,
     title: str = "",
-    size: int = CHUNK_CHARS,
-    overlap: int = OVERLAP_CHARS,
+    size: int | None = None,
+    overlap: int | None = None,
 ) -> list[str]:
+    size = settings().chunk_chars if size is None else size
+    overlap = settings().chunk_overlap if overlap is None else overlap
+    if size < 1 or not 0 <= overlap < size:
+        raise ValueError("Veličina mora biti pozitivna, a preklapanje manje od veličine.")
     text = (text or "").strip()
     if not text:
         return []
@@ -56,7 +63,7 @@ def chunk_text(
     for para in _PARAGRAPH.split(text):
         para = para.strip()
         if para:
-            units.extend(_split_long(para, size))
+            units.extend(_split_long(para, max(1, size - overlap - 2)))
 
     chunks: list[str] = []
     cur = ""

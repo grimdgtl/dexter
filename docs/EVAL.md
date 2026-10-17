@@ -83,6 +83,29 @@ pytest tests/test_integration.py::test_conversation_source_evaluation_dates_retr
 Produkcioni pre/posle eval čeka privatni skup pitanja i ručnu proveru sažetaka pravog
 brzog modela u Telegramu. Privatni razgovori nisu preuzimani niti dodavani u git.
 
+## F2.3 — parametri seckanja (17.10.2026)
+
+Šest sintetičkih dokumenata o projektima, po šest kontrolnih upita; preklapanje 200.
+PostgreSQL 14 i pgvector 0.8.1 su pravi, embedding je deterministička vreća reči.
+Kandidati se mere nad istim izvornim tekstom, uz ponovno seckanje iz baze.
+
+| CHUNK_CHARS | recall@5 | MRR | Delova | ms po upitu |
+|---|---|---|---|---|
+| 600 | 1.0 | 1.0 | 66 | 2.15 |
+| 1200 (prethodna podrazumevana vrednost) | 1.0 | 1.0 | 24 | 1.12 |
+| 2000 (izabrano posle F2.3) | 1.0 | 1.0 | 18 | 1.09 |
+
+Izabrano je 2000: na ovom skupu nema pada kvaliteta, uz 25% manje delova od 1200.
+Razlika vremena 1200/2000 je premala za zaključak o brzini; kriterijum izbora je broj
+delova pri jednakom kvalitetu. Ovo nije potvrda optimalne veličine na privatnom korpusu
+i pravim embedding modelima: za to ponoviti isti eval nad korisnikovim pitanjima.
+Sačuvani tekst, otisak parametara i transakcijska zamena omogućavaju ponavljanje merenja
+i nastavak posle greške bez gubitka prethodnog indeksa.
+
+Reprodukcija: `pytest tests/test_integration.py::test_chunk_sizes_evaluation_and_reindex_from_saved_text -s`
+uz `TEST_DATABASE_URL`. `scripts/reindex_all.py` prijavljuje stare dokumente bez izvornog
+teksta, umesto da ih prećutno preskoči.
+
 ## Šablon zapisa promene
 
 - Datum i verzija/commit:

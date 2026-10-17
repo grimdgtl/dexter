@@ -8,7 +8,7 @@ tip — umesto da bot padne tek kad prvi put zatreba ta vrednost.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://apu:apu@localhost:5432/apu"
 
     embed_provider: Literal["openai", "local"] = "openai"
+    chunk_chars: int = Field(2000, ge=100)
+    chunk_overlap: int = Field(200, ge=0)
     openai_api_key: str | None = None
     notion_api_key: str | None = None
     semantic_index_cron: str = "0 4 * * *"
@@ -55,6 +57,12 @@ class Settings(BaseSettings):
 
     history_turns: int = 12
     log_level: str = "INFO"
+
+    @model_validator(mode="after")
+    def valid_chunking(self):
+        if self.chunk_overlap >= self.chunk_chars:
+            raise ValueError("CHUNK_OVERLAP mora biti manji od CHUNK_CHARS.")
+        return self
 
     @property
     def embed_dim(self) -> int:

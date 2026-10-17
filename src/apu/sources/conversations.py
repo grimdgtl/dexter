@@ -125,7 +125,8 @@ async def reindex() -> dict:
             state_key = f"conversation_summary:{cfg.telegram_owner_chat_id}:{day}"
             previous = await db.fetchval(
                 """SELECT s.value FROM kv_state s JOIN documents d ON d.id = $2
-                   WHERE s.key = $1 AND d.content_hash = s.value->>'document_hash'""",
+                   WHERE s.key = $1 AND d.content_hash = s.value->>'document_hash'
+                     AND d.content_text IS NOT NULL""",
                 state_key,
                 doc_id,
             )

@@ -838,3 +838,61 @@ async def test_conversation_failure_keeps_index_and_progress(
     monkeypatch.setattr(store, "embed", original_embed)
     assert (await conversations.reindex())["indeksirano"] == 1
     assert (await conversations.reindex())["preskoceno"] == 1
+
+
+async def test_chunk_sizes_evaluation_and_reindex_from_saved_text(db, monkeypatch):
+    import json
+    import time
+
+    from apu.config import settings
+    from apu.rag import store
+    from evals.rag_eval import metrics
+    from scripts.reindex_all import reindex_all
+
+    cfg = settings()
+    docs = []
+    for i, name in enumerate(("Orion", "Atlas", "Vega", "Sirius", "Deneb", "Altair")):
+        text = (
+            "\n\n".join(
+                f"Projekat {name}: oblast {j}. Dogovor o razvoju sajta, održavanju i rokovima. " * 4
+                for j in range(12)
+            )
+            + f"\n\n{name}: konačni rok isporuke je petak, vodi ga Marko."
+        )
+        docs.append((f"test:{i}", name, text))
+        await store.upsert_document(f"test:{i}", "test", name, text)
+    results = []
+    for size in (600, 1200, 2000):
+        monkeypatch.setattr(cfg, "chunk_chars", size)
+        await reindex_all()
+        ranks = []
+        start = time.perf_counter()
+        for _, name, _ in docs:
+            ranks.append(
+                [h.document_id for h in await store.search(f"{name} konačni rok isporuke")]
+            )
+        result = metrics(ranks, [d[0] for d in docs], 5)
+        result |= {
+            "chars": size,
+            "chunks": await db.fetchval("SELECT count(*) FROM chunks"),
+            "ms_po_upitu": round((time.perf_counter() - start) * 1000 / len(docs), 2),
+        }
+        results.append(result)
+        assert result["recall_at_k"] == 1
+        assert (
+            await db.fetchval("SELECT content_text FROM documents WHERE id=$1", docs[0][0])
+            == docs[0][2]
+        )
+        assert (await reindex_all())["preskoceno"] == len(docs)
+    print("F2.3 test eval:", json.dumps(results))
+    original = await db.fetchval("SELECT content_hash FROM documents WHERE id=$1", docs[0][0])
+    monkeypatch.setattr(cfg, "chunk_chars", 600)
+    monkeypatch.setattr(store, "embed", AsyncMock(side_effect=RuntimeError("Prekid")))
+    with pytest.raises(RuntimeError):
+        await reindex_all()
+    assert (
+        await db.fetchval("SELECT content_hash FROM documents WHERE id=$1", docs[0][0]) == original
+    )
+    await db.execute("UPDATE documents SET content_text=NULL WHERE id=$1", docs[0][0])
+    with pytest.raises(ValueError, match="Nedostaje izvorni tekst"):
+        await reindex_all()

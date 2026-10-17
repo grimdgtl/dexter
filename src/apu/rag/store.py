@@ -15,6 +15,7 @@ import hashlib
 import logging
 from dataclasses import dataclass
 
+from apu.config import settings
 from apu.db import pool
 from apu.rag.chunking import chunk_text
 from apu.rag.embed import embed, embed_one
@@ -53,8 +54,14 @@ async def upsert_document(
     content_hash = hashlib.sha256(f"{title}\n{text}".encode()).hexdigest()
     db = pool()
 
-    existing = await db.fetchval("SELECT content_hash FROM documents WHERE id = $1", doc_id)
-    if existing == content_hash:
+    cfg = settings()
+    fingerprint = f"v2:{cfg.chunk_chars}:{cfg.chunk_overlap}:{cfg.embed_provider}:{cfg.embed_dim}"
+    existing = await db.fetchrow("SELECT * FROM documents WHERE id = $1", doc_id)
+    if (
+        existing
+        and existing["content_hash"] == content_hash
+        and existing["index_fingerprint"] == fingerprint
+    ):
         return 0
 
     chunks = chunk_text(text, title=title)
@@ -63,8 +70,10 @@ async def upsert_document(
     async with db.acquire() as conn, conn.transaction():
         await conn.execute("DELETE FROM documents WHERE id = $1", doc_id)  # kaskadno briše delove
         await conn.execute(
-            "INSERT INTO documents (id, source, title, url, content_hash) VALUES ($1,$2,$3,$4,$5)",
-            doc_id, source, title, url, content_hash,
+            """INSERT INTO documents
+               (id, source, title, url, content_hash, content_text, index_fingerprint)
+               VALUES ($1,$2,$3,$4,$5,$6,$7)""",
+            doc_id, source, title, url, content_hash, text, fingerprint,
         )  # fmt: skip
         await conn.executemany(
             "INSERT INTO chunks (document_id, ord, text, embedding) VALUES ($1, $2, $3, $4)",
