@@ -517,3 +517,12 @@ model poziv, jedna rezervacija i jedan Telegram poziv. „Ne šalji”, tišina 
 mrežna isporuka ostaju zabeleženi. Prelaz 21:59 → 22:00 tokom modelskog poziva sprečava
 slanje. Pravi Anthropic SDK sa respx odgovorom proverava JSON i usage, uz promenljive
 podatke izvan statičnog prompta. Ručno proveriti relevantnost uvida i stvarne naloge.
+
+## F6.3 — nedeljni pregled (17.10.2026)
+
+Novi raspored koristi eksplicitno `day_of_week='sun'`, 20:00 u TIMEZONE; test proverava
+sledeći termin za nedelju, uz očuvane jutarnje/dnevne poslove. Model dobija događaje
+tekuće nedelje, potvrđene done_at zapise i korisnikove izjave; asistentski predlozi su
+izostavljeni iz potvrda završetka. Strukturisan izlaz ima dva spiska i jedno polje
+predloga. Test baze čuva jedan nedeljni pregled, latinicu i odvojenu oznaku weekly_review, bez ponovljene isporuke. Kvalitet sažetka pravog modela ostaje ručna provera.
+Pohvala navika u 22:00 iz v1 nije preneta u ovom zadatku i ostaje F1b.8.

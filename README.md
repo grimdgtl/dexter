@@ -548,3 +548,13 @@ koji bi mogao prekršiti tihe sate. Uvid ne šalje mejlove niti menja spoljne po
 
 F1b alati i ostali stari poslovi ostaju zaseban, nezavršen deo plana: ova čitanja
 su uvedena radi izričito tražene Faze 6, bez označavanja F1b kao završene.
+
+Nedeljni pregled (F6.3) je zaseban posao nedeljom u 20:00, sa istom zaštitom isporuke
+kao dnevni uvid. Obuhvata tekuću nedelju od ponedeljka, završene obaveze prema
+`done_at`, otvorene rokove i do 200 poslednjih korisnikovih izjava iz tog perioda.
+Predlozi asistenta ne predstavljaju završene poslove. Notion `Done` bez datuma
+završetka nije dokaz da je zadatak završen baš ove nedelje. Model vraća odvojene
+liste urađenog/kašnjenja i jedno polje predloga, koje kod pretvara u jednu poruku.
+
+Stara nedeljna pohvala navika u 22:00 nije zamenjena ovim pregledom. U Python verziji
+njen prenos i dalje čeka F1b.8; novi posao ne označava taj deo pariteta kao završen.

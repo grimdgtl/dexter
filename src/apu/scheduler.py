@@ -50,7 +50,7 @@ def start(bot: Bot) -> AsyncIOScheduler:
             job.__name__,
             lambda: job(*args),
             bot=bot,
-            notify_failure=job not in (proactive.daily, commitments.remind),
+            notify_failure=job not in (proactive.daily, proactive.weekly, commitments.remind),
         )
 
     sched.add_job(safe, CronTrigger.from_crontab("0 6 * * *", timezone=tz),
@@ -68,6 +68,12 @@ def start(bot: Bot) -> AsyncIOScheduler:
         CronTrigger.from_crontab("30 8 * * *", timezone=tz),
         args=[proactive.daily, bot],
         id="daily_insight",
+    )
+    sched.add_job(
+        safe,
+        CronTrigger(day_of_week="sun", hour=20, minute=0, timezone=tz),
+        args=[proactive.weekly, bot],
+        id="weekly_review",
     )
     if sources.available():
         sched.add_job(safe, CronTrigger.from_crontab(settings().semantic_index_cron, timezone=tz),

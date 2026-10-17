@@ -346,8 +346,11 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   glavni model vrati JSON `{posalji: bool, poruka: str, razlog: str}`. Šalje
   najviše jednu poruku dnevno, nikad u tihim satima (`QUIET_HOURS=22-07`). Sve
   odluke (i "ne šalji") se beleže za pregled.
-- [ ] **F6.3 Nedeljni pregled.** Nedelja 20:00: šta je urađeno, šta kasni, jedan
+- [x] **F6.3 Nedeljni pregled.** Nedelja 20:00: šta je urađeno, šta kasni, jedan
   konkretan predlog. Postojeća nedeljna pohvala (22:00) ostaje.
+
+  > IZMENA: Na zahtev korisnika F6 se radi pre završene F1b. Pohvala navika iz v1
+  > još nije preneta u Python (F1b.8); pregled u 20:00 je zaseban posao i ne menja je.
 - [ ] **F6.4 Povratna informacija.** 👍 / 👎 dugmad na proaktivnim porukama →
   tabela; poslednjih 10 ocenjenih primera ide u prompt posla za uvid.
 - [ ] **F6.5 Eval persone.** `evals/persona/`: 20 scenarija razgovora + rubrika

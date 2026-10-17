@@ -2114,3 +2114,57 @@ async def test_daily_insight_real_sdk_json_and_usage_are_isolated(
     assert "promenljivo" in request["messages"][0]["content"]
     assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='daily_insight'") == 1
     bot.send_message.assert_not_awaited()
+
+
+async def test_weekly_review_uses_this_weeks_completed_promises_and_user_statements(
+    db, monkeypatch
+):
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import commitments, llm, proactive
+    from apu.agent import history
+
+    tz = ZoneInfo("Europe/Belgrade")
+    now = datetime(2026, 10, 18, 20, tzinfo=tz)
+    text = "Poslaću ponudu do petka."
+    await commitments.save(commitments.Commitment(tekst=text, rok="2026-10-16", dokaz=text), text)
+    await db.execute("UPDATE commitments SET status='done',done_at=$1", now.replace(day=16))
+    await history.append(
+        1,
+        [
+            {"role": "user", "content": "Završio sam ugovor."},
+            {"role": "assistant", "content": "Predlažem da uradim i prezentaciju."},
+        ],
+    )
+    await db.execute("UPDATE messages SET created_at=$1", now.replace(day=16))
+    monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={}))
+    context = await proactive.collect_weekly(now)
+    assert len(context["završene_obaveze"]) == 1
+    assert context["izjave_korisnika"]["podaci"][0]["tekst"] == "Završio sam ugovor."
+    assert "prezentaciju" not in json.dumps(context)
+    create = AsyncMock(
+        return_value=SimpleNamespace(
+            stop_reason="end_turn",
+            content=[
+                SimpleNamespace(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "uradjeno": ["Послата понуда.", "Završen ugovor."],
+                            "kasni": [],
+                            "predlog": "Odvoji u ponedeljak 30 minuta za pregled novih rokova.",
+                        }
+                    ),
+                )
+            ],
+        )
+    )
+    monkeypatch.setattr(llm, "create", create)
+    bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=10)))
+    assert await proactive.weekly(bot, now)
+    assert not await proactive.weekly(bot, now)
+    text = bot.send_message.await_args.args[1]
+    assert "Poslata ponuda." in text and text.count("Predlog:") == 1
+    assert create.await_args.kwargs["purpose"] == "weekly_review"

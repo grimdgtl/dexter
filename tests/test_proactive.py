@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
 
@@ -36,3 +37,14 @@ async def test_collect_marks_missing_sources_without_inventing_empty_state(monke
     assert data["kalendar"]["status"] == "isključeno"
     assert data["činjenice"]["status"] == "greška"
     assert "tajna" not in str(data)
+
+
+def test_weekly_scheduler_is_sunday_at_twenty_and_preserves_other_jobs(monkeypatch):
+    from apu import scheduler
+
+    monkeypatch.setattr(scheduler.AsyncIOScheduler, "start", lambda self: None)
+    schedule = scheduler.start(SimpleNamespace())
+    now = datetime(2026, 10, 17, 12, tzinfo=ZoneInfo("Europe/Belgrade"))
+    fire = schedule.get_job("weekly_review").trigger.get_next_fire_time(None, now)
+    assert fire.weekday() == 6 and (fire.hour, fire.minute) == (20, 0)
+    assert schedule.get_job("daily_insight") and schedule.get_job("morning")
