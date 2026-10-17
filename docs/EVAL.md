@@ -526,3 +526,12 @@ tekuće nedelje, potvrđene done_at zapise i korisnikove izjave; asistentski pre
 izostavljeni iz potvrda završetka. Strukturisan izlaz ima dva spiska i jedno polje
 predloga. Test baze čuva jedan nedeljni pregled, latinicu i odvojenu oznaku weekly_review, bez ponovljene isporuke. Kvalitet sažetka pravog modela ostaje ručna provera.
 Pohvala navika u 22:00 iz v1 nije preneta u ovom zadatku i ostaje F1b.8.
+
+## F6.4 — povratna informacija (17.10.2026)
+
+Pre: nema trajnih ocena korisnosti proaktivnog javljanja. Posle: sve tri nove vrste
+proaktivnih poruka imaju zasebnu vote rutu. Vlasnik može zameniti ocenu iste poruke;
+tuđ chat i pogrešan Telegram ID se odbijaju. Test čuva 11 primera, menja prvi,
+a dnevni uvid dobija tačno poslednjih deset sa najnovijom ocenom. Primeri nisu deo
+statičnog prompta. Callback test potvrđuje da ocena ne odlazi na potvrdu alata.
+Uticaj stvarnih korisnikovih ocena na korisnost narednih uvida treba ručno oceniti.

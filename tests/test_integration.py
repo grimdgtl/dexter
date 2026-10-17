@@ -56,7 +56,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE proactive_deliveries, proactive_runs, commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE proactive_feedback, proactive_deliveries, proactive_runs, commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -1931,7 +1931,7 @@ async def test_commitment_reminder_is_local_day_once_and_respects_quiet(db, monk
     monkeypatch.setattr(settings(), "quiet_hours", "22-07")
     text = "Poslaću ponudu Marku do sutra."
     await commitments.save(commitments.Commitment(tekst=text, rok="2026-10-18", dokaz=text), text)
-    bot = SimpleNamespace(send_message=AsyncMock())
+    bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=100)))
     tz = ZoneInfo("Europe/Belgrade")
     assert await commitments.remind(bot, datetime(2026, 10, 17, 23, tzinfo=tz)) == 0
     now = datetime(2026, 10, 17, 9, tzinfo=tz)
@@ -2168,3 +2168,47 @@ async def test_weekly_review_uses_this_weeks_completed_promises_and_user_stateme
     text = bot.send_message.await_args.args[1]
     assert "Poslata ponuda." in text and text.count("Predlog:") == 1
     assert create.await_args.kwargs["purpose"] == "weekly_review"
+
+
+async def test_feedback_validates_message_upserts_and_adds_ten_examples_to_insight(db, monkeypatch):
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import feedback, llm, proactive
+
+    ids = []
+    for i in range(11):
+        item = await db.fetchval(
+            "INSERT INTO proactive_runs (kind,local_date,status,decision,telegram_message_id) VALUES ('daily','2026-10-16','sent',$1,$2) RETURNING id",
+            {"posalji": True, "poruka": f"Primer {i}", "razlog": "Kontrola"},
+            100 + i,
+        )
+        ids.append(item)
+        assert await feedback.record("daily", item, 1, chat_id=1, message_id=100 + i)
+    assert len(await feedback.recent()) == 10
+    assert not await feedback.record("daily", ids[0], -1, chat_id=999, message_id=100)
+    assert not await feedback.record("daily", ids[0], -1, chat_id=1, message_id=999)
+    assert await feedback.record("daily", ids[0], -1, chat_id=1, message_id=100)
+    assert await db.fetchval("SELECT count(*) FROM proactive_feedback") == 11
+    assert (await feedback.recent())[0]["ocena"] == -1
+    monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={}))
+    create = AsyncMock(
+        return_value=SimpleNamespace(
+            stop_reason="end_turn",
+            content=[
+                SimpleNamespace(
+                    type="text", text='{"posalji":false,"poruka":"","razlog":"Nema novog."}'
+                )
+            ],
+        )
+    )
+    monkeypatch.setattr(llm, "create", create)
+    await proactive.daily(
+        SimpleNamespace(send_message=AsyncMock()),
+        datetime(2026, 10, 17, 8, 30, tzinfo=ZoneInfo("Europe/Belgrade")),
+    )
+    context = json.loads(create.await_args.kwargs["messages"][0]["content"])
+    assert len(context["povratna_informacija"]) == 10
+    assert context["povratna_informacija"][0]["poruka"] == "Primer 0"
+    assert "Primer 0" not in create.await_args.kwargs["system"]

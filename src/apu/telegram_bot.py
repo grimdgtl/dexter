@@ -20,7 +20,7 @@ from telegram.ext import (
     filters,
 )
 
-from apu import jobs, memory, receipts, status, tts, usage
+from apu import feedback, jobs, memory, receipts, status, tts, usage
 from apu.agent import history, loop
 from apu.config import settings
 from apu.pismo import u_latinicu
@@ -333,7 +333,8 @@ def build(app: Application) -> None:
     app.add_handler(CommandHandler("troskovi", cmd_costs))
     app.add_handler(CommandHandler("rashodi", cmd_expenses))
     app.add_handler(CommandHandler("memorija", cmd_memory))
-    app.add_handler(CallbackQueryHandler(on_button))
+    app.add_handler(CallbackQueryHandler(feedback.on_vote, pattern=r"^vote:"))
+    app.add_handler(CallbackQueryHandler(on_button, pattern=r"^(ok|no):"))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(

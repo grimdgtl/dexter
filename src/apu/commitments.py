@@ -73,6 +73,7 @@ async def done(item_id: int) -> bool:
 
 
 async def remind(bot, now: datetime | None = None) -> int:
+    from apu import feedback
     from apu.config import settings
 
     now = local_now(now)
@@ -93,13 +94,15 @@ async def remind(bot, now: datetime | None = None) -> int:
         )
         if not item:
             continue
+        text = u_latinicu(
+            f"Podsetnik za sutra ({item['rok']}): {item['tekst']}"
+            + (f" — {item['osoba']}" if item["osoba"] else "")
+        )
         try:
-            await bot.send_message(
+            message = await bot.send_message(
                 settings().telegram_owner_chat_id,
-                u_latinicu(
-                    f"Podsetnik za sutra ({item['rok']}): {item['tekst']}"
-                    + (f" — {item['osoba']}" if item["osoba"] else "")
-                ),
+                text,
+                reply_markup=feedback.keyboard("commitment", item["id"]),
             )
         except Exception as exc:
             await pool().execute(
@@ -109,7 +112,11 @@ async def remind(bot, now: datetime | None = None) -> int:
             )
             raise
         await pool().execute(
-            "UPDATE commitments SET reminder_sent_at=$2 WHERE id=$1", item["id"], now
+            "UPDATE commitments SET reminder_sent_at=$2,reminder_message_id=$3,reminder_text=$4 WHERE id=$1",
+            item["id"],
+            now,
+            getattr(message, "message_id", None),
+            text,
         )
         sent += 1
     return sent

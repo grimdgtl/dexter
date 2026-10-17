@@ -558,3 +558,10 @@ liste urađenog/kašnjenja i jedno polje predloga, koje kod pretvara u jednu por
 
 Stara nedeljna pohvala navika u 22:00 nije zamenjena ovim pregledom. U Python verziji
 njen prenos i dalje čeka F1b.8; novi posao ne označava taj deo pariteta kao završen.
+
+Ocene proaktivnih poruka (F6.4): dnevni uvid, nedeljni pregled i podsetnik za obavezu
+imaju 👍/👎 dugmad. Ocena se vezuje za isporučenu poruku i njen Telegram ID, prihvata
+se samo od vlasnika i može se promeniti bez pravljenja duplikata. Migracija 012
+čuva ocene. Poslednjih deset ocenjenih poruka sa ocenom ulaze u promenljiv kontekst
+sledećeg dnevnog uvida, bez izmene SYSTEM_PROMPT-a i bez automatskog treniranja modela.
+Dugmad za ocenjivanje imaju zasebnu callback rutu i ne potvrđuju niti otkazuju alate.

@@ -351,7 +351,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
   > IZMENA: Na zahtev korisnika F6 se radi pre završene F1b. Pohvala navika iz v1
   > još nije preneta u Python (F1b.8); pregled u 20:00 je zaseban posao i ne menja je.
-- [ ] **F6.4 Povratna informacija.** 👍 / 👎 dugmad na proaktivnim porukama →
+- [x] **F6.4 Povratna informacija.** 👍 / 👎 dugmad na proaktivnim porukama →
   tabela; poslednjih 10 ocenjenih primera ide u prompt posla za uvid.
 - [ ] **F6.5 Eval persone.** `evals/persona/`: 20 scenarija razgovora + rubrika
   (konkretan predlog, ne izmišlja, kratko, latinica, kaže kad se ne slaže);
