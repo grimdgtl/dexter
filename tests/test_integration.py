@@ -2212,3 +2212,141 @@ async def test_feedback_validates_message_upserts_and_adds_ten_examples_to_insig
     assert len(context["povratna_informacija"]) == 10
     assert context["povratna_informacija"][0]["poruka"] == "Primer 0"
     assert "Primer 0" not in create.await_args.kwargs["system"]
+
+
+async def test_persona_twenty_scenarios_compare_without_real_tools_or_history(db):
+    from apu.agent.prompts import SYSTEM_PROMPT
+    from evals import persona_eval
+
+    report = await persona_eval.compare(SYSTEM_PROMPT, simulation=True)
+    assert report["simulacija"] is True
+    assert report["pre"]["n"] == report["posle"]["n"] == 20
+    assert report["pre"]["prompt_sha256"] == report["posle"]["prompt_sha256"]
+    assert all(r["latinica_koda"] for r in report["posle"]["slučajevi"])
+    cases = {r["id"]: r for r in report["posle"]["slučajevi"]}
+    for name in ("potvrda_mejl", "potvrda_brisanje"):
+        assert cases[name]["čeka_potvrdu"] and not cases[name]["izvršeni_kontrolni_alati"]
+    assert await db.fetchval("SELECT count(*) FROM messages") == 0
+    assert await db.fetchval("SELECT count(*) FROM commitments") == 0
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='persona_judge'") == 40
+
+
+async def test_persona_judge_real_sdk_uses_deep_model_and_validates_http_scores(
+    db, monkeypatch, respx_mock, anthropic_client
+):
+    import json
+
+    from apu import llm
+    from apu.agent.prompts import SYSTEM_PROMPT
+    from apu.config import settings
+    from evals import persona_eval
+    from evals.persona_support import HERE, read_cases
+
+    rows = read_cases()[:1]
+    rubric = json.loads((HERE / "rubric.json").read_text())
+    cfg = settings()
+    route = respx_mock.post("https://api.anthropic.com/v1/messages").mock(
+        side_effect=[
+            httpx.Response(
+                200,
+                json={
+                    "id": "candidate",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": cfg.model_main,
+                    "content": [{"type": "text", "text": "Здраво! Ту сам."}],
+                    "stop_reason": "end_turn",
+                    "usage": {"input_tokens": 100, "output_tokens": 10},
+                },
+            ),
+            httpx.Response(
+                200,
+                json={
+                    "id": "judge",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": cfg.model_deep,
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": json.dumps(
+                                {
+                                    "ocene": {k: 4 for k in persona_eval.Scores.model_fields},
+                                    "obrazlozenje": "Kratak i primeren odgovor.",
+                                }
+                            ),
+                        }
+                    ],
+                    "stop_reason": "end_turn",
+                    "usage": {"input_tokens": 200, "output_tokens": 50},
+                },
+            ),
+        ]
+    )
+    monkeypatch.setattr(llm, "client", lambda: anthropic_client)
+    result = await persona_eval.evaluate(rows, SYSTEM_PROMPT, rubric)
+    assert result["n"] == 1 and result["slučajevi"][0]["odgovor"] == "Zdravo! Tu sam."
+    assert json.loads(route.calls[1].request.content)["model"] == cfg.model_deep
+    assert (
+        await db.fetchval("SELECT model FROM usage WHERE purpose='persona_judge'") == cfg.model_deep
+    )
+
+
+async def test_reminder_rechecks_quiet_between_messages(db, monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import commitments
+
+    tz = ZoneInfo("Europe/Belgrade")
+    times = iter(
+        [
+            datetime(2026, 10, 17, 21, 59, tzinfo=tz),
+            datetime(2026, 10, 17, 21, 59, tzinfo=tz),
+            datetime(2026, 10, 17, 22, tzinfo=tz),
+        ]
+    )
+    for text in ("Sutra šaljem ponudu.", "Sutra proveravam ugovor."):
+        await commitments.save(
+            commitments.Commitment(tekst=text, rok="2026-10-18", dokaz=text), text
+        )
+    monkeypatch.setattr(commitments, "local_now", lambda now=None: next(times))
+    bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=9)))
+    assert await commitments.remind(bot) == 1
+    assert bot.send_message.await_count == 1
+
+
+async def test_insight_rechecks_quiet_after_reserving_delivery(db, monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import llm, proactive
+
+    tz = ZoneInfo("Europe/Belgrade")
+    times = iter(
+        [
+            datetime(2026, 10, 17, 21, 59, tzinfo=tz),
+            datetime(2026, 10, 17, 21, 59, tzinfo=tz),
+            datetime(2026, 10, 17, 22, tzinfo=tz),
+        ]
+    )
+    monkeypatch.setattr(proactive, "local_now", lambda now=None: next(times))
+    monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={}))
+    monkeypatch.setattr(
+        llm,
+        "create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                stop_reason="end_turn",
+                content=[
+                    SimpleNamespace(
+                        type="text", text='{"posalji":true,"poruka":"Rok je sutra.","razlog":"Rok"}'
+                    )
+                ],
+            )
+        ),
+    )
+    bot = SimpleNamespace(send_message=AsyncMock())
+    assert not await proactive.daily(bot)
+    bot.send_message.assert_not_awaited()
+    assert await db.fetchval("SELECT status FROM proactive_runs") == "policy_blocked"

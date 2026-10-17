@@ -35,6 +35,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -48,6 +49,10 @@ jobs:
         run: ruff check src tests evals scripts
       - name: Testovi sa bazom
         run: pytest
+      - name: Persona pre i posle izmene sistemskog prompta
+        env:
+          PERSONA_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD' }}
+        run: python -m evals.persona_gate --base "$PERSONA_BASE"
 
   docker:
     runs-on: ubuntu-latest

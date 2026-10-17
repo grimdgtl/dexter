@@ -353,10 +353,13 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > još nije preneta u Python (F1b.8); pregled u 20:00 je zaseban posao i ne menja je.
 - [x] **F6.4 Povratna informacija.** 👍 / 👎 dugmad na proaktivnim porukama →
   tabela; poslednjih 10 ocenjenih primera ide u prompt posla za uvid.
-- [ ] **F6.5 Eval persone.** `evals/persona/`: 20 scenarija razgovora + rubrika
+- [x] **F6.5 Eval persone.** `evals/persona/`: 20 scenarija razgovora + rubrika
   (konkretan predlog, ne izmišlja, kratko, latinica, kaže kad se ne slaže);
   jaki model kao sudija ocenjuje 1–5. Pokreće se pre i posle svake izmene
   `SYSTEM_PROMPT`-a; rezultat u `EVAL.md`.
+
+  > Kontrolni prolaz 20 pre + 20 posle je izvršen; stvarno ocenjivanje modelom
+  > ostaje ručna provera. SYSTEM_PROMPT nije menjan; detalji su u `docs/EVAL.md`.
 
 ---
 

@@ -297,6 +297,16 @@ async def run(bot, kind: str, now: datetime | None = None) -> bool:
                 run_id,
             )
             if not claimed:
+                await conn.execute(
+                    "UPDATE proactive_runs SET status='already_claimed' WHERE id=$1", run_id
+                )
+                return False
+            current = local_now(now)
+            if quiet(current) or current.date() != started.date():
+                await conn.execute(
+                    "UPDATE proactive_runs SET status='policy_blocked',error='Tihi sati ili nov dan posle rezervacije.' WHERE id=$1",
+                    run_id,
+                )
                 return False
             await conn.execute("UPDATE proactive_runs SET status='sending' WHERE id=$1", run_id)
             try:

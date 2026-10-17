@@ -76,7 +76,8 @@ async def remind(bot, now: datetime | None = None) -> int:
     from apu import feedback
     from apu.config import settings
 
-    now = local_now(now)
+    reference = now
+    now = local_now(reference)
     if quiet(now):
         return 0
     rows = await pool().fetch(
@@ -85,6 +86,9 @@ async def remind(bot, now: datetime | None = None) -> int:
     )
     sent = 0
     for row in rows:
+        current = local_now(reference)
+        if quiet(current) or current.date() != now.date():
+            break
         # Telegram nema idempotency key; claim pre mreže sprečava duplikat pri retry-u.
         item = await pool().fetchrow(
             """UPDATE commitments SET reminder_claimed_at=$2 WHERE id=$1 AND status='open'

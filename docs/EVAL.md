@@ -535,3 +535,24 @@ tuđ chat i pogrešan Telegram ID se odbijaju. Test čuva 11 primera, menja prvi
 a dnevni uvid dobija tačno poslednjih deset sa najnovijom ocenom. Primeri nisu deo
 statičnog prompta. Callback test potvrđuje da ocena ne odlazi na potvrdu alata.
 Uticaj stvarnih korisnikovih ocena na korisnost narednih uvida treba ručno oceniti.
+
+## F6.5 — eval persone (17.10.2026)
+
+Pripremljeno je 20 javnih sintetičkih scenarija, pet kriterijuma 1–5 i postupak
+poređenja starog/novog sistemskog prompta. Fiksni datum, istorija i činjenice su isti
+za obe verzije. Kandidat prolazi kroz agentsku petlju, a svi alati i upis istorije
+su kontrolni. Jaki model je zaseban sudija; nevažeći JSON, ocene van 1–5 i budžetsko
+preusmeravanje sudije odbijaju merenje. Pravi SDK kroz respx proverava ugovor sudije.
+
+Izvršen je kontrolni CLI prolaz: 20 pre + 20 posle, po 46 simuliranih poziva,
+oba prompt otiska su ista jer SYSTEM_PROMPT nije menjan. Svih 40 korisničkih izlaza
+prolazi latinicu; scenariji slanja i brisanja čekaju potvrdu i ne pozivaju kontrolnu
+funkciju izvršenja. Brisanje memorije je zato usklađeno sa pravilom confirm=True.
+Provereno je i zaustavljanje niza podsetnika kada počnu tihi sati.
+
+Otisak skupa: `e983baf821accb48dc5eef780c397aa72c6150abc4b35127ce04ae214229f657`.
+Otisak rubrike: `c46a2259c75068593a354513f505ff4fc32b683603660d79360b8e1e36cdd936`.
+Simulirani sudija vraća kontrolne ocene; one se NE koriste kao brojke kvaliteta
+persone. Stvarni MODEL_MAIN/MODEL_DEEP eval nije izvršen i ostaje ručna provera.
+CI uslov proverava stvarni, kompletni pre/posle izveštaj pri promeni SYSTEM_PROMPT-a;
+kontrolni izveštaj ne može zadovoljiti taj uslov. Automatskih plaćenih poziva u CI-ju nema.

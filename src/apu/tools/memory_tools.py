@@ -44,7 +44,9 @@ async def memory_list(args: ListArgs) -> list[dict]:
 
 
 @tool(
-    "memory_forget", "Briše činjenicu iz memorije. Koristi kad korisnik kaže da nešto nije tačno."
+    "memory_forget",
+    "Briše činjenicu iz memorije. Koristi kad korisnik kaže da nešto nije tačno.",
+    confirm=True,
 )
 async def memory_forget(args: ForgetArgs) -> dict:
     return {"obrisano": await memory.forget(args.id)}

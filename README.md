@@ -565,3 +565,16 @@ se samo od vlasnika i može se promeniti bez pravljenja duplikata. Migracija 012
 čuva ocene. Poslednjih deset ocenjenih poruka sa ocenom ulaze u promenljiv kontekst
 sledećeg dnevnog uvida, bez izmene SYSTEM_PROMPT-a i bez automatskog treniranja modela.
 Dugmad za ocenjivanje imaju zasebnu callback rutu i ne potvrđuju niti otkazuju alate.
+
+Persona eval (F6.5): `evals/persona/` sadrži 20 sintetičkih razgovora i rubriku 1–5
+za konkretnost, odsustvo izmišljanja, kratkoću, latinicu i primereno neslaganje.
+`python -m evals.persona_eval --simulacija --prethodni-ref HEAD` proverava ceo postupak
+bez pravih API-ja. Za stvarno poređenje pre/posle koristi važeći Anthropic ključ i
+Git ref pre izmene; kandidat je MODEL_MAIN, a sudija MODEL_DEEP. Izveštaj sadrži
+odgovore, ocene, kontrolne alate, tokene i otiske svih ulaza. Alati i istorija su
+izolovani od stvarnog razgovora. Detalji su u `evals/persona/README.md`.
+
+CI pri promeni `SYSTEM_PROMPT` zahteva stvarni izveštaj za prethodni i novi prompt
+na istom skupu/rubrici; simulacija ne prolazi taj uslov. Nepromenjen prompt ne pravi
+API pozive u CI-ju. Brisanje memorije (`memory_forget`) sada takođe traži dugme
+potvrde; persona scenario proverava da se brisanje ne izvrši pre potvrde.
