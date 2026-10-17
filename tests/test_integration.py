@@ -896,3 +896,76 @@ async def test_chunk_sizes_evaluation_and_reindex_from_saved_text(db, monkeypatc
     await db.execute("UPDATE documents SET content_text=NULL WHERE id=$1", docs[0][0])
     with pytest.raises(ValueError, match="Nedostaje izvorni tekst"):
         await reindex_all()
+
+
+async def test_rerank_evaluation_top_twenty_cost_and_fallback(db, monkeypatch):
+    import json
+    import time
+
+    from apu import llm
+    from apu.config import settings
+    from apu.rag import store
+    from evals.rag_eval import metrics
+
+    for i in range(24):
+        await store.upsert_document(f"test:{i}", "test", f"Ponuda {i}", "Ponuda za projekat i rok.")
+    start = time.perf_counter()
+    baseline = await store.search("ponuda projekat", limit=20)
+    before_ms = (time.perf_counter() - start) * 1000
+    expected = baseline[7].document_id
+    before = metrics([[h.document_id for h in baseline]], [expected], 5)
+
+    async def create(**kwargs):
+        payload = json.loads(kwargs["messages"][0]["content"])
+        assert len(payload["odlomci"]) == 20
+        target = next(
+            i for i, h in enumerate(payload["odlomci"]) if h["naslov"] == baseline[7].title
+        )
+        await asyncio.sleep(0.015)
+        return SimpleNamespace(
+            content=[
+                SimpleNamespace(
+                    type="text", text=json.dumps([target] + [i for i in range(20) if i != target])
+                )
+            ],
+            stop_reason="end_turn",
+            usage=SimpleNamespace(
+                input_tokens=1000,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
+            ),
+        )
+
+    model = AsyncMock(side_effect=create)
+    monkeypatch.setattr(
+        llm, "client", lambda: SimpleNamespace(messages=SimpleNamespace(create=model))
+    )
+    monkeypatch.setattr(settings(), "rerank", "on")
+    start = time.perf_counter()
+    ranked = await store.search("ponuda projekat", limit=5)
+    after_ms = (time.perf_counter() - start) * 1000
+    after = metrics([[h.document_id for h in ranked]], [expected], 5)
+    assert len(ranked) == 5 and ranked[0].document_id == expected
+    assert before["recall_at_k"] == 0 and after["recall_at_k"] == after["mrr"] == 1
+    cost = float(await db.fetchval("SELECT sum(cost_usd) FROM usage WHERE purpose='rerank'"))
+    assert cost > 0
+    print(
+        "F2.4 test eval:",
+        json.dumps(
+            {
+                "pre": before,
+                "posle": after,
+                "ms_pre": round(before_ms, 2),
+                "ms_posle": round(after_ms, 2),
+                "cost_usd": cost,
+            }
+        ),
+    )
+    model.side_effect = RuntimeError("Nedostupan model")
+    fallback = await store.search("ponuda projekat", limit=5)
+    assert [h.document_id for h in fallback] == [h.document_id for h in baseline[:5]]
+    monkeypatch.setattr(settings(), "rerank", "off")
+    model.reset_mock()
+    await store.search("ponuda projekat")
+    model.assert_not_awaited()

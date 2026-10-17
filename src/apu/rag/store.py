@@ -114,7 +114,9 @@ async def search(query: str, limit: int = 6, source: str | None = None) -> list[
     vec_ids = [r["id"] for r in vector_rows]
     kw_ids = [r["id"] for r in keyword_rows]
     scores = rrf(vec_ids, kw_ids)
-    top = sorted(scores, key=scores.__getitem__, reverse=True)[:limit]
+    top = sorted(scores, key=scores.__getitem__, reverse=True)[
+        : 20 if settings().rerank == "on" else limit
+    ]
     if not top:
         return []
 
@@ -124,7 +126,7 @@ async def search(query: str, limit: int = 6, source: str | None = None) -> list[
         top,
     )
     by_id = {r["id"]: r for r in rows}
-    return [
+    hits = [
         Hit(
             chunk_id=cid,
             document_id=by_id[cid]["document_id"],
@@ -137,3 +139,8 @@ async def search(query: str, limit: int = 6, source: str | None = None) -> list[
         )
         for cid in top
     ]
+    if settings().rerank == "on":
+        from apu.rag.rerank import rerank
+
+        hits = await rerank(query, hits)
+    return hits[:limit]

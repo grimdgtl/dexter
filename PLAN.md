@@ -269,7 +269,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   `razgovor:YYYY-MM-DD`. Tako radi "šta smo pričali o X u septembru".
 - [x] **F2.3 Parametri seckanja.** `CHUNK_CHARS` i `CHUNK_OVERLAP` u config;
   `scripts/reindex_all.py`; izmeri 600 / 1200 / 2000 i ostavi najbolji.
-- [ ] **F2.4 Reranking.** Opciono (`RERANK=on`): brzi model dobije pitanje i top
+- [x] **F2.4 Reranking.** Opciono (`RERANK=on`): brzi model dobije pitanje i top
   20 odlomaka, vrati redosled kao JSON listu indeksa; uzmi top `limit`. Izmeri
   recall, latenciju i cenu; zadrži samo ako se isplati.
 - [ ] **F2.5 Negativna pitanja i prag.** Eval podržava `"dokument": null`

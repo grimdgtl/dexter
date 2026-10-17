@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     embed_provider: Literal["openai", "local"] = "openai"
     chunk_chars: int = Field(2000, ge=100)
     chunk_overlap: int = Field(200, ge=0)
+    rerank: Literal["on", "off"] = "off"
     openai_api_key: str | None = None
     notion_api_key: str | None = None
     semantic_index_cron: str = "0 4 * * *"

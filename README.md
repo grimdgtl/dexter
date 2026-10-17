@@ -90,6 +90,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
 | `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
 | `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
+| `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
 | `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze i transkripciju |
 | `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
 | `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
@@ -114,6 +115,10 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 
 `notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
 `knowledge_reindex` osvežava sve podešene izvore ili zadati `izvor`.
+Sa `RERANK=on`, brzi model preslaže do 20 hybrid odlomaka pre odabira `limit` rezultata.
+Vraćeni indeksi moraju biti potpuna permutacija; pri grešci, odsečenom odgovoru ili
+čekanju dužem od 10 sekundi ostaje hybrid redosled. Trošak se beleži kao `usage.purpose=rerank`.
+Opcija je podrazumevano ugašena dok privatni eval ne potvrdi dobitak u odnosu na cenu i čekanje.
 Nepromenjen tekst ne troši nove embedding pozive; nestali dokumenti brišu se tek posle
 uspešnog obilaska celog izvora. API verzija Notion-a je fiksirana na `2025-09-03`.
 

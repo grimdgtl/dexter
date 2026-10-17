@@ -106,6 +106,31 @@ Reprodukcija: `pytest tests/test_integration.py::test_chunk_sizes_evaluation_and
 uz `TEST_DATABASE_URL`. `scripts/reindex_all.py` prijavljuje stare dokumente bez izvornog
 teksta, umesto da ih prećutno preskoči.
 
+## F2.4 — opciono preslaganje (17.10.2026)
+
+Kontrolni test koristi 24 kratka sintetička dokumenta i top 20 hybrid kandidata.
+Očekivani dokument bira se na osmom mestu početne pretrage. Lažni model sa poznatim
+tačnim odgovorom pomera ga na prvo mesto; dodaje se kontrolisano čekanje od 15 ms.
+Ovo proverava primenu redosleda, ograničenje kandidata i evidenciju troška, a ne sposobnost
+pravog modela da prepozna relevantan odlomak. Embeddinzi su deterministički.
+
+| Stanje | recall@5 | MRR | ms po upitu | USD po upitu za preslaganje |
+|---|---|---|---|---|
+| RERANK=off (pre) | 0.0 | 0.125 | 5.54 | 0 |
+| RERANK=on (kontrolni model) | 1.0 | 1.0 | 18.35 | 0.000125 |
+
+Cena je obračun iz postojećeg `usage.PRICES` za sintetičkih 1000 ulaznih i 50 izlaznih
+tokena; nije račun pružaoca usluge niti provera aktuelnog cenovnika. Neispravan JSON,
+dupli/nedostajući indeksi, boolean indeksi, odsečen odgovor, nedostupan model i timeout
+zadržavaju hybrid redosled. Gašenje opcije ne zove model.
+
+Odluka: **RERANK ostaje off**. Kontrolisani dobitak ne dokazuje isplativost pravog modela.
+Opcija je dostupna za privatni pre/posle eval, gde treba porediti iste upite i indeks,
+recall/MRR, stvarne `usage` tokene/cenu i ukupnu latenciju, pa uključiti samo uz koristan dobitak.
+
+Reprodukcija: `pytest tests/test_integration.py::test_rerank_evaluation_top_twenty_cost_and_fallback -s`
+uz `TEST_DATABASE_URL`.
+
 ## Šablon zapisa promene
 
 - Datum i verzija/commit:
