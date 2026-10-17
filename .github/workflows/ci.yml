@@ -48,3 +48,23 @@ jobs:
         run: ruff check src tests evals scripts
       - name: Testovi sa bazom
         run: pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        extras: ["", "local"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build bez preuzimanja težina modela
+        run: docker build --build-arg EXTRAS="${{ matrix.extras }}" -t apu-provera .
+      - name: Provera migracija, skripti i trajnog keša kao neprivilegovan korisnik
+        run: |
+          docker volume create apu-provera-data
+          docker run --rm -v apu-provera-data:/app/data apu-provera python -c 'import os; from pathlib import Path; import scripts.reembed; assert os.getuid() == 10001; assert list(Path("/app/migrations").glob("*.sql")); p = Path(os.environ["HF_HOME"]); p.mkdir(parents=True, exist_ok=True); (p / "provera").write_text("sačuvano")'
+          docker run --rm -v apu-provera-data:/app/data apu-provera python -c 'import os; from pathlib import Path; assert (Path(os.environ["HF_HOME"]) / "provera").read_text() == "sačuvano"'
+          docker volume rm apu-provera-data

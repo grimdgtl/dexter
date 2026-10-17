@@ -384,3 +384,34 @@ Za poređenje sa API-jem pripremi 20 svojih snimaka i ručne prepise prema
 `python -m evals.voice_eval`. Rezultat je zbirni WER i vreme, bez snimaka ili
 transkripata u izveštaju. `--modeli small medium` izvršava samo lokalne modele.
 Stvarno merenje još nije izvršeno: korisnik je potvrdio da snimci nisu pripremljeni.
+
+Docker slika sa lokalnim modelima gradi se komandom:
+
+```bash
+docker compose build --build-arg EXTRAS=local bot
+docker compose up -d bot
+```
+
+Na Coolify-ju zadaj isti build argument `EXTRAS=local`. Bez njega slika sadrži samo
+API zavisnosti. Lokalna varijanta instalira CPU PyTorch prema
+[uv dokumentaciji](https://docs.astral.sh/uv/guides/integration/pytorch/), pa ne
+preuzima CUDA pakete. Težine modela preuzimaju se pri prvoj upotrebi, uz mrežni pristup;
+build ne preuzima težine. `HF_HOME=/app/data/hf` je unutar postojećeg `apu-data`
+volume-a, koji čuva i E5 i faster-whisper keš pri zameni kontejnera. Na serveru
+volume mora biti upisiv korisniku UID 10001. Ne uklanjaj ga između deploy-a.
+
+Za promenu postojećeg indeksa prvo zaustavi bot, napravi backup i podesi novi
+embedding model u `.env`, pa pokreni `docker compose run --rm bot python -m
+scripts.reembed`. Tek posle uspeha pokreni bot. Skripte su uključene u obe slike.
+
+Server sa 8 GB deli RAM između OS-a, PostgreSQL-a, PyTorch-a i Whisper-a. Počni sa
+E5 small i Whisper small/int8. Težine u disk kešu nisu isto što i RAM učitanih modela;
+oba modela mogu ostati učitana istovremeno. Inference je serijalizovan po vrsti modela,
+ali embedding i glas mogu raditi paralelno. Base/medium i prelazak između modela
+zahtevaju posebno merenje vršne potrošnje. Pre produkcije prati `docker stats` tokom
+prvog učitavanja, reembed-a i obrade glasa; proveri da nema OOM restarta i da ostaje
+prostor bazi. Granica od 8 GB nije potvrđena ovim lokalnim benchmark-om.
+
+CI gradi obe Docker varijante, proverava importe lokalnih biblioteka, CPU PyTorch,
+migracije, skripte i opstanak upisivog keša između dva kontejnera. U ovoj radnoj
+okolini Docker nije dostupan, pa stvarni lokalni build i provera servera ostaju ručni.

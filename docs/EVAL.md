@@ -369,3 +369,16 @@ Mock test sa 20 kontrolnih ulaza proverava HTTP, izbor oba modela, normalizaciju
 pravi jiwer obračun i izvršavanje lenjog generatora van event loop-a. Kontrolni WER
 ne predstavlja kvalitet modela. Posle pripreme snimaka pokrenuti
 `python -m evals.voice_eval` i ovde uneti stvarne rezultate sva tri modela.
+
+## F4.4 — Docker za lokalne modele (17.10.2026)
+
+Pre: slika uvek instalira osnovne zavisnosti. Posle: `EXTRAS=local` uključuje
+sentence-transformers i faster-whisper, uz CPU PyTorch. Build proverava importe,
+ali ne preuzima modele. Postojeći volume `/app/data`, sa `HF_HOME=/app/data/hf`,
+čuva preuzete težine kroz zamenu kontejnera; skripte za migraciju dostupne su u slici.
+CI ima build matricu za obe varijante i proveru upisivog trajnog keša kao UID 10001.
+
+Docker CLI/daemon nisu dostupni u ovoj okolini: stvarni build i CI izvršenje nisu
+potvrđeni. Ruff i svi testovi sa PostgreSQL-om prolaze. Na serveru od 8 GB treba
+posebno izmeriti vršni RAM za E5 small + Whisper small, zatim eventualno base/medium.
+Lokalna E5 vremena iz F4.2 ne predstavljaju Docker ili Hetzner merenje.

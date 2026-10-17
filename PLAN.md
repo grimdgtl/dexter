@@ -308,8 +308,11 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
   > Implementacija i evaluacioni alat su spremni. Stvarno WER merenje čeka snimke;
   > korisnik je potvrdio da još nisu pripremljeni (vidi `docs/EVAL.md`).
-- [ ] **F4.4 Docker sa lokalnim modelima.** Build argument `EXTRAS=local`, keš
+- [x] **F4.4 Docker sa lokalnim modelima.** Build argument `EXTRAS=local`, keš
   modela u volume-u, napomena o RAM-u (8 GB server).
+
+  > Build i merenje RAM-a na serveru čekaju ručnu proveru; lokalno nema Docker-a.
+  > CI sadrži proveru obe slike i trajnog keša.
 - [ ] **F4.5 (opciono) Fine-tuning malog klasifikatora.** Iz `usage` + istorije
   napravi skup "poruka → nivo modela" i fine-tune-uj mali višejezični model
   (npr. `distilbert-base-multilingual-cased`) sa `transformers` Trainer-om.
