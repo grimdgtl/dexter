@@ -353,3 +353,19 @@ Reprodukcija u izdvojenoj praznoj `_bench` bazi:
 `RAG_MIN_SIMILARITY=0.8 python -m evals.embedding_bench --modeli small base`.
 Privatni korpus i ključ su potrebni za završno OpenAI poređenje; javnih osam upita
 nije dovoljno za izbor najboljeg modela u produkciji.
+
+## F4.3 — evaluacija glasa (17.10.2026)
+
+Stvarni WER i vreme za Whisper API, small i medium **nisu izmereni**. Korisnik je
+potvrdio da 20 sopstvenih snimaka sa ručnim prepisima još nije pripremljeno.
+`evals/voice_eval.py` zahteva tačno 20 jedinstvenih postojećih fajlova, koristi isti
+skup i normalizaciju za sve modele i meri zbirni WER pomoću jiwer-a. Učitavanje
+lokalnog modela meri se odvojeno; API red ostaje neizvršen ako nema ključa.
+Izveštaj sadrži otisak korpusa i zbirne metrike, bez privatnih prepisa.
+
+Pre: keš lokalnog Whisper-a nije razlikovao imena modela. Posle: small i medium
+imaju odgovarajuće učitavanje, uz CPU/int8 i serijalizovanu obradu u radnoj niti.
+Mock test sa 20 kontrolnih ulaza proverava HTTP, izbor oba modela, normalizaciju,
+pravi jiwer obračun i izvršavanje lenjog generatora van event loop-a. Kontrolni WER
+ne predstavlja kvalitet modela. Posle pripreme snimaka pokrenuti
+`python -m evals.voice_eval` i ovde uneti stvarne rezultate sva tri modela.

@@ -7,5 +7,6 @@
 .ruff_cache
 data
 evals/questions.jsonl
+evals/voice
 evals/results
 dist

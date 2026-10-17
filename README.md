@@ -373,3 +373,14 @@ bez nje iznos ostaje null. Lokalno `api_usd=0` ne uključuje server, struju i vr
 Bez OPENAI_API_KEY OpenAI se jasno označava kao neizmeren.
 Modeli: https://huggingface.co/intfloat/multilingual-e5-small i
 https://huggingface.co/intfloat/multilingual-e5-base.
+
+Lokalni glas: `TRANSCRIBE_PROVIDER=local`, `WHISPER_LOCAL_MODEL=small` (ili `medium`)
+uz `.[local]`. CPU inference koristi int8 i radnu nit; i lenjo čitanje Whisper
+segmenata završava se u toj niti. Promena imena modela učitava odgovarajući model.
+Svaki transkript prolazi kroz `pismo.u_latinicu`.
+
+Za poređenje sa API-jem pripremi 20 svojih snimaka i ručne prepise prema
+[`evals/voice/README.md`](evals/voice/README.md), instaliraj `.[local,dev]` i pokreni
+`python -m evals.voice_eval`. Rezultat je zbirni WER i vreme, bez snimaka ili
+transkripata u izveštaju. `--modeli small medium` izvršava samo lokalne modele.
+Stvarno merenje još nije izvršeno: korisnik je potvrdio da snimci nisu pripremljeni.

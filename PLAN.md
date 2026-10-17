@@ -302,9 +302,12 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F4.2 Lokalni embeddinzi.** `EMBED_PROVIDER=local` (`multilingual-e5-small`,
   već u kodu): uporedi sa OpenAI kroz eval (kvalitet, ms po upitu, $). Probaj i
   `multilingual-e5-base`. Rezultat u `EVAL.md`.
-- [ ] **F4.3 Lokalni Whisper.** `TRANSCRIBE_PROVIDER=local`: 20 sopstvenih
+- [x] **F4.3 Lokalni Whisper.** `TRANSCRIBE_PROVIDER=local`: 20 sopstvenih
   glasovnih poruka sa ručnim transkriptima u `evals/voice/`, meri WER (`jiwer`)
   i vreme za API i lokalno (`small`, `medium`).
+
+  > Implementacija i evaluacioni alat su spremni. Stvarno WER merenje čeka snimke;
+  > korisnik je potvrdio da još nisu pripremljeni (vidi `docs/EVAL.md`).
 - [ ] **F4.4 Docker sa lokalnim modelima.** Build argument `EXTRAS=local`, keš
   modela u volume-u, napomena o RAM-u (8 GB server).
 - [ ] **F4.5 (opciono) Fine-tuning malog klasifikatora.** Iz `usage` + istorije

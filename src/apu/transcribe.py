@@ -6,6 +6,7 @@ Rezultat uvek prolazi kroz u_latinicu — Whisper srpski piše ćirilicom.
 import asyncio
 import io
 import logging
+import threading
 from functools import lru_cache
 
 import httpx
@@ -17,6 +18,7 @@ log = logging.getLogger(__name__)
 
 # Primer latinice u promptu gura Whisper ka latinici (ali ne garantuje — zato u_latinicu).
 HINT = "Zdravo, zakaži mi sastanak sa Markom u utorak i proveri mejlove."
+_local_lock = threading.Lock()
 
 
 async def _openai(audio: bytes, filename: str) -> str:
@@ -34,18 +36,20 @@ async def _openai(audio: bytes, filename: str) -> str:
         return r.json()["text"]
 
 
-@lru_cache
-def _local_model():
+@lru_cache(maxsize=1)
+def _local_model(name: str):
     from faster_whisper import WhisperModel
 
-    name = settings().whisper_local_model
     log.info("Učitavam lokalni Whisper (%s)…", name)
     return WhisperModel(name, device="cpu", compute_type="int8")
 
 
 def _local_sync(audio: bytes) -> str:
-    segments, _ = _local_model().transcribe(io.BytesIO(audio), language="sr", initial_prompt=HINT)
-    return " ".join(s.text.strip() for s in segments)
+    with _local_lock:
+        segments, _ = _local_model(settings().whisper_local_model).transcribe(
+            io.BytesIO(audio), language="sr", initial_prompt=HINT
+        )
+        return " ".join(s.text.strip() for s in segments)
 
 
 async def transcribe(audio: bytes, filename: str = "voice.ogg") -> str:

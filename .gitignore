@@ -6,4 +6,7 @@ __pycache__/
 .ruff_cache/
 data/
 evals/questions.jsonl
+evals/voice/*
+!evals/voice/README.md
+!evals/voice/manifest.example.jsonl
 dist/
