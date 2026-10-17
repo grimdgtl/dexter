@@ -49,6 +49,7 @@ class Tool:
     # Kako da se akcija prikaže korisniku pre potvrde (samo za confirm=True)
     preview: Callable[[Any], str] | None = None
     requires: tuple[str, ...] = ()
+    prepare: Callable[[Any], Awaitable[Any]] | None = None
 
     def disabled_reason(self) -> str | None:
         cfg = settings()
@@ -87,6 +88,7 @@ def tool(
     confirm: bool = False,
     preview: Callable[[Any], str] | None = None,
     requires: list[str] | None = None,
+    prepare: Callable[[Any], Awaitable[Any]] | None = None,
 ):
     """Dekorator koji registruje alat. Tip prvog argumenta je pydantic model ulaza."""
 
@@ -95,7 +97,15 @@ def tool(
         if name in _TOOLS:
             raise ValueError(f"Alat {name} je već registrovan.")
         _TOOLS[name] = Tool(
-            name, description, args_model, fn, enabled, confirm, preview, tuple(requires or ())
+            name,
+            description,
+            args_model,
+            fn,
+            enabled,
+            confirm,
+            preview,
+            tuple(requires or ()),
+            prepare,
         )
         return fn
 
@@ -142,9 +152,15 @@ async def execute(name: str, raw_input: dict) -> Outcome:
         return Outcome(f"Neispravni argumenti za {name}: {e.errors(include_url=False)}", True)
 
     if t.confirm:
+        try:
+            if t.prepare:
+                args = await t.prepare(args)
+            opis = t.preview(args) if t.preview else f"{name}({args.model_dump_json()})"
+        except Exception as e:
+            log.exception("Priprema alata %s nije uspela", name)
+            return Outcome(f"Priprema nije uspela: {e}", True)
         token = secrets.token_urlsafe(8)
         _PENDING[token] = Pending(t, args)
-        opis = t.preview(args) if t.preview else f"{name}({args.model_dump_json()})"
         text = _serialize(
             {
                 "status": "ceka_potvrdu",

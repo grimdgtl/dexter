@@ -20,7 +20,7 @@ from telegram.ext import (
     filters,
 )
 
-from apu import jobs, memory, status, usage
+from apu import jobs, memory, receipts, status, usage
 from apu.agent import history, loop
 from apu.config import settings
 from apu.pismo import u_latinicu
@@ -139,9 +139,11 @@ async def _answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE, content) -> No
                         ]
                     ]
                 )
-                await ctx.bot.send_message(
-                    chat_id, f"Čeka potvrdu:\n{u_latinicu(opis)}", reply_markup=kb
-                )
+                parts = _split(u_latinicu(f"Čeka potvrdu:\n{opis}"))
+                for i, part in enumerate(parts):
+                    await ctx.bot.send_message(
+                        chat_id, part, **({"reply_markup": kb} if i == len(parts) - 1 else {})
+                    )
     except Exception:
         log.exception("Agent pukao")
         await ctx.bot.send_message(chat_id, "⚠️ Nešto je puklo. Probaj ponovo za koji trenutak.")
@@ -222,7 +224,10 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     action, token = q.data.split(":", 1)
     if action == "ok":
         result = await registry.confirm(token)
-        reply = f"{q.message.text}\n\n✅ Izvršeno.\n{u_latinicu(result)[:3000]}"
+        outcome = (
+            "⚠️ Nije izvršeno." if result.startswith(("Greška:", "Ova akcija")) else "✅ Izvršeno."
+        )
+        reply = f"{q.message.text}\n\n{outcome}\n{u_latinicu(result)[:3000]}"
         note = f"[Sistem: korisnik je potvrdio akciju. Rezultat: {result[:1500]}]"
     else:
         registry.cancel(token)
@@ -230,7 +235,10 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         note = "[Sistem: korisnik je otkazao predloženu akciju.]"
     # Agent mora da zna šta se desilo sa akcijom kad nastavi razgovor.
     await history.add_note(update.effective_chat.id, note)
-    await q.edit_message_text(u_latinicu(reply))
+    parts = _split(u_latinicu(reply))
+    await q.edit_message_text(parts[0])
+    for part in parts[1:]:
+        await ctx.bot.send_message(update.effective_chat.id, part)
 
 
 async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -254,6 +262,19 @@ async def cmd_costs(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if _owner(update):
         days = int(ctx.args[0]) if ctx.args and ctx.args[0].isdigit() else 7
         await update.message.reply_text(await usage.report(days))
+
+
+async def cmd_expenses(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _owner(update):
+        return
+    try:
+        if len(ctx.args) > 1:
+            raise ValueError("Upotreba: /rashodi [YYYY-MM].")
+        text = await receipts.report(ctx.args[0] if ctx.args else None)
+    except ValueError as exc:
+        text = str(exc)
+    for part in _split(u_latinicu(text)):
+        await update.message.reply_text(part)
 
 
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -292,6 +313,7 @@ def build(app: Application) -> None:
     app.add_handler(CommandHandler("poslovi", cmd_jobs))
     app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(CommandHandler("troskovi", cmd_costs))
+    app.add_handler(CommandHandler("rashodi", cmd_expenses))
     app.add_handler(CommandHandler("memorija", cmd_memory))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))

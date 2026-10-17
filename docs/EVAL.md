@@ -436,3 +436,22 @@ upisuje dokument. Respx odgovor kroz pravi Anthropic SDK proverava sliku, latini
 i beleženje `purpose=ocr`; integracioni test nalazi prepis u PostgreSQL pretrazi.
 Proveren je i skenirani mejl prilog kroz read-only IMAP tok. Ovo nisu stvarni OCR
 rezultati modela: tačnost, latenciju i trošak na ličnim skenovima proveriti ručno.
+
+## F5.2 — računi i rashodi (17.10.2026)
+
+Pre: slika je bila samo ulaz za razgovor. Posle: alat bez slobodnih fiskalnih
+argumenata uzima jednu sliku iz tekuće razmene, forsira `receipt_data` tool poziv,
+proverava strukturisan izlaz i čuva pripremljeni snimak podataka za dugme potvrde.
+Nema INSERT-a pre potvrde; otkazivanje/istek ne upisuju podatke. Migracija 009 uvodi
+`expenses`, tačne decimalne iznose i jedinstven otisak slike protiv duplog upisa.
+
+Pravi SDK kroz izolovan respx transport proverava tool_choice, sliku, latinicu i
+potrošnju. Negativni testovi odbijaju nevažeći datum/PIB, NaN, negativan iznos,
+više od dve decimale i PDV veći od ukupnog iznosa. Kontekst slike je izolovan između
+razgovora; tekstualni zahtev ne koristi prethodnu sliku. Test baze potvrđuje da
+naknadno izdvajanje druge slike ne menja prvi nacrt, ponovni upis iste slike ostaje
+jedan rashod, a oktobarski izveštaj odvojeno sabira RSD/EUR i isključuje novembar.
+Provereni su dugi pregledi i neuspešna potvrda bez lažne poruke o uspehu.
+
+Ovo su kontrolni računi i mock modelski odgovori. Ručno proveriti kvalitet čitanja
+stvarnih računa i dugmad u Telegramu; automatski testovi ne mere tačnost vision modela.

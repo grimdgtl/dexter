@@ -56,7 +56,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -1768,3 +1768,75 @@ async def test_scanned_pdf_is_searchable_only_after_complete_ocr(db, monkeypatch
     assert "Уговор" not in await db.fetchval(
         "SELECT content_text FROM documents WHERE id='fajl:sken.pdf'"
     )
+
+
+async def test_receipt_confirmation_snapshot_deduplication_and_month_report(db, monkeypatch):
+    import base64
+    from decimal import Decimal
+
+    from apu import llm, receipts
+    from apu.tools import registry
+
+    monkeypatch.setattr(registry, "_PENDING", {})
+    raw = {
+        "prodavac": "Прва продавница",
+        "pib": "123456789",
+        "datum": "2026-10-17",
+        "ukupno": "120.50",
+        "pdv": None,
+        "valuta": "RSD",
+        "stavke": [],
+    }
+    create = AsyncMock(
+        return_value=SimpleNamespace(
+            stop_reason="tool_use",
+            content=[SimpleNamespace(type="tool_use", name="receipt_data", input=raw)],
+        )
+    )
+    monkeypatch.setattr(llm, "create", create)
+
+    async def prepare_image(data):
+        with receipts.image_scope(
+            [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": base64.b64encode(data).decode(),
+                    },
+                }
+            ]
+        ):
+            result = await registry.execute("receipt_extract", {})
+            assert not result.is_error and result.pending
+            return result.pending[0]
+
+    first = await prepare_image(b"prva slika")
+    assert await db.fetchval("SELECT count(*) FROM expenses") == 0
+    create.return_value.content[0].input = {
+        **raw,
+        "prodavac": "Druga prodavnica",
+        "ukupno": "999.00",
+    }
+    second = await prepare_image(b"druga slika")
+    assert "sačuvano" in await registry.confirm(first)
+    assert await db.fetchval("SELECT seller FROM expenses") == "Prva prodavnica"
+    assert await db.fetchval("SELECT total FROM expenses") == Decimal("120.50")
+    registry.cancel(second)
+    assert "istekla" in await registry.confirm(second)
+    assert await db.fetchval("SELECT count(*) FROM expenses") == 1
+    duplicate = await prepare_image(b"prva slika")
+    assert "već_sačuvano" in await registry.confirm(duplicate)
+    assert await db.fetchval("SELECT count(*) FROM expenses") == 1
+    assert await db.fetchval("SELECT total FROM expenses") == Decimal("120.50")
+    await db.execute("""INSERT INTO expenses (seller,issued_on,total,currency,items,source_sha256)
+        VALUES ('Drugi', '2026-10-31', 5, 'EUR', '[]', 'drugi'),
+               ('Novembar', '2026-11-01', 999, 'RSD', '[]', 'novembar')""")
+    report = await receipts.report("2026-10")
+    assert "RSD: 1 računa, ukupno 120.50" in report
+    assert "EUR: 1 računa, ukupno 5.00" in report
+    assert "999" not in report and "PDV nije pročitan" in report
+    assert "Nema" in await receipts.report("2026-09")
+    with pytest.raises(ValueError, match="Upotreba"):
+        await receipts.report("2026-13")

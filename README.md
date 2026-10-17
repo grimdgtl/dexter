@@ -458,3 +458,23 @@ OCR koristi `MODEL_MAIN` i evidentira potrošnju kao `usage.purpose=ocr`, uz dne
 budžet. Dokument se šalje Anthropic-u radi prepisa; `EMBED_PROVIDER=local` ne znači
 lokalni OCR. Sadržaj stranice model dobija kao podatak bez ovlašćenja za akcije.
 Kvalitet prepisa stvarnih skenova treba proveriti pre oslanjanja na brojeve i datume.
+
+Računi: uz jednu sliku traži izdvajanje ili čuvanje računa. `receipt_extract`
+čita aktuelnu sliku kroz forsiran strukturisan tool poziv, validira podatke Pydantic-om
+i šalje pregled prodavca, PIB-a sa računa, datuma, ukupnog iznosa, PDV-a i stavki.
+Agent ne prosleđuje te podatke kao argumente alata. Tek dugme **Potvrdi** upisuje
+u tabelu `expenses` (migracija 009); otkazivanje, istek ili neuspešno izdvajanje
+ne upisuju rashod. Pregled proveri prema slici, posebno iznose i datum.
+
+PIB ovde znači prepis PIB-a prodavca sa postojećeg računa; ne koristi se kao podatak
+izdavaoca nove fakture. Nedostajući PIB, PDV, valuta i nečitljive stavke ostaju prazni;
+prodavac, datum i pozitivan ukupni iznos su obavezni. Iznosi se čuvaju kao Decimal /
+PostgreSQL NUMERIC, bez float zaokruživanja. Potpuno ista slika se ne upisuje dva puta;
+druga fotografija istog računa zahteva da sam proveriš duplikat. Slika se ne čuva u
+`expenses`; ostaje SHA-256 i potvrđeni podaci. Slike u istoriji podležu postojećem
+čuvanju razgovora i mogu se ukloniti komandom `/reset`, koja ne briše rashode.
+
+`/rashodi` prikazuje tekući mesec po `TIMEZONE`, a `/rashodi 2026-10` izabrani mesec
+prema datumu sa računa. Iznosi se sabiraju zasebno po valuti; nepoznata valuta je
+odvojena i nedostajući PDV nije nula. `/troskovi` i dalje prikazuje samo API troškove.
+Izdvajanje slike evidentira se kao `usage.purpose=receipt_extract`.

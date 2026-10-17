@@ -326,7 +326,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
 - [x] **F5.1 OCR skenova.** PDF bez teksta → stranice u slike (`pypdfium2`) →
   Claude vision prepisuje tekst → indeks. Ograničenje `OCR_MAX_PAGES` (20).
-- [ ] **F5.2 Računi u podatke.** Slika računa → alat `receipt_extract` sa
+- [x] **F5.2 Računi u podatke.** Slika računa → alat `receipt_extract` sa
   strukturisanim izlazom (pydantic: prodavac, PIB, datum, ukupno, PDV, stavke)
   preko forsiranog tool poziva → tabela `expenses` (uz potvrdu). Komanda
   `/rashodi [mesec]` (NE `/troskovi`, ta je za API troškove).

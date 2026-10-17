@@ -13,7 +13,7 @@ import copy
 import logging
 from dataclasses import dataclass, field
 
-from apu import llm, memory, usage
+from apu import llm, memory, receipts, usage
 from apu.agent import history, summary
 from apu.agent.prompts import SYSTEM_PROMPT, turn_context
 from apu.agent.router import select_model
@@ -61,7 +61,7 @@ async def _run_tools(calls) -> tuple[list[dict], list[tuple[str, str]]]:
 
 async def run(chat_id: int, user_content: str | list[dict], *, on_text=None) -> AgentResult:
     """Obrađuje jednu korisnikovu poruku (tekst ili lista blokova sa slikom)."""
-    with usage.turn(chat_id):
+    with usage.turn(chat_id), receipts.image_scope(user_content):
         return await _run(chat_id, user_content, on_text=on_text)
 
 
