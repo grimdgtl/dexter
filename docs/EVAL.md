@@ -421,3 +421,18 @@ slične teme, pa izmeriti pravilo, lokalni model i pravi F3.2 klasifikator na is
 izdvojenom skupu (`--uporedi-api`, uz svesno pokretanje API troška).
 Testovi koriste lažne modele/API-je, a proveravaju vezu sa bazom, izolaciju razmena,
 privatnost izvoza, odbijanje neoznačenih/konfliktnih redova i curenje duplikata.
+
+## F5.1 — OCR skeniranih PDF-ova (17.10.2026)
+
+Pre: PDF bez tekstualnog sloja nije ulazio u indeks. Posle: stvarni pypdfium2
+renderer pravi PNG u radnoj niti, Claude vision prepisuje stranicu i ceo uspešan
+tekst ulazi u postojeći indeks. Mešoviti dokument zadržava tekstualne stranice;
+limit se proverava pre prvog modelskog poziva. PDFium je zaštićen globalnim mutex-om
+jer biblioteka nije thread-safe ni nad odvojenim dokumentima.
+
+Kontrolne provere: PNG za stranicu 240×320 ima 480×640 piksela; native PDF ne zove
+OCR; dve skenirane stranice uz limit 1 ne šalju nijedan poziv. Odsečen odgovor ne
+upisuje dokument. Respx odgovor kroz pravi Anthropic SDK proverava sliku, latinicu
+i beleženje `purpose=ocr`; integracioni test nalazi prepis u PostgreSQL pretrazi.
+Proveren je i skenirani mejl prilog kroz read-only IMAP tok. Ovo nisu stvarni OCR
+rezultati modela: tačnost, latenciju i trošak na ličnim skenovima proveriti ručno.

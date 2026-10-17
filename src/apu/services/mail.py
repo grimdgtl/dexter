@@ -5,7 +5,7 @@ import calendar
 import csv
 import hashlib
 from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from email.message import Message
 from html.parser import HTMLParser
@@ -16,7 +16,7 @@ from imap_tools.folder import FolderInfo
 
 from apu.config import Settings, settings
 from apu.pismo import u_latinicu
-from apu.rag.ingest import pdf_text
+from apu.rag.ingest import pdf_text, read_pdf
 
 MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
 REQUIRES = ["IMAP_HOST", "IMAP_USER", "IMAP_PASSWORD"]
@@ -108,6 +108,7 @@ class MailDocument:
     text: str
     skipped_attachments: int = 0
     modified_at: datetime | None = None
+    pdf_attachments: list[tuple[str, bytes]] = field(default_factory=list, repr=False)
 
 
 def message_id(message: MailMessage) -> str:
@@ -141,7 +142,7 @@ def _decode_text(part: Message) -> str:
         return data.decode("utf-8", errors="replace")
 
 
-def document(message: MailMessage) -> MailDocument:
+def document(message: MailMessage, *, defer_pdf: bool = False) -> MailDocument:
     sender = message.from_values
     sender_text = f"{sender.name} <{sender.email}>" if sender and sender.name else message.from_
     when = message.date.isoformat() if message.date_str else "(bez datuma)"
@@ -167,6 +168,7 @@ def document(message: MailMessage) -> MailDocument:
         "\n".join(plain).strip() or html_text("\n".join(html)),
     ]
     skipped = 0
+    pdf_attachments = []
     for attached, part in parts:
         if not attached:
             continue
@@ -177,6 +179,9 @@ def document(message: MailMessage) -> MailDocument:
         mime = attachment.content_type
         suffix = Path(attachment.filename).suffix.lower()
         if mime == "application/pdf" or suffix == ".pdf":
+            if defer_pdf:
+                pdf_attachments.append((attachment.filename, attachment.payload))
+                continue
             text = pdf_text(attachment.payload)
         elif (
             mime.startswith("text/")
@@ -197,6 +202,7 @@ def document(message: MailMessage) -> MailDocument:
         u_latinicu("\n\n".join(lines)),
         skipped,
         modified_at=message.date if message.date_str and message.date.tzinfo else None,
+        pdf_attachments=pdf_attachments,
     )
 
 
@@ -212,7 +218,7 @@ def _documents(cfg: Settings, since: date) -> Iterator[MailDocument]:
                 if key in seen:
                     continue
                 seen.add(key)
-                yield document(message)
+                yield document(message, defer_pdf=True)
 
 
 async def _in_thread(fn, *args):
@@ -234,6 +240,11 @@ async def documents(since: date) -> AsyncIterator[MailDocument]:
     iterator = _documents(settings(), since)
     try:
         while (item := await _in_thread(next, iterator, None)) is not None:
+            for name, data in item.pdf_attachments:
+                text = await read_pdf(data)
+                if text.strip():
+                    item.text += u_latinicu(f"\n\nPrilog: {name}\n\n{text}")
+            item.pdf_attachments.clear()
             yield item
     finally:
         await _in_thread(iterator.close)

@@ -1733,3 +1733,38 @@ async def test_finetune_holdout_reuses_f3_2_comparison(db):
     assert [r["n"] for r in reports] == [3, 3]
     assert reports[1]["tačnost"] == 1
     assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose = 'router'") == 3
+
+
+async def test_scanned_pdf_is_searchable_only_after_complete_ocr(db, monkeypatch):
+    import io
+
+    from pypdf import PdfWriter
+
+    from apu import llm
+    from apu.rag import ingest, store
+
+    pdf = PdfWriter()
+    pdf.add_blank_page(width=200, height=200)
+    out = io.BytesIO()
+    pdf.write(out)
+    monkeypatch.setattr(
+        llm,
+        "create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                stop_reason="end_turn",
+                content=[
+                    SimpleNamespace(
+                        type="text",
+                        text="Уговор за пројекат Орион. Рок је 21. октобар, обавезна је провера свих страница.",
+                    )
+                ],
+            )
+        ),
+    )
+    n, _ = await ingest.ingest_file("sken.pdf", out.getvalue())
+    assert n > 0
+    assert "Ugovor za projekat Orion" in (await store.search("projekat Orion"))[0].text
+    assert "Уговор" not in await db.fetchval(
+        "SELECT content_text FROM documents WHERE id='fajl:sken.pdf'"
+    )

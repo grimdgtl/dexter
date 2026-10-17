@@ -1,9 +1,4 @@
-"""Pipeline: fajl → tekst → indeks.
-
-Za sada: PDF (tekstualni), .txt, .md. Faza 5 dodaje skenirane PDF-ove i slike
-(OCR preko Claude vision), a izvori iz Notion-a, Drive-a i mejla dolaze kad se
-prebace ti alati (faza 1b) — svaki izvor samo zove `upsert_document`.
-"""
+"""Pipeline: fajl → tekst ili OCR → indeks."""
 
 import asyncio
 import io
@@ -12,7 +7,9 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from apu.config import settings
 from apu.pismo import u_latinicu
+from apu.rag import ocr
 from apu.rag.store import upsert_document
 
 
@@ -22,6 +19,24 @@ def pdf_text(data: bytes) -> str:
     return "\n\n".join(p for p in pages if p)
 
 
+def _pdf_pages(data: bytes) -> list[str]:
+    reader = PdfReader(io.BytesIO(data))
+    return [(p.extract_text() or "").strip() for p in reader.pages]
+
+
+async def read_pdf(data: bytes) -> str:
+    pages = await asyncio.to_thread(_pdf_pages, data)
+    missing = [i for i, text in enumerate(pages) if not text.strip()]
+    if len(missing) > settings().ocr_max_pages:
+        raise ValueError(
+            f"PDF traži OCR za {len(missing)} stranica; OCR_MAX_PAGES={settings().ocr_max_pages}. "
+            "Podeli dokument na manje celine. Ništa nije indeksirano."
+        )
+    for i in missing:
+        pages[i] = await ocr.read_page(data, i)
+    return "\n\n".join(pages)
+
+
 async def ingest_file(
     name: str,
     data: bytes,
@@ -29,17 +44,17 @@ async def ingest_file(
     *,
     modified_at: datetime | None = None,
 ) -> tuple[int, str]:
-    """Vraća (broj delova, poruka). PDF bez teksta je verovatno sken → treba OCR."""
+    """Vraća (broj delova, poruka); neuspešan OCR ne ostavlja delimičan indeks."""
     suffix = Path(name).suffix.lower()
     if suffix == ".pdf":
-        text = await asyncio.to_thread(pdf_text, data)
+        text = await read_pdf(data)
     elif suffix in {".txt", ".md", ".csv"}:
         text = data.decode("utf-8-sig", errors="replace")
     else:
         return 0, f"Format {suffix} još nije podržan."
 
     if len(text.strip()) < 50:
-        return 0, "Dokument nema čitljiv tekst (verovatno skeniran) — OCR dolazi u fazi 5."
+        return 0, "Dokument nema dovoljno čitljivog teksta za indeksiranje."
 
     n = await upsert_document(
         f"{source}:{name}",

@@ -140,3 +140,26 @@ async def test_mail_only_configuration_connects_to_reindex_scheduler(imap_server
     monkeypatch.setattr(scheduler.AsyncIOScheduler, "start", lambda self: None)
     sched = scheduler.start(SimpleNamespace())
     assert sched.get_job("knowledge_index") is not None
+
+
+async def test_scanned_pdf_attachment_is_ocr_processed_before_yield(
+    imap_server, make_mail, monkeypatch
+):
+    import io
+
+    from pypdf import PdfWriter
+
+    from apu.rag import ocr
+
+    pdf = PdfWriter()
+    pdf.add_blank_page(width=200, height=200)
+    out = io.BytesIO()
+    pdf.write(out)
+    imap_server.messages["INBOX"] = [
+        make_mail(attachments=[("sken.pdf", out.getvalue(), "application/pdf")])
+    ]
+    monkeypatch.setattr(ocr, "read_page", AsyncMock(return_value="Рок за испоруку је петак."))
+    async with aclosing(mail.documents(date(2025, 10, 15))) as docs:
+        item = await anext(docs)
+    assert "Rok za isporuku je petak." in item.text
+    assert not item.pdf_attachments and imap_server.closed

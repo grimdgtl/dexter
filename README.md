@@ -100,6 +100,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze i transkripciju |
 | `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
 | `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
+| `OCR_MAX_PAGES` | `20` | Najviše stranica bez tekstualnog sloja za OCR jednog PDF-a; prekoračenje odbija ceo uvoz |
 | `TIMEZONE` | `Europe/Belgrade` | Vremenska zona konteksta i zakazanih poslova |
 | `WEATHER_LAT` / `WEATHER_LON` | `44.8125` / `20.4612` | Koordinate prognoze |
 | `WEATHER_LOCATION` | `Beograd` | Naziv lokacije u porukama |
@@ -444,3 +445,16 @@ ostaju u ignorisanom `data/` folderu. Postojeći izlazni folder se ne prepisuje.
 Poređenje sa pravilom iz F3.2 koristi isti izdvojeni test. `--uporedi-api` dodatno
 izvršava i meri F3.2 API klasifikator na tom testu, uz važeći Anthropic ključ i bazu
 za beleženje troška. Trening ne menja aktivni `ROUTER_MODE` niti postavke bota.
+
+Skenirani PDF-ovi: stranice bez tekstualnog sloja prolaze kroz pypdfium2 → PNG →
+Claude vision, zatim u isti indeks kao tekstualni dokumenti. Mešoviti PDF čuva
+postojeći tekst i prepisuje samo ostale stranice. `OCR_MAX_PAGES=20` ograničava broj
+stranica za OCR po dokumentu; prekoračenje odbija ceo uvoz pre modelskog poziva.
+Podeli veći sken na manje PDF-ove. Neuspešan ili odsečen prepis ne ostavlja
+delimičan dokument. Prazne stranice mogu dati prazan prepis.
+
+Isti postupak važi za Telegram/folder uvoz, Drive PDF i PDF priloge mejla do 5 MB.
+OCR koristi `MODEL_MAIN` i evidentira potrošnju kao `usage.purpose=ocr`, uz dnevni
+budžet. Dokument se šalje Anthropic-u radi prepisa; `EMBED_PROVIDER=local` ne znači
+lokalni OCR. Sadržaj stranice model dobija kao podatak bez ovlašćenja za akcije.
+Kvalitet prepisa stvarnih skenova treba proveriti pre oslanjanja na brojeve i datume.

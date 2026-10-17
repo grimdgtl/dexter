@@ -59,6 +59,7 @@ class Settings(BaseSettings):
 
     transcribe_provider: Literal["openai", "local"] = "openai"
     whisper_local_model: str = "small"
+    ocr_max_pages: int = Field(20, ge=1, le=100)
 
     timezone: str = "Europe/Belgrade"
     weather_lat: float = 44.8125

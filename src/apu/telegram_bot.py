@@ -197,8 +197,18 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
     doc = update.message.document
     data = bytes(await (await doc.get_file()).download_as_bytearray())
-    n, poruka = await ingest_file(doc.file_name, data)
-    await update.message.reply_text(f"📄 {doc.file_name}: {poruka}")
+    try:
+        n, poruka = await ingest_file(doc.file_name, data)
+    except ValueError as exc:
+        await update.message.reply_text(u_latinicu(f"⚠️ {exc}"))
+        return
+    except Exception:
+        log.exception("Uvoz dokumenta nije uspeo")
+        await update.message.reply_text(
+            "⚠️ Uvoz nije uspeo. Proveri fajl i OCR_MAX_PAGES za skenove."
+        )
+        return
+    await update.message.reply_text(u_latinicu(f"📄 {doc.file_name}: {poruka}"))
     if n and update.message.caption:
         await _answer(update, ctx, f"(Upravo sam ti poslao fajl {doc.file_name}.) "
                                    f"{update.message.caption}")  # fmt: skip

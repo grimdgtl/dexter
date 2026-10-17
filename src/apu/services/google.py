@@ -14,7 +14,7 @@ from googleapiclient.http import MediaIoBaseUpload
 
 from apu.config import settings
 from apu.pismo import u_latinicu
-from apu.rag.ingest import pdf_text
+from apu.rag.ingest import read_pdf
 
 SCOPES = ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/drive"]
 REQUIRES = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"]
@@ -148,11 +148,7 @@ class Drive:
                 "type": mime,
                 "content": f"Fajl tipa {mime} nije tekstualni — ne mogu da ga pročitam ovde.",
             }
-        text = (
-            await asyncio.to_thread(pdf_text, data)
-            if mime == PDF
-            else data.decode("utf-8-sig", errors="replace")
-        )
+        text = await read_pdf(data) if mime == PDF else data.decode("utf-8-sig", errors="replace")
         return {
             "id": file_id,
             "name": u_latinicu(meta.get("name", "")),

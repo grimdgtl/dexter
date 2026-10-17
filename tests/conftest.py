@@ -16,6 +16,29 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 
 @pytest.fixture
+async def anthropic_client(respx_mock):
+    import httpx
+    from anthropic import AsyncAnthropic, _base_client
+
+    sdk_http = getattr(_base_client, "httpx2", httpx)
+
+    def transport(request):
+        response = respx_mock.handler(
+            httpx.Request(request.method, str(request.url), content=request.content)
+        )
+        return sdk_http.Response(
+            response.status_code, content=response.content, headers=response.headers
+        )
+
+    async with AsyncAnthropic(
+        api_key="test",
+        max_retries=0,
+        http_client=sdk_http.AsyncClient(transport=sdk_http.MockTransport(transport)),
+    ) as client:
+        yield client
+
+
+@pytest.fixture
 def pdf_bytes():
     from pypdf import PdfWriter
     from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
