@@ -91,6 +91,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `PROMPT_CACHE` | `on` | `off` uklanja sve cache breakpointe iz zahteva za poređenje troška |
 | `ROUTER_MODE` | `rule` | `classifier` uključuje brzi klasifikator; kvar vraća izbor pravilom |
 | `STREAMING` | `on` | Postepen prikaz u Telegramu; `off` šalje samo gotov odgovor |
+| `DAILY_BUDGET_USD` | nije postavljeno | Pozitivan dnevni budžet za modele iz `usage`; 80% upozorenje, 100% brzi model |
 | `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
 | `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
 | `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
@@ -311,3 +312,14 @@ a rizične akcije dugme za potvrdu. Istorija se upisuje tek posle završene agen
 Ako prikaz zakaže, bot pokušava da pošalje gotov odgovor; `STREAMING=off` vraća raniji
 način slanja. Prekid modelskog streama javlja grešku, bez upisa nepotpune razmene;
 već prijavljeni tokeni ulaze u `usage` i pri prekidu.
+
+`DAILY_BUDGET_USD` je opcion pozitivan iznos. Trošak se sabira iz `usage` po danu u
+`TIMEZONE`; na 80% bot upozorava, a na 100% svaki sledeći modelski poziv koristi
+`MODEL_FAST`, uključujući `/duboko`, streaming i pozadinske poslove. Upozorenja se
+pamte u PostgreSQL-u, pa se ne ponavljaju posle restarta. Od lokalne ponoći izbor
+modela ponovo radi uobičajeno. Neuspešno slanje upozorenja se ponavlja pri sledećoj proveri.
+Ako stanje budžeta ne može da se pročita, koristi se brzi model. Ovo je meko
+ograničenje: poziv koji prelazi prag i već započeti paralelni pozivi mogu prekoračiti
+iznos; dalji rad brzim modelom i dalje košta. Budžet obuhvata evidentirane modelske
+pozive, a ne IMAP/Google/Telegram, embeddinge ili transkripciju koji nisu u `usage`.
+Cene u `usage.PRICES` treba proveriti za konkretne modele. Bez promenljive je isključen.

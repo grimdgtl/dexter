@@ -100,6 +100,7 @@ async def run(chat_id: int, user_content: str | list[dict], *, on_text=None) -> 
             **streaming_args,
         )
         text = llm.text_of(response)
+        model = getattr(response, "model", model)
 
         if response.stop_reason == "max_tokens":
             # Presečeno usred alata → ne upisuj nesparene pozive (vidi history.py).

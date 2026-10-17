@@ -288,7 +288,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   uporedi tačnost i cenu sa pravilom; zadrži bolji.
 - [x] **F3.3 Streaming.** Tekst se pojavljuje dok nastaje: `messages.stream`,
   izmena Telegram poruke najviše jednom u sekundi; alati rade kao i pre.
-- [ ] **F3.4 Dnevni budžet.** `DAILY_BUDGET_USD`: upozorenje na 80%, na 100%
+- [x] **F3.4 Dnevni budžet.** `DAILY_BUDGET_USD`: upozorenje na 80%, na 100%
   sve ide na brzi model do ponoći. Test.
 - [ ] **F3.5 Sažimanje stare istorije.** Umesto bacanja razmena starijih od
   `HISTORY_TURNS`, održavaj tekući sažetak razgovora (tabela, brzi model) koji ide

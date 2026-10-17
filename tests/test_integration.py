@@ -1302,3 +1302,75 @@ async def test_streaming_agent_keeps_tool_flow_and_history(db, monkeypatch):
     saved = await history.load(7, 12)
     assert [m["role"] for m in saved] == ["user", "assistant", "user", "assistant"]
     assert "cache_control" not in str(saved)
+
+
+async def test_daily_budget_warns_once_forces_fast_and_resets_at_local_midnight(db, monkeypatch):
+    from datetime import datetime
+    from decimal import Decimal
+    from zoneinfo import ZoneInfo
+
+    from apu import budget, llm
+    from apu.config import settings
+
+    now = [datetime(2026, 10, 17, 23, 50, tzinfo=ZoneInfo("Europe/Belgrade"))]
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now[0].astimezone(tz)
+
+    monkeypatch.setattr(budget, "datetime", Clock)
+    monkeypatch.setattr(settings(), "daily_budget_usd", Decimal("1"))
+    bot = SimpleNamespace(send_message=AsyncMock())
+    monkeypatch.setattr(budget, "_bot", bot)
+
+    async def cost(value, stamp=None):
+        await db.execute(
+            """INSERT INTO usage (model,purpose,input_tokens,output_tokens,cost_usd,latency_ms,created_at)
+                            VALUES ('test','budget',0,0,$1,0,$2)""",
+            Decimal(value),
+            stamp or now[0],
+        )
+
+    await cost("10", datetime.fromisoformat("2026-10-16T21:59:59+00:00"))
+    await cost("0.79")
+    assert await budget.model_for(settings().model_deep) == settings().model_deep
+    bot.send_message.assert_not_awaited()
+    await cost("0.01")
+    await asyncio.gather(*(budget.model_for(settings().model_main) for _ in range(5)))
+    assert bot.send_message.await_count == 1 and "80%" in bot.send_message.await_args.args[1]
+    await cost("0.20")
+    assert await budget.model_for(settings().model_deep) == settings().model_fast
+    assert bot.send_message.await_count == 2 and "100%" in bot.send_message.await_args.args[1]
+    # Restarti ne ponavljaju obaveštenje jer je stanje u bazi.
+    bot.send_message.reset_mock()
+    assert await budget.model_for(settings().model_main) == settings().model_fast
+    bot.send_message.assert_not_awaited()
+    create = AsyncMock(
+        return_value=SimpleNamespace(usage=SimpleNamespace(input_tokens=1, output_tokens=1))
+    )
+    monkeypatch.setattr(
+        llm, "client", lambda: SimpleNamespace(messages=SimpleNamespace(create=create))
+    )
+    await llm.create(purpose="budget_test", model=settings().model_deep)
+    assert create.await_args.kwargs["model"] == settings().model_fast
+    now[0] = datetime(2026, 10, 18, 0, 0, tzinfo=ZoneInfo("Europe/Belgrade"))
+    assert await budget.model_for(settings().model_deep) == settings().model_deep
+    assert (await budget.snapshot())[1] == 0
+
+
+async def test_budget_notification_failure_retries_and_record_triggers_warning(db, monkeypatch):
+    from decimal import Decimal
+
+    from apu import budget, usage
+    from apu.config import settings
+
+    monkeypatch.setattr(settings(), "daily_budget_usd", Decimal("1"))
+    bot = SimpleNamespace(send_message=AsyncMock(side_effect=RuntimeError("Telegram")))
+    monkeypatch.setattr(budget, "_bot", bot)
+    await usage.record(usage.Usage(settings().model_main, 400000, 0), "budget_test", 0)
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 0
+    bot.send_message.side_effect = None
+    assert await budget.model_for(settings().model_main) == settings().model_main
+    assert bot.send_message.await_count == 2
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 1

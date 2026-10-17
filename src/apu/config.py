@@ -5,6 +5,7 @@ radi isto, ali pukne odmah pri startu ako nešto obavezno fali ili ima pogrešan
 tip — umesto da bot padne tek kad prvi put zatreba ta vrednost.
 """
 
+from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
     prompt_cache: Literal["on", "off"] = "on"
     router_mode: Literal["rule", "classifier"] = "rule"
     streaming: Literal["on", "off"] = "on"
+    daily_budget_usd: Decimal | None = Field(None, gt=0, allow_inf_nan=False)
 
     database_url: str = "postgresql://apu:apu@localhost:5432/apu"
 

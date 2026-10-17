@@ -79,6 +79,9 @@ async def record(u: Usage, purpose: str, latency_ms: int) -> None:
             u.model, purpose, u.input_tokens, u.output_tokens,
             u.cache_read_tokens, u.cache_write_tokens, u.cost_usd, latency_ms,
         )  # fmt: skip
+        from apu import budget
+
+        await budget.model_for()
     except Exception:  # merenje nikad ne sme da obori odgovor
         log.exception("Ne mogu da upišem usage.")
 

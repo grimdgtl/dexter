@@ -4,13 +4,14 @@ import logging
 
 from telegram.ext import Application
 
-from apu import db, scheduler, telegram_bot
+from apu import budget, db, scheduler, telegram_bot
 from apu.config import settings
 from apu.tools import registry
 
 
 async def _post_init(app: Application) -> None:
     await db.connect()
+    budget.configure(app.bot)
     import apu.tools  # noqa: F401  registruje alate
 
     names = [t.name for t in registry.enabled_tools()]

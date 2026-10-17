@@ -8,7 +8,7 @@ import time
 
 from anthropic import AsyncAnthropic
 
-from apu import usage
+from apu import budget, usage
 from apu.config import settings
 
 _client: AsyncAnthropic | None = None
@@ -38,6 +38,7 @@ def client() -> AsyncAnthropic:
 async def create(*, purpose: str, **kwargs):
     """messages.create sa merenjem. `purpose` ide u tabelu usage (chat, memory...)."""
     start = time.perf_counter()
+    kwargs["model"] = await budget.model_for(kwargs["model"])
     response = await client().messages.create(**request_options(kwargs))
     latency = int((time.perf_counter() - start) * 1000)
     await usage.record(usage.from_response(kwargs["model"], response.usage), purpose, latency)
@@ -47,6 +48,7 @@ async def create(*, purpose: str, **kwargs):
 async def stream(*, purpose: str, on_text, **kwargs):
     """Prikaz teksta ne menja konačnu SDK poruku potrebnu za alate i istoriju."""
     started = time.perf_counter()
+    kwargs["model"] = await budget.model_for(kwargs["model"])
     response = active = None
     try:
         async with client().messages.stream(**request_options(kwargs)) as active:

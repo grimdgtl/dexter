@@ -262,3 +262,19 @@ konačnu poruku i tokene. Integracioni test čuva oba tool_result/istoriju kao r
 Prekinut stream evidentira dostupne tokene jednom; kvar Telegram prikaza ostavlja
 mogućnost slanja gotovog odgovora. Potvrde i zaključavanje po razgovoru ostaju aktivni.
 Ručno proveriti osećaj brzine, mrežne prekide i dug odgovor u pravom Telegramu.
+
+## F3.4 — dnevni budžet (17.10.2026)
+
+Kontrolni integracioni scenario: limit $1, početni trošak $0.79 bez upozorenja,
+zapisi do tačno $0.80 daju jedno upozorenje i pri pet paralelnih provera. Tačno $1.00
+uključuje brzi model i drugo obaveštenje. Ponovna inicijalizacija čita stanje iz baze
+bez ponavljanja poruke. Pri lokalnoj ponoći zbir je 0 i jaki model je ponovo dostupan.
+Trošak pre početka lokalnog dana se ne sabira. Proveren je i ponovni pokušaj slanja
+posle Telegram greške, bez lažnog beleženja da je upozorenje poslato.
+
+Pre: izbor modela ne zavisi od dnevnog zbira. Posle: zajednički create/stream sloj
+primenjuje budžet za sve modelske pozive; upis novih tokena odmah proverava upozorenje.
+Testovi koriste lažni model/Telegram i pravu bazu, bez stvarnog troška. Ovo nije tvrda
+novčana granica niti potvrda aktuelnog cenovnika: odluka važi za sledeći poziv, a brzi
+model i dalje košta. Za dnevni realni profil treba uključiti limit u pravom botu i
+proveriti `usage` i upozorenja. Datumi i pragovi ne ulaze u SYSTEM_PROMPT.
