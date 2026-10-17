@@ -44,6 +44,33 @@ async def create(*, purpose: str, **kwargs):
     return response
 
 
+async def stream(*, purpose: str, on_text, **kwargs):
+    """Prikaz teksta ne menja konačnu SDK poruku potrebnu za alate i istoriju."""
+    started = time.perf_counter()
+    response = active = None
+    try:
+        async with client().messages.stream(**request_options(kwargs)) as active:
+            text = ""
+            async for part in active.text_stream:
+                text += part
+                await on_text(text)
+            response = await active.get_final_message()
+        return response
+    finally:
+        # I prekinut stream može već imati naplaćene ulazne/izlazne tokene.
+        if response is None and active is not None:
+            try:
+                response = active.current_message_snapshot
+            except (AssertionError, RuntimeError, AttributeError):
+                pass
+        if response is not None:
+            await usage.record(
+                usage.from_response(kwargs["model"], response.usage),
+                purpose,
+                int(1000 * (time.perf_counter() - started)),
+            )
+
+
 def text_of(response) -> str:
     return "\n".join(b.text for b in response.content if b.type == "text").strip()
 

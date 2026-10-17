@@ -12,6 +12,7 @@ from apu.agent.loop import AgentResult
 
 @pytest.fixture
 def ctx(monkeypatch):
+    monkeypatch.setattr(telegram_bot.settings(), "streaming", "off")
     monkeypatch.setattr(telegram_bot, "_chat_locks", {})
     return SimpleNamespace(
         bot=SimpleNamespace(send_message=AsyncMock(), send_chat_action=AsyncMock())

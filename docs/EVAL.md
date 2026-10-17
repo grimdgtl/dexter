@@ -247,3 +247,18 @@ kvaliteta odgovora, ukupnog troška (klasifikacija + odgovor) i latencije.
 `python -m evals.router_eval` meri pravi klasifikator, a `--simulacija` kontrolni.
 Korisnik treba da potvrdi oznake i dopuni slučajeve svojim porukama. Neispravan JSON,
 nepoznat nivo, API greška ili timeout vraćaju pravilo; eksplicitni `/duboko` ga zaobilazi.
+
+## F3.3 — postepen prikaz odgovora (17.10.2026)
+
+Pre: Telegram dobija tekst tek po završetku agentske petlje. Posle: SDK text stream
+šalje prvi raspoloživ tekst odmah, a renderer menja postojeću poruku najviše jednom
+u sekundi. Kontrolni sat u testu šalje prvi tekst pri t=0, odbacuje suvišne izmene
+pre t=1 i dozvoljava izmene pri t=1 i t=2. Odgovor preko 9000 znakova se čuva u celosti
+u porukama do 4000 znakova, uz preslovljavanje pre prikaza.
+
+Ovo je provera granice učestalosti, ne merenje latencije pravog Telegrama ili modela.
+Test sa pravim Anthropic SDK-om i HTTP/SSE odgovorom kroz respx proverava prijem teksta,
+konačnu poruku i tokene. Integracioni test čuva oba tool_result/istoriju kao ranije.
+Prekinut stream evidentira dostupne tokene jednom; kvar Telegram prikaza ostavlja
+mogućnost slanja gotovog odgovora. Potvrde i zaključavanje po razgovoru ostaju aktivni.
+Ručno proveriti osećaj brzine, mrežne prekide i dug odgovor u pravom Telegramu.

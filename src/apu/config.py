@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     max_tokens: int = 8192
     prompt_cache: Literal["on", "off"] = "on"
     router_mode: Literal["rule", "classifier"] = "rule"
+    streaming: Literal["on", "off"] = "on"
 
     database_url: str = "postgresql://apu:apu@localhost:5432/apu"
 

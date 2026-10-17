@@ -286,7 +286,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F3.2 Klasifikator za izbor modela.** Brzi model klasifikuje poruku
   (lako / srednje / teško). Označi 40 poruka ručno (`evals/router.jsonl`),
   uporedi tačnost i cenu sa pravilom; zadrži bolji.
-- [ ] **F3.3 Streaming.** Tekst se pojavljuje dok nastaje: `messages.stream`,
+- [x] **F3.3 Streaming.** Tekst se pojavljuje dok nastaje: `messages.stream`,
   izmena Telegram poruke najviše jednom u sekundi; alati rade kao i pre.
 - [ ] **F3.4 Dnevni budžet.** `DAILY_BUDGET_USD`: upozorenje na 80%, na 100%
   sve ide na brzi model do ponoći. Test.

@@ -160,6 +160,8 @@ async def test_parallel_messages_in_same_chat_preserve_history(db, monkeypatch):
     from apu import llm, memory, telegram_bot
     from apu.agent import history, loop
 
+    monkeypatch.setattr(telegram_bot.settings(), "streaming", "off")
+
     monkeypatch.setattr(telegram_bot, "_chat_locks", {})
     monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
     run = AsyncMock(wraps=loop.run)
@@ -1261,3 +1263,42 @@ async def test_router_evaluation_tracks_accuracy_cost_and_confusion(db):
     assert reports[0]["trošak_izbora_usd"] == 0 < reports[1]["trošak_izbora_usd"]
     assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='router'") == 38
     print("F3.2 test eval:", reports)
+
+
+async def test_streaming_agent_keeps_tool_flow_and_history(db, monkeypatch):
+    from anthropic.types import Message
+
+    from apu import llm, memory
+    from apu.agent import history, loop
+
+    monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
+    calls = []
+
+    async def stream(*, on_text, **kwargs):
+        calls.append(kwargs)
+        first = len(calls) == 1
+        await on_text("Proveravam." if first else "Gotovo.")
+        content = (
+            [{"type": "tool_use", "id": "s1", "name": "memory_list", "input": {}}]
+            if first
+            else [{"type": "text", "text": "Gotovo."}]
+        )
+        return Message.model_validate(
+            {
+                "id": "stream",
+                "type": "message",
+                "role": "assistant",
+                "model": kwargs["model"],
+                "content": content,
+                "stop_reason": "tool_use" if first else "end_turn",
+                "usage": {"input_tokens": 100, "output_tokens": 20},
+            }
+        )
+
+    monkeypatch.setattr(llm, "stream", stream)
+    result = await loop.run(7, "Šta pamtiš?", on_text=AsyncMock())
+    assert result.text == "Gotovo." and len(calls) == 2
+    assert calls[1]["messages"][-1]["content"][0]["tool_use_id"] == "s1"
+    saved = await history.load(7, 12)
+    assert [m["role"] for m in saved] == ["user", "assistant", "user", "assistant"]
+    assert "cache_control" not in str(saved)

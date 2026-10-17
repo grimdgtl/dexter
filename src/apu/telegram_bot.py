@@ -7,6 +7,7 @@ poruke u ulaz za agenta i odgovor nazad u Telegram poruke.
 import asyncio
 import base64
 import logging
+import time
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction
@@ -22,7 +23,7 @@ from telegram.ext import (
 from apu import jobs, memory, status, usage
 from apu.agent import history, loop
 from apu.config import settings
-from apu.pismo import ima_cirilice, u_latinicu
+from apu.pismo import u_latinicu
 from apu.rag.ingest import ingest_file
 from apu.tools import registry
 from apu.transcribe import transcribe
@@ -33,6 +34,59 @@ TG_LIMIT = 4000
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 # Istorija se učitava i dopisuje u istoj razmeni, pa sledeća mora da sačeka.
 _chat_locks: dict[int, asyncio.Lock] = {}
+
+
+class StreamingReply:
+    """Ograničen prikaz je odvojen od celovitog odgovora i istorije agenta."""
+
+    def __init__(self, bot, chat_id):
+        self.bot, self.chat_id = bot, chat_id
+        self.messages = []
+        self.text = ""
+        self.last_write = -float("inf")
+        self.disabled = False
+
+    async def update(self, text):
+        text = u_latinicu(text)
+        if not text:
+            # Tekst pre poziva alata ostaje zasebna poruka, a sledeći korak počinje novi prikaz.
+            self.messages = []
+            self.text = ""
+            return
+        self.text = text
+        await self.flush()
+
+    async def flush(self):
+        if self.disabled:
+            return False
+        parts = [self.text[i : i + TG_LIMIT] for i in range(0, len(self.text), TG_LIMIT)]
+        try:
+            for i, part in enumerate(parts):
+                if i == len(self.messages):
+                    sent = await self.bot.send_message(self.chat_id, part)
+                    self.messages.append((sent.message_id, part))
+                    self.last_write = time.monotonic()
+                elif self.messages[i][1] != part:
+                    if time.monotonic() - self.last_write < 1:
+                        return False
+                    await self.bot.edit_message_text(
+                        part, chat_id=self.chat_id, message_id=self.messages[i][0]
+                    )
+                    self.messages[i] = (self.messages[i][0], part)
+                    self.last_write = time.monotonic()
+            return bool(parts)
+        except Exception as exc:
+            log.warning("Prikaz streama nije uspeo (%s).", type(exc).__name__)
+            self.disabled = True
+            return False
+
+    async def finish(self, text):
+        await self.update(text)
+        while not self.disabled:
+            if await self.flush():
+                return True
+            await asyncio.sleep(max(0, 1 - (time.monotonic() - self.last_write)))
+        return False
 
 
 def _owner(update: Update) -> bool:
@@ -69,7 +123,25 @@ async def _answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE, content) -> No
     try:
         lock = _chat_locks.setdefault(chat_id, asyncio.Lock())
         async with lock:
-            result = await loop.run(chat_id, content)
+            preview = StreamingReply(ctx.bot, chat_id) if settings().streaming == "on" else None
+            kwargs = {"on_text": preview.update} if preview else {}
+            result = await loop.run(chat_id, content, **kwargs)
+            delivered = await preview.finish(result.text) if preview else False
+            if not delivered:
+                for part in _split(u_latinicu(result.text)):
+                    await ctx.bot.send_message(chat_id, part)
+            for token, opis in result.pending:
+                kb = InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton("✅ Potvrdi", callback_data=f"ok:{token}"),
+                            InlineKeyboardButton("❌ Otkaži", callback_data=f"no:{token}"),
+                        ]
+                    ]
+                )
+                await ctx.bot.send_message(
+                    chat_id, f"Čeka potvrdu:\n{u_latinicu(opis)}", reply_markup=kb
+                )
     except Exception:
         log.exception("Agent pukao")
         await ctx.bot.send_message(chat_id, "⚠️ Nešto je puklo. Probaj ponovo za koji trenutak.")
@@ -77,18 +149,6 @@ async def _answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE, content) -> No
     finally:
         stop.set()
         await typing
-
-    if ima_cirilice(result.text):
-        log.warning("Model je odlutao u ćirilicu — preslovljavam.")
-    for part in _split(u_latinicu(result.text)):
-        await ctx.bot.send_message(chat_id, part)
-
-    for token, opis in result.pending:
-        kb = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("✅ Potvrdi", callback_data=f"ok:{token}"),
-              InlineKeyboardButton("❌ Otkaži", callback_data=f"no:{token}")]]
-        )  # fmt: skip
-        await ctx.bot.send_message(chat_id, f"Čeka potvrdu:\n{u_latinicu(opis)}", reply_markup=kb)
 
 
 # ── Handleri ────────────────────────────────────────────────

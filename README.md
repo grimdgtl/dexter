@@ -90,6 +90,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
 | `PROMPT_CACHE` | `on` | `off` uklanja sve cache breakpointe iz zahteva za poređenje troška |
 | `ROUTER_MODE` | `rule` | `classifier` uključuje brzi klasifikator; kvar vraća izbor pravilom |
+| `STREAMING` | `on` | Postepen prikaz u Telegramu; `off` šalje samo gotov odgovor |
 | `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
 | `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
 | `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
@@ -302,3 +303,11 @@ i `duboko:` direktno biraju jaki model. Slike ostaju na glavnom modelu.
 poruka; `--simulacija` koristi kontrolne oznake kao odgovor lažnog modela.
 Oznake treba potvrditi i proširiti svojim slučajevima pre uključivanja klasifikatora;
 podrazumevano ostaje `rule` dok pravi eval ne potvrdi kvalitet i ukupan trošak.
+
+Telegram podrazumevano prikazuje odgovor dok `messages.stream` vraća tekst.
+Ista poruka se menja najviše jednom u sekundi; dugi odgovori prelaze u dodatne poruke.
+Tekst pre poziva alata ostaje zaseban uvod. Alati i dalje čekaju celovitu SDK poruku,
+a rizične akcije dugme za potvrdu. Istorija se upisuje tek posle završene agentske razmene.
+Ako prikaz zakaže, bot pokušava da pošalje gotov odgovor; `STREAMING=off` vraća raniji
+način slanja. Prekid modelskog streama javlja grešku, bez upisa nepotpune razmene;
+već prijavljeni tokeni ulaze u `usage` i pri prekidu.

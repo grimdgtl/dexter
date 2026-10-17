@@ -59,7 +59,7 @@ async def _run_tools(calls) -> tuple[list[dict], list[tuple[str, str]]]:
     return results, [o.pending for o in outcomes if o.pending]
 
 
-async def run(chat_id: int, user_content: str | list[dict]) -> AgentResult:
+async def run(chat_id: int, user_content: str | list[dict], *, on_text=None) -> AgentResult:
     """Obrađuje jednu korisnikovu poruku (tekst ili lista blokova sa slikom)."""
     cfg = settings()
 
@@ -86,13 +86,18 @@ async def run(chat_id: int, user_content: str | list[dict]) -> AgentResult:
     final_text = ""
 
     for step in range(MAX_STEPS):
-        response = await llm.create(
+        if on_text is not None:
+            await on_text("")
+        complete = llm.create if on_text is None else llm.stream
+        streaming_args = {} if on_text is None else {"on_text": on_text}
+        response = await complete(
             purpose="chat",
             model=model,
             max_tokens=cfg.max_tokens,
             system=system,
             tools=tools,
             messages=_with_cache_breakpoint(past + new_messages),
+            **streaming_args,
         )
         text = llm.text_of(response)
 
