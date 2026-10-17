@@ -9,7 +9,7 @@ from pypdf import PdfReader
 
 from apu.config import settings
 from apu.pismo import u_latinicu
-from apu.rag import ocr
+from apu.rag import ocr, office
 from apu.rag.store import upsert_document
 
 
@@ -48,6 +48,8 @@ async def ingest_file(
     suffix = Path(name).suffix.lower()
     if suffix == ".pdf":
         text = await read_pdf(data)
+    elif suffix in office.SUFFIXES:
+        text = await asyncio.to_thread(office.text, name, data)
     elif suffix in {".txt", ".md", ".csv"}:
         text = data.decode("utf-8-sig", errors="replace")
     else:

@@ -478,3 +478,15 @@ druga fotografija istog računa zahteva da sam proveriš duplikat. Slika se ne �
 prema datumu sa računa. Iznosi se sabiraju zasebno po valuti; nepoznata valuta je
 odvojena i nedostajući PDV nije nula. `/troskovi` i dalje prikazuje samo API troškove.
 Izdvajanje slike evidentira se kao `usage.purpose=receipt_extract`.
+
+Word/Excel uvoz podržava `.docx` i `.xlsx` iz Telegrama, lokalnog foldera,
+Drive fajlova i mejl priloga do 5 MB. Word preuzima pasuse i tabele redom, uključujući
+ugnježdene tabele, zaglavlja i podnožja. Slike, tekstualna polja i revizije u Word-u
+ne prolaze kroz OCR. Excel svaki list pretvara u tekst sa nazivom lista i brojem reda;
+uključeni su i skriveni listovi. Datumi su ISO, a formule su sačuvane kao tekst,
+bez računanja, makroa ili otvaranja spoljnih veza. Stari `.doc`/`.xls` nisu podržani.
+
+Parseri rade u radnoj niti. Office ZIP je ograničen na 50 MB raspakovanih podataka;
+Excel na 100 listova, 50000 redova/1000 kolona po listu i 500000 obrađenih ćelija.
+Prekoračenje odbija ceo uvoz, pa veći fajl podeli pre slanja. Promena dokumenta
+ponovo indeksira sadržaj; nepromenjen tekst ne pravi nove delove.

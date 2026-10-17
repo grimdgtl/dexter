@@ -66,6 +66,37 @@ def pdf_bytes():
 
 
 @pytest.fixture
+def office_files():
+    from docx import Document
+    from openpyxl import Workbook
+
+    word = Document()
+    word.add_paragraph("Почетак документа о пројекту Орион и договореној испоруци.")
+    table = word.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "Рок"
+    table.cell(0, 1).text = "21. октобар"
+    nested = table.cell(0, 1).add_table(rows=1, cols=1)
+    nested.cell(0, 0).text = "Угнеждена напомена"
+    word.add_paragraph("Крај документа и услови за завршетак пројекта.")
+    word.sections[0].header.paragraphs[0].text = "Заглавље уговора"
+    word.sections[0].footer.paragraphs[0].text = "Подножје документа"
+    word_stream = io.BytesIO()
+    word.save(word_stream)
+
+    excel = Workbook()
+    excel.active.title = "Приходи"
+    excel.active.append(["Клијент", "Износ", "Датум", "Формула"])
+    excel.active.append(["Орион", 125.5, datetime(2026, 10, 17), "=SUM(B2:B3)"])
+    extra = excel.create_sheet("Резерва")
+    extra.sheet_state = "hidden"
+    extra.append(["Други лист са напоменом о трошковима и уговореним роковима", 0, False])
+    excel_stream = io.BytesIO()
+    excel.save(excel_stream)
+    excel.close()
+    return {"ugovor.docx": word_stream.getvalue(), "budzet.xlsx": excel_stream.getvalue()}
+
+
+@pytest.fixture
 def make_mail():
     def make(
         subject="Projekat",

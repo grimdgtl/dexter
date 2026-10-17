@@ -16,6 +16,7 @@ from imap_tools.folder import FolderInfo
 
 from apu.config import Settings, settings
 from apu.pismo import u_latinicu
+from apu.rag import office
 from apu.rag.ingest import pdf_text, read_pdf
 
 MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
@@ -183,6 +184,11 @@ def document(message: MailMessage, *, defer_pdf: bool = False) -> MailDocument:
                 pdf_attachments.append((attachment.filename, attachment.payload))
                 continue
             text = pdf_text(attachment.payload)
+        elif suffix in office.SUFFIXES or mime in office.MIMES:
+            name = (
+                attachment.filename if suffix in office.SUFFIXES else "prilog" + office.MIMES[mime]
+            )
+            text = office.text(name, attachment.payload)
         elif (
             mime.startswith("text/")
             or mime == "application/json"

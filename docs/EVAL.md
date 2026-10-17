@@ -455,3 +455,18 @@ Provereni su dugi pregledi i neuspešna potvrda bez lažne poruke o uspehu.
 
 Ovo su kontrolni računi i mock modelski odgovori. Ručno proveriti kvalitet čitanja
 stvarnih računa i dugmad u Telegramu; automatski testovi ne mere tačnost vision modela.
+
+## F5.3 — Word i Excel (17.10.2026)
+
+Pre: Office fajlovi se odbijaju ili preskaču. Posle: python-docx čita telo, tabele,
+ugnježdene ćelije, zaglavlja i podnožja u odgovarajućem redosledu. Openpyxl čita
+sve listove, uključujući skrivene, kao redove tabele sa naslovom lista. Formule se
+čuvaju kao tekst i ne izvršavaju; čitanje ne menja izvorne fajlove.
+
+Testovi koriste stvarne DOCX/XLSX ZIP fajlove iz memorije. Provereni su ćirilica →
+latinica, redosled teksta/tabela, drugi skriveni list, nula/False, datum i formula,
+kao i neispravan Excel dimension A1:A1 koji ne sme sakriti kasniji red. Velika ZIP
+arhiva se odbija pre parsiranja/upisa. Google SDK kroz respx čita oba Office tipa;
+native Google Doc nazvan .docx i dalje koristi tekstualni export. Test baze indeksira
+oba fajla kroz folder, nalazi tekst iz ugnježdene tabele i drugog Excel lista, pa
+ponovni uvoz ne pravi nove delove. Nema modelskih API poziva za samo Office čitanje.

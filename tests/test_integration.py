@@ -1840,3 +1840,19 @@ async def test_receipt_confirmation_snapshot_deduplication_and_month_report(db, 
     assert "Nema" in await receipts.report("2026-09")
     with pytest.raises(ValueError, match="Upotreba"):
         await receipts.report("2026-13")
+
+
+async def test_folder_office_documents_and_all_excel_sheets_are_searchable(
+    db, tmp_path, office_files
+):
+    from apu.rag import store
+    from scripts.ingest_folder import ingest_folder
+
+    for name, data in office_files.items():
+        (tmp_path / name).write_bytes(data)
+    results = await ingest_folder(tmp_path, "fajl")
+    assert len(results) == 2 and all(r["ok"] and r["delova"] > 0 for r in results)
+    assert "Ugneždena napomena" in (await store.search("Ugneždena napomena"))[0].text
+    assert "Drugi list" in (await store.search("Drugi list"))[0].text
+    unchanged = await ingest_folder(tmp_path, "fajl")
+    assert all(r["delova"] == 0 for r in unchanged)

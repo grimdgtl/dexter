@@ -81,6 +81,26 @@ async def test_drive_reads_pdf(respx_mock, token, pdf_bytes):
     assert "proveru indeksiranja PDF" in (await google.read("1"))["content"]
 
 
+@pytest.mark.parametrize("name", ["ugovor.docx", "budzet.xlsx"])
+async def test_drive_reads_office_via_real_sdk(respx_mock, token, office_files, name):
+    respx_mock.get(
+        f"{BASE}/1", params__contains={"fields": "id,name,mimeType,webViewLink"}
+    ).respond(200, json={"id": "1", "name": name, "mimeType": "application/octet-stream"})
+    respx_mock.get(f"{BASE}/1", params__contains={"alt": "media"}).respond(
+        200, content=office_files[name]
+    )
+    text = (await google.read("1"))["content"]
+    assert ("Ugneždena napomena" if name.endswith("docx") else "[List: Rezerva]") in text
+
+
+async def test_native_google_doc_with_docx_name_uses_text_export(respx_mock, token):
+    respx_mock.get(
+        f"{BASE}/1", params__contains={"fields": "id,name,mimeType,webViewLink"}
+    ).respond(200, json={"id": "1", "name": "ugovor.docx", "mimeType": google.DOC})
+    respx_mock.get(f"{BASE}/1/export").respond(200, content=b"Izvezen tekst")
+    assert (await google.read("1"))["content"] == "Izvezen tekst"
+
+
 async def test_drive_create_uploads_text_as_google_doc_in_worker_thread(respx_mock, token):
     owner_thread = threading.get_ident()
 

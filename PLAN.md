@@ -330,7 +330,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   strukturisanim izlazom (pydantic: prodavac, PIB, datum, ukupno, PDV, stavke)
   preko forsiranog tool poziva → tabela `expenses` (uz potvrdu). Komanda
   `/rashodi [mesec]` (NE `/troskovi`, ta je za API troškove).
-- [ ] **F5.3 Word i Excel.** Ingest `.docx` (`python-docx`) i `.xlsx`
+- [x] **F5.3 Word i Excel.** Ingest `.docx` (`python-docx`) i `.xlsx`
   (`openpyxl`, svaki list kao tekst tabele).
 - [ ] **F5.4 Glasovni odgovor.** Kad korisnik pošalje glasovnu i uključi
   `GLAS_ODGOVOR=on` (ili traži "odgovori glasom"), odgovor se šalje i kao voice

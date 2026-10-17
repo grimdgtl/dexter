@@ -14,6 +14,7 @@ from googleapiclient.http import MediaIoBaseUpload
 
 from apu.config import settings
 from apu.pismo import u_latinicu
+from apu.rag import office
 from apu.rag.ingest import read_pdf
 
 SCOPES = ["https://www.googleapis.com/auth/calendar", "https://www.googleapis.com/auth/drive"]
@@ -73,8 +74,9 @@ def indexable(meta: dict) -> bool:
     mime = meta.get("mimeType", "")
     return (
         mime in {DOC, SHEET, PDF, "application/json"}
+        or mime in office.MIMES
         or mime.startswith("text/")
-        or Path(meta.get("name", "")).suffix.lower() in {".txt", ".md"}
+        or Path(meta.get("name", "")).suffix.lower() in ({".txt", ".md"} | office.SUFFIXES)
     )
 
 
@@ -148,7 +150,14 @@ class Drive:
                 "type": mime,
                 "content": f"Fajl tipa {mime} nije tekstualni — ne mogu da ga pročitam ovde.",
             }
-        text = await read_pdf(data) if mime == PDF else data.decode("utf-8-sig", errors="replace")
+        suffix = Path(meta.get("name", "")).suffix.lower()
+        if mime == PDF:
+            text = await read_pdf(data)
+        elif mime not in {DOC, SHEET} and (mime in office.MIMES or suffix in office.SUFFIXES):
+            name = "fajl" + office.MIMES.get(mime, suffix)
+            text = await asyncio.to_thread(office.text, name, data)
+        else:
+            text = data.decode("utf-8-sig", errors="replace")
         return {
             "id": file_id,
             "name": u_latinicu(meta.get("name", "")),

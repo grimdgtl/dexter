@@ -1,4 +1,4 @@
-"""Uvoz PDF/txt/md foldera; sadržaj ostaje u Postgres indeksu, ne u git-u."""
+"""Uvoz PDF/teksta/Office foldera; sadržaj ostaje u Postgres indeksu, ne u git-u."""
 
 import argparse
 import asyncio
@@ -8,6 +8,7 @@ from pathlib import Path
 from apu import db
 from apu.pismo import u_latinicu
 from apu.rag.ingest import ingest_file
+from apu.rag.office import SUFFIXES
 
 
 async def ingest_folder(folder: Path, source: str = "zakon") -> list[dict]:
@@ -21,7 +22,9 @@ async def ingest_folder(folder: Path, source: str = "zakon") -> list[dict]:
         return sorted(
             p
             for p in folder.rglob("*")
-            if p.is_file() and not p.is_symlink() and p.suffix.lower() in {".pdf", ".txt", ".md"}
+            if p.is_file()
+            and not p.is_symlink()
+            and p.suffix.lower() in ({".pdf", ".txt", ".md"} | SUFFIXES)
         )
 
     results = []
@@ -56,7 +59,7 @@ async def run(folder: Path, source: str) -> int:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Indeksira PDF/txt/md fajlove iz foldera i podfoldera."
+        description="Indeksira PDF/txt/md/docx/xlsx fajlove iz foldera i podfoldera."
     )
     parser.add_argument("putanja", type=Path)
     parser.add_argument("--izvor", default="zakon")
