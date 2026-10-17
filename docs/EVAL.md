@@ -317,3 +317,39 @@ Normalan start odbija neodgovarajući model/provajder/dimenziju.
 Ovo potvrđuje bezbedan prelaz šeme, a ne kvalitet novog modela. `scripts/reembed.py`
 čita sačuvane delove i činjenice u grupama od 64, bez ponovnog skidanja izvora.
 Za stvaran prelaz potreban je ugašen bot i zatim eval istih pitanja (F4.2).
+
+## F4.2 — stvarni lokalni E5 modeli (17.10.2026)
+
+Pravi SentenceTransformer modeli, CPU arm64, OMP_NUM_THREADS=2, PostgreSQL 14 +
+pgvector 0.8.1. Biblioteke: torch 2.14.1, sentence-transformers 6.1.0,
+transformers 5.20.1. Šest sintetičkih dokumenata, šest pozitivnih i dva negativna upita;
+SHA-256 korpusa `01c832948e960960ec4d5a6c49e07b6d69f96c163a324078659fc2a82c1f068c`.
+Modeli su zaista preuzeti i izvršeni; ovo nisu kontrolni vektori iz testova.
+
+| Model | Prag | recall@5 | MRR | Preciznost upita | precision@5 | Negativna tačnost | ms/upit | API USD |
+|---|---|---|---|---|---|---|---|---|
+| OpenAI text-embedding-3-small | — | — | — | — | — | — | — | — |
+| E5 small, 384 | 0.3 | 1.0 | 1.0 | 0.75 | 0.15 | 0.0 | 14.93 | 0 |
+| E5 base, 768 | 0.3 | 1.0 | 1.0 | 0.75 | 0.15 | 0.0 | 32.40 | 0 |
+| E5 small, 384 | 0.8 | 1.0 | 1.0 | 1.00 | 0.60 | 1.0 | 13.89 | 0 |
+| E5 base, 768 | 0.8 | 1.0 | 1.0 | 1.00 | 1.00 | 1.0 | 32.59 | 0 |
+
+OpenAI nije izvršen: nema ključa za stvarno poređenje. API simulacija u testu proverava
+redosled vektora, tokene i račun, ali ne popunjava ovaj red. Nule lokalnog API troška
+ne obuhvataju CPU/server. Prvo indeksiranje sa preuzimanjem/učenjem biblioteka trajalo
+je 133.636 s za small i 168.870 s za base; ponovljeno sa keširanim fajlovima 12.129 s
+odnosno 5.427 s. To nisu međusobno uporediva merenja hladnog starta; ms/upit se meri
+posle indeksiranja i učitavanja. Ovo nije Hetzner benchmark.
+
+Prag 0.3 je pogrešan za negativne primere ovog E5 korpusa. Pri 0.8 oba modela čuvaju
+svih šest očekivanih dokumenata i odbacuju oba negativna upita; base vraća manje
+nepotrebnih dokumenata, a small je ovde oko dva puta brži. Lokalni podrazumevani izbor
+ostaje small; globalni provajder i korisnikov prag se ne menjaju automatski.
+Za lokalni prelaz testirati 0.8 kao kandidata, pa kalibrisati na privatnom skupu.
+[Model card E5 base](https://huggingface.co/intfloat/multilingual-e5-base) objašnjava
+specifičan opseg kosinusnih skorova, obavezne prefikse i granicu od 512 tokena.
+
+Reprodukcija u izdvojenoj praznoj `_bench` bazi:
+`RAG_MIN_SIMILARITY=0.8 python -m evals.embedding_bench --modeli small base`.
+Privatni korpus i ključ su potrebni za završno OpenAI poređenje; javnih osam upita
+nije dovoljno za izbor najboljeg modela u produkciji.

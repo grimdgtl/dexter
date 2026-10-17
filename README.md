@@ -88,6 +88,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `MAX_TOKENS` | `8192` | Ograničenje dužine odgovora modela |
 | `HISTORY_TURNS` | `12` | Broj razmena u istoriji modela |
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
+| `EMBED_LOCAL_MODEL` | `intfloat/multilingual-e5-small` | E5 small (384) ili `intfloat/multilingual-e5-base` (768); promena traži reembed |
 | `PROMPT_CACHE` | `on` | `off` uklanja sve cache breakpointe iz zahteva za poređenje troška |
 | `ROUTER_MODE` | `rule` | `classifier` uključuje brzi klasifikator; kvar vraća izbor pravilom |
 | `STREAMING` | `on` | Postepen prikaz u Telegramu; `off` šalje samo gotov odgovor |
@@ -350,3 +351,25 @@ odbija model/dimenziju koji ne odgovaraju bazi. Stare popunjene baze bez profila
 prepoznaju se po ranijim dimenzijama: 1536 = OpenAI small, 384 = multilingual-e5-small.
 Ako si ranije menjao modele mimo ove aplikacije, prvo proveri poreklo vektora.
 `reindex_all` menja seckanje; `reembed` čuva postojeće delove i menja samo vektorski prostor.
+
+Za lokalne embeddinze instaliraj `.[local]`, postavi `EMBED_PROVIDER=local` i
+`EMBED_LOCAL_MODEL=intfloat/multilingual-e5-small` (384 dimenzije) ili
+`intfloat/multilingual-e5-base` (768), pa uz ugašen bot izvrši `scripts.reembed`.
+Oba modela se izvršavaju na CPU-u kroz radnu nit; model u memoriji se kešira po imenu,
+a serijalizovan inference sprečava nekontrolisano paralelno opterećenje.
+E5 dobija obavezne `query:`/`passage:` prefikse i normalizovane vektore.
+Kontekst modela je ograničen na 512 tokena: proveri `CHUNK_CHARS` na svom korpusu.
+Kosinusni skorovi E5 i OpenAI modela nisu ista kalibracija; posebno ponovo izmeri
+`RAG_MIN_SIMILARITY` na pozitivnim i negativnim pitanjima.
+
+`python -m evals.embedding_bench --modeli openai small base` poredi isti sintetički
+korpus iz `evals/embedding.example.json` u izdvojenoj `_bench`/`_test` bazi.
+`--korpus` prihvata privatni JSON istog formata; privatni korpus drži van git-a.
+Baza ne sme imati druge dokumente ili činjenice. Benchmark briše samo prethodni
+benchmark indeks i na kraju ostavlja prostor poslednjeg izmerenog modela.
+Izveštaj sadrži kvalitet, negativne upite, trajanje indeksiranja (i prvog učitavanja),
+ms/upit, dimenziju i API tokene. `--usd-za-milion` prihvata važeću cenu OpenAI tokena;
+bez nje iznos ostaje null. Lokalno `api_usd=0` ne uključuje server, struju i vreme CPU-a.
+Bez OPENAI_API_KEY OpenAI se jasno označava kao neizmeren.
+Modeli: https://huggingface.co/intfloat/multilingual-e5-small i
+https://huggingface.co/intfloat/multilingual-e5-base.

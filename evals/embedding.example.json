@@ -1,0 +1,20 @@
+{
+  "documents": [
+    {"id":"bench:odmor","title":"Godišnji odmor","text":"Zaposleni ima pravo na najmanje dvadeset radnih dana godišnjeg odmora. Raspored odsustva se dogovara sa poslodavcem."},
+    {"id":"bench:hosting","title":"Održavanje sajta","text":"Mesečno održavanje uključuje rezervne kopije, bezbednosne nadogradnje i proveru dostupnosti internet prezentacije."},
+    {"id":"bench:orion","title":"Dogovor za Orion","text":"Marko vodi projekat Orion. Dogovoreni rok za predaju novog sajta je petak, a klijent prvo odobrava nacrt."},
+    {"id":"bench:faktura","title":"Plaćanje računa","text":"Račun za pružene usluge dospeva u roku od petnaest dana od izdavanja. Posle uplate menja se status u plaćeno."},
+    {"id":"bench:dns","title":"Domen i DNS","text":"DNS povezuje naziv internet domena sa IP adresom servera. Promena zapisa određuje koji server prima saobraćaj."},
+    {"id":"bench:sastanak","title":"Radni sastanci","text":"Ana je dostupna za video sastanak utorkom od deset do jedanaest. Poziv se zakazuje tek po potvrdi termina."}
+  ],
+  "questions": [
+    {"pitanje":"Koliko dana odmora najmanje može da koristi zaposleni?","dokument":"bench:odmor"},
+    {"pitanje":"Da li briga o sajtu obuhvata backup i sigurnosna ažuriranja?","dokument":"bench:hosting"},
+    {"pitanje":"Ko je odgovoran za Orion i kada treba da završi sajt?","dokument":"bench:orion"},
+    {"pitanje":"Kada je poslednji dan za uplatu izdate fakture?","dokument":"bench:faktura"},
+    {"pitanje":"Kako naziv domena vodi posetioca do odgovarajućeg servera?","dokument":"bench:dns"},
+    {"pitanje":"Kada Ana ima slobodan termin za razgovor preko video poziva?","dokument":"bench:sastanak"},
+    {"pitanje":"Koji je recept za palačinke?","dokument":null},
+    {"pitanje":"Kako popraviti motor kosilice?","dokument":null}
+  ]
+}

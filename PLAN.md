@@ -299,7 +299,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F4.1 Promena dimenzije vektora.** `scripts/reembed.py`: migracija koja
   menja `vector(N)` kolone i ponovo vektorizuje SVE delove i činjenice iz
   sačuvanog teksta (bez ponovnog skidanja izvora).
-- [ ] **F4.2 Lokalni embeddinzi.** `EMBED_PROVIDER=local` (`multilingual-e5-small`,
+- [x] **F4.2 Lokalni embeddinzi.** `EMBED_PROVIDER=local` (`multilingual-e5-small`,
   već u kodu): uporedi sa OpenAI kroz eval (kvalitet, ms po upitu, $). Probaj i
   `multilingual-e5-base`. Rezultat u `EVAL.md`.
 - [ ] **F4.3 Lokalni Whisper.** `TRANSCRIBE_PROVIDER=local`: 20 sopstvenih

@@ -1610,3 +1610,56 @@ async def test_reembed_changes_both_vector_dimensions_atomically(migration_conn,
     await reembed.reembed(conn)
     await dbmod.check_embedding_space(conn)
     assert await conn.fetchval("SELECT vector_dims(embedding) FROM chunks") == 1536
+
+
+async def test_embedding_benchmark_three_models_uses_same_corpus_and_reports_cost(
+    db, monkeypatch, respx_mock
+):
+    import json
+    from types import SimpleNamespace
+
+    from apu.config import settings
+    from apu.rag import embed, store
+    from evals.embedding_bench import benchmark
+    from scripts.reembed import reembed
+
+    monkeypatch.setattr(settings(), "openai_api_key", "test")
+    monkeypatch.setattr(store, "embed", embed.embed)
+    monkeypatch.setattr(store, "embed_one", embed.embed_one)
+
+    def api(request):
+        texts = json.loads(request.content)["input"]
+        return httpx.Response(
+            200,
+            json={
+                "data": [{"index": i, "embedding": fake_vector(t)} for i, t in enumerate(texts)],
+                "usage": {"total_tokens": len(texts) * 10},
+            },
+        )
+
+    respx_mock.post("https://api.openai.com/v1/embeddings").mock(side_effect=api)
+
+    class Local:
+        def __init__(self, name):
+            self.dim = 384 if name.endswith("-small") else 768
+
+        def encode(self, texts, **kwargs):
+            return [SimpleNamespace(tolist=lambda t=t: fake_vector(t, self.dim)) for t in texts]
+
+    monkeypatch.setattr(embed, "_local_model", Local)
+    corpus = {
+        "documents": [
+            {"id": "a", "title": "Orion", "text": "Orion razvoj sajta."},
+            {"id": "b", "title": "Atlas", "text": "Atlas hosting."},
+        ],
+        "questions": [{"pitanje": "Orion", "dokument": "a"}, {"pitanje": "Atlas", "dokument": "b"}],
+    }
+    try:
+        reports = await benchmark(corpus, ["openai", "small", "base"], price_per_million="0.02")
+        assert [r["dimensions"] for r in reports] == [1536, 384, 768]
+        assert len({r["korpus_sha256"] for r in reports}) == 1
+        assert all(r["recall_at_k"] == 1 for r in reports)
+        assert reports[0]["api_usd"] > 0 and reports[1]["api_usd"] == reports[2]["api_usd"] == 0
+    finally:
+        async with db.acquire() as conn:
+            await reembed(conn)

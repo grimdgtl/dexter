@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://apu:apu@localhost:5432/apu"
 
     embed_provider: Literal["openai", "local"] = "openai"
+    embed_local_model: Literal[
+        "intfloat/multilingual-e5-small", "intfloat/multilingual-e5-base"
+    ] = "intfloat/multilingual-e5-small"
     chunk_chars: int = Field(2000, ge=100)
     chunk_overlap: int = Field(200, ge=0)
     rerank: Literal["on", "off"] = "off"
@@ -74,14 +77,16 @@ class Settings(BaseSettings):
     @property
     def embed_dim(self) -> int:
         """Dimenzija vektora zavisi od modela — baza mora da je zna unapred."""
-        return 1536 if self.embed_provider == "openai" else 384
+        return (
+            1536
+            if self.embed_provider == "openai"
+            else (384 if self.embed_local_model.endswith("-small") else 768)
+        )
 
     @property
     def embed_model(self) -> str:
         return (
-            "text-embedding-3-small"
-            if self.embed_provider == "openai"
-            else "intfloat/multilingual-e5-small"
+            "text-embedding-3-small" if self.embed_provider == "openai" else self.embed_local_model
         )
 
 

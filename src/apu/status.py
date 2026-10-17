@@ -17,7 +17,7 @@ async def report() -> str:
         lines.append(f"❌ {t.name} — {reason}" if reason else f"✅ {t.name}")
     lines += [
         f"Modeli: brzi {cfg.model_fast}, glavni {cfg.model_main}, duboki {cfg.model_deep}",
-        f"Embeddinzi: {cfg.embed_provider} ({cfg.embed_dim} dimenzija)",
+        f"Embeddinzi: {cfg.embed_provider}, {cfg.embed_model} ({cfg.embed_dim} dimenzija)",
     ]
     if cfg.embed_provider == "openai" and not cfg.openai_api_key:
         lines.append("⚠️ Embeddinzi: nedostaje OPENAI_API_KEY.")

@@ -13,6 +13,11 @@ upit ili dokument.
 
 import asyncio
 import logging
+import math
+import threading
+import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Literal
 
@@ -24,8 +29,19 @@ log = logging.getLogger(__name__)
 
 Kind = Literal["query", "passage"]
 OPENAI_MODEL = "text-embedding-3-small"
-LOCAL_MODEL = "intfloat/multilingual-e5-small"
 BATCH = 64
+_local_lock = threading.Lock()
+_measurements: ContextVar[list | None] = ContextVar("embedding_measurements", default=None)
+
+
+@contextmanager
+def measure():
+    rows = []
+    token = _measurements.set(rows)
+    try:
+        yield rows
+    finally:
+        _measurements.reset(token)
 
 
 def index_fingerprint(size: int | None = None, overlap: int | None = None) -> str:
@@ -48,31 +64,62 @@ async def _openai(texts: list[str]) -> list[list[float]]:
                 json={"model": OPENAI_MODEL, "input": texts[i : i + BATCH]},
             )
             r.raise_for_status()
-            out.extend(x["embedding"] for x in r.json()["data"])
+            payload = r.json()
+            data = sorted(payload["data"], key=lambda x: x["index"])
+            if [x["index"] for x in data] != list(range(len(texts[i : i + BATCH]))):
+                raise ValueError("Embedding API nije vratio sve indekse po jednom.")
+            out.extend(x["embedding"] for x in data)
+            rows = _measurements.get()
+            if rows is not None:
+                rows.append({"api_tokens": payload.get("usage", {}).get("total_tokens")})
     return out
 
 
-@lru_cache
-def _local_model():
+@lru_cache(maxsize=1)
+def _local_model(name: str):
     from sentence_transformers import SentenceTransformer  # teški import, samo kad treba
 
-    log.info("Učitavam lokalni embedding model %s…", LOCAL_MODEL)
-    return SentenceTransformer(LOCAL_MODEL)
+    log.info("Učitavam lokalni embedding model %s…", name)
+    return SentenceTransformer(name, device="cpu", trust_remote_code=False)
 
 
 def _local_sync(texts: list[str], kind: Kind) -> list[list[float]]:
     prefixed = [f"{kind}: {t}" for t in texts]
-    vecs = _local_model().encode(prefixed, batch_size=BATCH, normalize_embeddings=True)
+    with _local_lock:
+        vecs = _local_model(settings().embed_local_model).encode(
+            prefixed, batch_size=BATCH, normalize_embeddings=True, show_progress_bar=False
+        )
     return [v.tolist() for v in vecs]
 
 
 async def embed(texts: list[str], kind: Kind = "passage") -> list[list[float]]:
     if not texts:
         return []
+    started = time.perf_counter()
     if settings().embed_provider == "local":
         # Model radi na CPU-u i blokira — guramo ga u thread da bot ne zastane.
-        return await asyncio.to_thread(_local_sync, texts, kind)
-    return await _openai(texts)
+        vectors = await asyncio.to_thread(_local_sync, texts, kind)
+    else:
+        vectors = await _openai(texts)
+    if len(vectors) != len(texts) or any(
+        len(v) != settings().embed_dim or not all(math.isfinite(x) for x in v) or not any(v)
+        for v in vectors
+    ):
+        raise ValueError(
+            "Embedding model je vratio neispravan broj, dimenziju ili vrednost vektora."
+        )
+    rows = _measurements.get()
+    if rows is not None:
+        rows.append(
+            {
+                "provider": settings().embed_provider,
+                "model": settings().embed_model,
+                "kind": kind,
+                "texts": len(texts),
+                "ms": 1000 * (time.perf_counter() - started),
+            }
+        )
+    return vectors
 
 
 async def embed_one(text: str, kind: Kind = "query") -> list[float]:
