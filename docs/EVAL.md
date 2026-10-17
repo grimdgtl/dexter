@@ -278,3 +278,30 @@ Testovi koriste lažni model/Telegram i pravu bazu, bez stvarnog troška. Ovo ni
 novčana granica niti potvrda aktuelnog cenovnika: odluka važi za sledeći poziv, a brzi
 model i dalje košta. Za dnevni realni profil treba uključiti limit u pravom botu i
 proveriti `usage` i upozorenja. Datumi i pragovi ne ulaze u SYSTEM_PROMPT.
+
+## F3.5 — tekući sažetak istorije (17.10.2026)
+
+Pre: prve razmene van HISTORY_TURNS nedostaju u kontekstu. Kontrolni scenario sa četiri
+razmene i prozorom od dve čuva rok projekta Orion i status nacrta iz prve dve razmene
+u sažetku; poslednje dve ostaju celovite. Posle nove poruke sažima se samo sledeća
+ispala razmena uz prethodni sažetak. Ponovljeno čitanje bez novih ispalih razmena ne
+zove model. Celokupna sirova istorija ostaje u bazi; u SYSTEM_PROMPT nema promena.
+Sažetak se ne kopira u sačuvani kontekst svake nove poruke.
+
+Provereni su tool_use/tool_result parovi, ishodi potvrda bez ponovnog izvršenja,
+dugi prefiks preko tri dela sa očuvanjem poslednje poruke, nepotpun modelski odgovor
+bez pomeranja napretka i reset tokom sažimanja bez vraćanja obrisanog stanja.
+Ovi testovi koriste kontrolni model; vernost sažetka pravog modela treba ručno oceniti.
+
+Benchmark istih 50 poruka sada uključuje i 37 poziva za sažimanje, odnosno 97 ukupno.
+Sažimanje uvodi dodatni trošak i latenciju radi očuvanja konteksta:
+
+| Kontrolni režim sa kešom | Poziva | USD ukupno | Keš ulaza | ms/poruka |
+|---|---|---|---|---|
+| Pre F3.5 | 60 | 0.180648 | 60.10% | 2.66 |
+| Posle F3.5 | 97 | 0.184580 | 56.28% | 3.56 |
+
+Isti skup i test baza; cene i keš su simulirani. Vremena obuhvataju lokalnu bazu,
+bez modelskog mrežnog čekanja. Simulirani izveštaj nije račun pravog modela.
+Za realno poređenje pokrenuti `python -m evals.cost_bench --uporedi` na izdvojenoj bazi,
+proveriti trošak `history_summary` i kvalitet odgovora koji zavise od ranijih odluka.

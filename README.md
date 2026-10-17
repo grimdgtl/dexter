@@ -323,3 +323,18 @@ ograničenje: poziv koji prelazi prag i već započeti paralelni pozivi mogu pre
 iznos; dalji rad brzim modelom i dalje košta. Budžet obuhvata evidentirane modelske
 pozive, a ne IMAP/Google/Telegram, embeddinge ili transkripciju koji nisu u `usage`.
 Cene u `usage.PRICES` treba proveriti za konkretne modele. Bez promenljive je isključen.
+
+Kontekst starog razgovora: agent zadržava poslednjih `HISTORY_TURNS` celih razmena,
+a stariji prefiks sažima brzim modelom u tabelu `conversation_context` (migracija 006).
+Sažetak i granica obrađenih poruka preživljavaju restart. U sledećem zahtevu se sažimaju
+samo novije razmene koje su izašle iz prozora, uz prethodni sažetak. Sažetak je podatak
+u trenutnom `<kontekst>` bloku; ne dodaje se u SYSTEM_PROMPT niti umnožava u porukama
+sačuvane istorije. Dugi prefiksi prolaze kroz ograničene delove bez odsecanja kraja.
+Sirove poruke ostaju u bazi radi dnevnog izvora `razgovor` i pregleda.
+
+Trošak sažimanja vidi se kao `usage.purpose=history_summary`. Neuspešan ili odsečen
+sažetak ne pomera granicu ni prethodni tekst; korisnik dobija grešku i može ponoviti
+poruku. `/reset` briše i ovaj sažetak, uz sirovu istoriju i pending napomene, dok
+trajna memorija i već indeksirani dnevni sažeci ostaju. Istovremeni reset ne može
+vratiti stari kontekst. Slike se predstavljaju oznakom bez base64 sadržaja; potvrde,
+otkazivanja i rezultati alata prenose se kao podaci, bez ponovnog izvršavanja.

@@ -232,7 +232,9 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_reset(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if _owner(update):
-        await history.clear(update.effective_chat.id)
+        chat_id = update.effective_chat.id
+        async with _chat_locks.setdefault(chat_id, asyncio.Lock()):
+            await history.clear(chat_id)
         await update.message.reply_text(
             "🧹 Istorija razgovora obrisana. Dugoročna memorija ostaje."
         )

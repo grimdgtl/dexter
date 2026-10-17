@@ -14,7 +14,7 @@ import logging
 from dataclasses import dataclass, field
 
 from apu import llm, memory
-from apu.agent import history
+from apu.agent import history, summary
 from apu.agent.prompts import SYSTEM_PROMPT, turn_context
 from apu.agent.router import select_model
 from apu.config import settings
@@ -73,34 +73,44 @@ async def run(chat_id: int, user_content: str | list[dict], *, on_text=None) -> 
 
     facts = await memory.recall(user_text) if user_text.strip() else []
     notes = await history.load_notes(chat_id)
+    past, previous_summary = await summary.load_context(chat_id, cfg.history_turns)
+    runtime_context = turn_context(
+        facts, notes=[n["text"] for n in notes], summary=previous_summary
+    )
     blocks = [
-        {"type": "text", "text": turn_context(facts, notes=[n["text"] for n in notes])},
+        {
+            "type": "text",
+            "text": turn_context(facts, notes=[n["text"] for n in notes]),
+        },
         *blocks,
     ]
     new_messages: list[dict] = [{"role": "user", "content": blocks}]
 
-    past = await history.load(chat_id, cfg.history_turns)
     tools = registry.schemas()
     system = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
     pending: list[tuple[str, str]] = []
     final_text = ""
+    used_model = model
 
     for step in range(MAX_STEPS):
         if on_text is not None:
             await on_text("")
         complete = llm.create if on_text is None else llm.stream
         streaming_args = {} if on_text is None else {"on_text": on_text}
+        messages = _with_cache_breakpoint(past + new_messages)
+        # Sažetak ide samo u tekući zahtev; kopije u istorijskim porukama bi uvećale kontekst.
+        messages[len(past)]["content"][0]["text"] = runtime_context
         response = await complete(
             purpose="chat",
             model=model,
             max_tokens=cfg.max_tokens,
             system=system,
             tools=tools,
-            messages=_with_cache_breakpoint(past + new_messages),
+            messages=messages,
             **streaming_args,
         )
         text = llm.text_of(response)
-        model = getattr(response, "model", model)
+        used_model = getattr(response, "model", model)
 
         if response.stop_reason == "max_tokens":
             # Presečeno usred alata → ne upisuj nesparene pozive (vidi history.py).
@@ -131,4 +141,4 @@ async def run(chat_id: int, user_content: str | list[dict], *, on_text=None) -> 
     _background.add(task)
     task.add_done_callback(_background.discard)
 
-    return AgentResult(text=final_text, model=model, pending=pending)
+    return AgentResult(text=final_text, model=used_model, pending=pending)

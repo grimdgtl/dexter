@@ -23,3 +23,18 @@ def test_usage_capture_is_scoped():
     with usage.capture() as rows:
         assert usage._capture.get() is rows
     assert usage._capture.get() is None
+
+
+async def test_benchmark_rejects_main_database_before_connecting(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    import pytest
+
+    from evals import cost_bench
+
+    monkeypatch.setattr(settings(), "database_url", "postgresql://test@localhost/apu")
+    connect = AsyncMock()
+    monkeypatch.setattr(cost_bench.db, "connect", connect)
+    with pytest.raises(ValueError, match="izdvojenu"):
+        await cost_bench.main(simulation=True)
+    connect.assert_not_awaited()

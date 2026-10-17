@@ -10,6 +10,7 @@ import time
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
+from urllib.parse import unquote, urlsplit
 
 from anthropic.types import Message
 
@@ -82,7 +83,7 @@ async def benchmark(rows: list[dict], *, simulation: bool = False) -> dict:
     if not database.endswith(("_test", "_bench")):
         raise ValueError("Benchmark koristi zasebnu bazu sa sufiksom _test ili _bench.")
     cfg = settings()
-    if any(model not in usage.PRICES for model in (cfg.model_main, cfg.model_deep)):
+    if any(model not in usage.PRICES for model in (cfg.model_fast, cfg.model_main, cfg.model_deep)):
         raise ValueError("Dopuni usage.PRICES za modele pre merenja cene.")
     chat_id = -secrets.randbits(62) - 1
     while chat_id == cfg.telegram_owner_chat_id:
@@ -112,6 +113,9 @@ async def benchmark(rows: list[dict], *, simulation: bool = False) -> dict:
                 times.append((time.perf_counter() - started) * 1000)
                 await asyncio.gather(*tuple(loop._background))
         tokens = [r["usage"] for r in captured]
+        by_purpose = {}
+        for row in captured:
+            by_purpose[row["purpose"]] = by_purpose.get(row["purpose"], 0) + row["usage"].cost_usd
         total_input = sum(
             u.input_tokens + u.cache_read_tokens + u.cache_write_tokens for u in tokens
         )
@@ -120,6 +124,9 @@ async def benchmark(rows: list[dict], *, simulation: bool = False) -> dict:
             "poziva": len(tokens),
             "prompt_cache": cfg.prompt_cache,
             "simulacija": simulation,
+            "history_turns": cfg.history_turns,
+            "modeli": {"fast": cfg.model_fast, "main": cfg.model_main, "deep": cfg.model_deep},
+            "cost_by_purpose": {name: round(cost, 6) for name, cost in by_purpose.items()},
             "cost_usd": round(sum(u.cost_usd for u in tokens), 6),
             "cache_percent": round(
                 100 * sum(u.cache_read_tokens for u in tokens) / max(total_input, 1), 2
@@ -135,6 +142,8 @@ async def benchmark(rows: list[dict], *, simulation: bool = False) -> dict:
 
 
 async def main(simulation: bool = False, compare: bool = False) -> list[dict]:
+    if not unquote(urlsplit(settings().database_url).path).endswith(("_test", "_bench")):
+        raise ValueError("DATABASE_URL benchmarka mora imenovati izdvojenu _test ili _bench bazu.")
     rows = await asyncio.to_thread(read_prompts, HERE / "prompts.jsonl")
     try:
         await db.connect()

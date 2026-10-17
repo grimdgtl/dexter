@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     weather_lon: float = 20.4612
     weather_location: str = "Beograd"
 
-    history_turns: int = 12
+    history_turns: int = Field(12, ge=1)
     log_level: str = "INFO"
 
     @model_validator(mode="after")

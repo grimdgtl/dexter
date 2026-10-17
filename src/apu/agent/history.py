@@ -112,3 +112,4 @@ async def clear(chat_id: int) -> None:
     async with pool().acquire() as conn, conn.transaction():
         await conn.execute("DELETE FROM messages WHERE chat_id = $1", chat_id)
         await conn.execute("DELETE FROM pending_notes WHERE chat_id = $1", chat_id)
+        await conn.execute("DELETE FROM conversation_context WHERE chat_id = $1", chat_id)

@@ -56,7 +56,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -1246,9 +1246,12 @@ async def test_cost_benchmark_cache_comparison_and_isolation(db, monkeypatch):
         monkeypatch.setattr(settings(), "prompt_cache", mode)
         reports.append(await benchmark(rows, simulation=True))
     assert reports[0]["poruka"] == reports[1]["poruka"] == 50
-    assert reports[0]["poziva"] == reports[1]["poziva"] == 60
+    assert (
+        reports[0]["poziva"] == reports[1]["poziva"] == 60 + max(0, 49 - settings().history_turns)
+    )
     assert reports[0]["cache_percent"] == 0 < reports[1]["cache_percent"]
     assert reports[0]["cost_usd"] > reports[1]["cost_usd"]
+    assert reports[1]["cost_by_purpose"]["history_summary"] > 0
     assert await db.fetchval("SELECT count(*) FROM messages") == 0
     assert await db.fetchval("SELECT count(*) FROM facts") == 0
     print("F3.1 test eval:", reports)
@@ -1374,3 +1377,172 @@ async def test_budget_notification_failure_retries_and_record_triggers_warning(d
     assert await budget.model_for(settings().model_main) == settings().model_main
     assert bot.send_message.await_count == 2
     assert await db.fetchval("SELECT count(*) FROM kv_state") == 1
+
+
+async def test_running_summary_keeps_complete_turns_and_incremental_context(db, monkeypatch):
+    from anthropic.types import Message
+
+    from apu import llm, memory
+    from apu.agent import history, loop, summary
+    from apu.config import settings
+
+    monkeypatch.setattr(settings(), "history_turns", 2)
+    monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
+    original = [
+        {"role": "user", "content": "Orion: rok je petak, vlasnik je Marko."},
+        {
+            "role": "assistant",
+            "content": [{"type": "tool_use", "name": "memory_list", "id": "old", "input": {}}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "old", "content": "Nema dodatnih podataka."}
+            ],
+        },
+        {"role": "assistant", "content": "Dogovor ostaje."},
+        {"role": "user", "content": "Ponudu samo pripremi, bez slanja."},
+        {"role": "assistant", "content": "Nacrt čeka potvrdu."},
+        {"role": "user", "content": "Treća tema."},
+        {"role": "assistant", "content": "Treći odgovor."},
+        {"role": "user", "content": "Četvrta tema."},
+        {"role": "assistant", "content": "Četvrti odgovor."},
+    ]
+    await history.append(1, original)
+    calls = []
+
+    async def create(*, purpose, **kwargs):
+        calls.append((purpose, kwargs))
+        text = (
+            "Орион: рок петак, Марко. Понуда је нацрт и чека потврду."
+            if purpose == "history_summary"
+            else "Orion ima rok u petak."
+        )
+        return Message.model_validate(
+            {
+                "id": "context",
+                "type": "message",
+                "role": "assistant",
+                "model": kwargs["model"],
+                "content": [{"type": "text", "text": text}],
+                "stop_reason": "end_turn",
+                "usage": {"input_tokens": 100, "output_tokens": 20},
+            }
+        )
+
+    monkeypatch.setattr(llm, "create", create)
+    recent, text = await summary.load_context(1, 2)
+    assert len(recent) == 4 and recent[0]["content"] == "Treća tema."
+    assert text.startswith("Orion:") and "nacrt" in text
+    assert "tool_use_id" in calls[0][1]["messages"][0]["content"]
+    assert await db.fetchval("SELECT count(*) FROM messages") == len(original)
+    await summary.load_context(1, 2)
+    assert len(calls) == 1
+    await loop.run(1, "Koji je rok za Orion?")
+    chat = calls[-1][1]
+    assert text in chat["messages"][-1]["content"][0]["text"]
+    assert text not in str(chat["system"])
+    saved = await db.fetchval(
+        "SELECT content FROM messages WHERE chat_id=1 AND role='user' ORDER BY id DESC LIMIT 1"
+    )
+    assert text not in saved[0]["text"]
+    # Sledeća poruka sažima samo novu ispalu razmenu, uz prethodni sažetak.
+    await summary.load_context(1, 2)
+    last = calls[-1][1]["messages"][0]["content"]
+    assert "Treća tema." in last and "prethodni_sažetak" in last and "Orion:" in last
+    assert "rok je petak, vlasnik" not in last
+    await history.clear(1)
+    assert await db.fetchval("SELECT count(*) FROM conversation_context") == 0
+
+
+async def test_summary_failure_preserves_progress_and_raw_history(db, monkeypatch):
+    from types import SimpleNamespace
+
+    from apu.agent import history, summary
+
+    messages = [
+        {"role": role, "content": f"{i} {role}"} for i in range(4) for role in ("user", "assistant")
+    ]
+    await history.append(1, messages)
+    good = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text="Sažetak.")], stop_reason="end_turn"
+    )
+    create = AsyncMock(return_value=good)
+    monkeypatch.setattr(summary.llm, "create", create)
+    await summary.load_context(1, 2)
+    state = await db.fetchrow("SELECT * FROM conversation_context")
+    await history.append(
+        1, [{"role": "user", "content": "Nova tema"}, {"role": "assistant", "content": "Odgovor"}]
+    )
+    create.return_value = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text="Nepotpuno")], stop_reason="max_tokens"
+    )
+    with pytest.raises(RuntimeError, match="nije potpun"):
+        await summary.load_context(1, 2)
+    assert await db.fetchrow("SELECT * FROM conversation_context") == state
+    assert await db.fetchval("SELECT count(*) FROM messages") == len(messages) + 2
+    create.return_value = good
+    await summary.load_context(1, 2)
+    assert await db.fetchval("SELECT through_id FROM conversation_context") > state["through_id"]
+
+
+async def test_reset_during_summarization_does_not_restore_deleted_context(db, monkeypatch):
+    from types import SimpleNamespace
+
+    from apu.agent import history, summary
+
+    await history.append(
+        1, [{"role": r, "content": str(i)} for i in range(3) for r in ("user", "assistant")]
+    )
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def create(**kwargs):
+        entered.set()
+        await release.wait()
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text="Stari sažetak")], stop_reason="end_turn"
+        )
+
+    monkeypatch.setattr(summary.llm, "create", create)
+    task = asyncio.create_task(summary.load_context(1, 1))
+    await entered.wait()
+    await history.clear(1)
+    release.set()
+    with pytest.raises(RuntimeError, match="Istorija je promenjena"):
+        await task
+    assert await db.fetchval("SELECT count(*) FROM conversation_context") == 0
+
+
+async def test_long_history_summary_reads_all_parts_before_advancing(db, monkeypatch):
+    from types import SimpleNamespace
+
+    from apu.agent import history, summary
+
+    await history.append(
+        1,
+        [
+            {
+                "role": "user",
+                "content": "POČETAK " + "Dugačka rasprava o sajtu. " * 1800 + " KRAJNJI_DOGOVOR",
+            },
+            {"role": "assistant", "content": "Odgovor na dugu raspravu."},
+            {"role": "user", "content": "Sledeća tema."},
+            {"role": "assistant", "content": "Nov odgovor."},
+        ],
+    )
+    calls = []
+
+    async def create(**kwargs):
+        calls.append(kwargs["messages"][0]["content"])
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=f"Sažetak dela {len(calls)}.")],
+            stop_reason="end_turn",
+        )
+
+    monkeypatch.setattr(summary.llm, "create", create)
+    recent, _text = await summary.load_context(1, 1)
+    assert len(calls) >= 3 and len(recent) == 2
+    assert "POČETAK" in calls[0] and any("KRAJNJI_DOGOVOR" in c for c in calls)
+    assert "Sažetak dela 1." in calls[1]
+    assert await db.fetchval("SELECT through_id FROM conversation_context") == 2
+    assert await db.fetchval("SELECT count(*) FROM messages") == 4
