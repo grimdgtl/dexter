@@ -28,6 +28,13 @@ LOCAL_MODEL = "intfloat/multilingual-e5-small"
 BATCH = 64
 
 
+def index_fingerprint(size: int | None = None, overlap: int | None = None) -> str:
+    cfg = settings()
+    size = cfg.chunk_chars if size is None else size
+    overlap = cfg.chunk_overlap if overlap is None else overlap
+    return f"v3:{size}:{overlap}:{cfg.embed_provider}:{cfg.embed_model}:{cfg.embed_dim}"
+
+
 async def _openai(texts: list[str]) -> list[list[float]]:
     key = settings().openai_api_key
     if not key:

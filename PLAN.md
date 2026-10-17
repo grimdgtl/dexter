@@ -296,7 +296,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
 ### Faza 4 — Lokalni modeli sa Hugging Face-a (17.11–23.11)
 
-- [ ] **F4.1 Promena dimenzije vektora.** `scripts/reembed.py`: migracija koja
+- [x] **F4.1 Promena dimenzije vektora.** `scripts/reembed.py`: migracija koja
   menja `vector(N)` kolone i ponovo vektorizuje SVE delove i činjenice iz
   sačuvanog teksta (bez ponovnog skidanja izvora).
 - [ ] **F4.2 Lokalni embeddinzi.** `EMBED_PROVIDER=local` (`multilingual-e5-small`,

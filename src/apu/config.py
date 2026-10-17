@@ -76,6 +76,14 @@ class Settings(BaseSettings):
         """Dimenzija vektora zavisi od modela — baza mora da je zna unapred."""
         return 1536 if self.embed_provider == "openai" else 384
 
+    @property
+    def embed_model(self) -> str:
+        return (
+            "text-embedding-3-small"
+            if self.embed_provider == "openai"
+            else "intfloat/multilingual-e5-small"
+        )
+
 
 @lru_cache
 def settings() -> Settings:

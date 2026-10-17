@@ -305,3 +305,15 @@ Isti skup i test baza; cene i keš su simulirani. Vremena obuhvataju lokalnu baz
 bez modelskog mrežnog čekanja. Simulirani izveštaj nije račun pravog modela.
 Za realno poređenje pokrenuti `python -m evals.cost_bench --uporedi` na izdvojenoj bazi,
 proveriti trošak `history_summary` i kvalitet odgovora koji zavise od ranijih odluka.
+
+## F4.1 — promena vektorskog prostora (17.10.2026)
+
+Integracioni test nad pravom bazom menja oba skupa vektora 1536 → 384 → 1536.
+Tekstovi, ID-jevi, hash dokumenta i parametri seckanja ostaju očuvani. Embedding
+funkcija je kontrolna, bez API poziva. Proveren je prekid generisanja, kao i greška
+posle ALTER TABLE: transakcija vraća staru dimenziju, vektore i HNSW indeks.
+Normalan start odbija neodgovarajući model/provajder/dimenziju.
+
+Ovo potvrđuje bezbedan prelaz šeme, a ne kvalitet novog modela. `scripts/reembed.py`
+čita sačuvane delove i činjenice u grupama od 64, bez ponovnog skidanja izvora.
+Za stvaran prelaz potreban je ugašen bot i zatim eval istih pitanja (F4.2).

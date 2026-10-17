@@ -62,7 +62,51 @@ async def _init_conn(conn: asyncpg.Connection) -> None:
     await conn.set_type_codec("jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 
-async def connect() -> asyncpg.Pool:
+async def check_embedding_space(conn, *, allow_mismatch=False):
+    cfg = settings()
+    async with conn.transaction():
+        await conn.execute("SELECT pg_advisory_xact_lock(27182026)")
+        dims = [
+            await conn.fetchval(
+                "SELECT atttypmod FROM pg_attribute WHERE attrelid=$1::regclass AND attname='embedding'",
+                table,
+            )
+            for table in ("chunks", "facts")
+        ]
+        if len(set(dims)) != 1:
+            raise RuntimeError(
+                "Vektorske kolone imaju različite dimenzije; potrebna je obnova indeksa."
+            )
+        state = await conn.fetchrow("SELECT * FROM embedding_space WHERE singleton")
+        if state is None:
+            populated = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM chunks UNION ALL SELECT 1 FROM facts)"
+            )
+            legacy = {
+                1536: ("openai", "text-embedding-3-small"),
+                384: ("local", "intfloat/multilingual-e5-small"),
+            }
+            provider, model = (
+                legacy.get(dims[0], ("unknown", "unknown"))
+                if populated
+                else (cfg.embed_provider, cfg.embed_model)
+            )
+            await conn.execute(
+                "INSERT INTO embedding_space (provider,model,dimensions) VALUES ($1,$2,$3)",
+                provider,
+                model,
+                dims[0],
+            )
+            state = {"provider": provider, "model": model, "dimensions": dims[0]}
+        expected = (cfg.embed_provider, cfg.embed_model, cfg.embed_dim)
+        current = (state["provider"], state["model"], state["dimensions"])
+        if not allow_mismatch and (current != expected or dims[0] != cfg.embed_dim):
+            raise RuntimeError(
+                "Embedding model/dimenzija ne odgovara bazi. Zaustavi bot i pokreni python -m scripts.reembed."
+            )
+
+
+async def connect(*, allow_embedding_mismatch: bool = False) -> asyncpg.Pool:
     """Otvara pool i primenjuje nove migracije."""
     global _pool
     if _pool is not None:
@@ -73,6 +117,7 @@ async def connect() -> asyncpg.Pool:
     bootstrap = await asyncpg.connect(cfg.database_url)
     try:
         await migrate(bootstrap, cfg.embed_dim)
+        await check_embedding_space(bootstrap, allow_mismatch=allow_embedding_mismatch)
     finally:
         await bootstrap.close()
 

@@ -1546,3 +1546,67 @@ async def test_long_history_summary_reads_all_parts_before_advancing(db, monkeyp
     assert "Sažetak dela 1." in calls[1]
     assert await db.fetchval("SELECT through_id FROM conversation_context") == 2
     assert await db.fetchval("SELECT count(*) FROM messages") == 4
+
+
+async def test_reembed_changes_both_vector_dimensions_atomically(migration_conn, monkeypatch):
+    from apu import db as dbmod
+    from apu.config import settings
+    from scripts import reembed
+
+    conn = migration_conn
+    await dbmod.migrate(conn, 1536)
+    await dbmod._init_conn(conn)
+    await conn.execute(
+        "INSERT INTO documents(id,source,title,content_hash,index_fingerprint) VALUES ('d','test','Naslov','hash','v2:1200:200:openai:1536')"
+    )
+    await conn.execute(
+        "INSERT INTO chunks(document_id,ord,text,embedding) VALUES ('d',0,'Sačuvani deo',$1)",
+        fake_vector("Sačuvani deo"),
+    )
+    await conn.execute(
+        "INSERT INTO facts(text,category,embedding) VALUES ('Marko je knjigovođa','osoba',$1)",
+        fake_vector("Marko"),
+    )
+    monkeypatch.setattr(settings(), "embed_provider", "local")
+
+    async def embed(texts, kind="passage"):
+        assert kind == "passage"
+        return [fake_vector(t, 384) for t in texts]
+
+    monkeypatch.setattr(reembed.embeddings, "embed", embed)
+    result = await reembed.reembed(conn)
+    assert result["delova"] == result["činjenica"] == 1 and result["dimenzija"] == 384
+    assert await conn.fetchval("SELECT vector_dims(embedding) FROM chunks") == 384
+    assert await conn.fetchval("SELECT vector_dims(embedding) FROM facts") == 384
+    assert await conn.fetchval("SELECT text FROM chunks") == "Sačuvani deo"
+    assert await conn.fetchval("SELECT content_hash FROM documents") == "hash"
+    assert "v3:1200:200:local:" in await conn.fetchval("SELECT index_fingerprint FROM documents")
+    await dbmod.check_embedding_space(conn)
+    monkeypatch.setattr(settings(), "embed_provider", "openai")
+    with pytest.raises(RuntimeError, match=r"scripts.reembed"):
+        await dbmod.check_embedding_space(conn)
+
+    async def restore(texts, kind="passage"):
+        return [fake_vector(t) for t in texts]
+
+    monkeypatch.setattr(reembed.embeddings, "embed", restore)
+    await conn.execute("UPDATE documents SET index_fingerprint='v2:neispravno:200:local:384'")
+    with pytest.raises(ValueError):
+        await reembed.reembed(conn)
+    assert await conn.fetchval("SELECT vector_dims(embedding) FROM chunks") == 384
+    assert await conn.fetchval("SELECT to_regclass('chunks_embedding_idx')")
+    await conn.execute("UPDATE documents SET index_fingerprint='v2:1200:200:local:384'")
+
+    async def failure(texts, kind="passage"):
+        raise RuntimeError("Prekid embeddinga")
+
+    monkeypatch.setattr(reembed.embeddings, "embed", failure)
+    with pytest.raises(RuntimeError):
+        await reembed.reembed(conn)
+    assert await conn.fetchval("SELECT dimensions FROM embedding_space") == 384
+    assert await conn.fetchval("SELECT vector_dims(embedding) FROM facts") == 384
+
+    monkeypatch.setattr(reembed.embeddings, "embed", restore)
+    await reembed.reembed(conn)
+    await dbmod.check_embedding_space(conn)
+    assert await conn.fetchval("SELECT vector_dims(embedding) FROM chunks") == 1536

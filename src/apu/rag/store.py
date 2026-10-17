@@ -20,7 +20,7 @@ from apu.config import settings
 from apu.db import pool
 from apu.rag.chunking import chunk_text
 from apu.rag.dates import period_bounds, timestamp
-from apu.rag.embed import embed, embed_one
+from apu.rag.embed import embed, embed_one, index_fingerprint
 
 log = logging.getLogger(__name__)
 
@@ -65,8 +65,7 @@ async def upsert_document(
     modified_at = timestamp(modified_at)
     db = pool()
 
-    cfg = settings()
-    fingerprint = f"v2:{cfg.chunk_chars}:{cfg.chunk_overlap}:{cfg.embed_provider}:{cfg.embed_dim}"
+    fingerprint = index_fingerprint()
     existing = await db.fetchrow("SELECT * FROM documents WHERE id = $1", doc_id)
     if (
         existing

@@ -338,3 +338,15 @@ poruku. `/reset` briše i ovaj sažetak, uz sirovu istoriju i pending napomene, 
 trajna memorija i već indeksirani dnevni sažeci ostaju. Istovremeni reset ne može
 vratiti stari kontekst. Slike se predstavljaju oznakom bez base64 sadržaja; potvrde,
 otkazivanja i rezultati alata prenose se kao podaci, bez ponovnog izvršavanja.
+
+Promena embedding prostora: zaustavi bot, sačuvaj backup baze, postavi novi
+`EMBED_PROVIDER`, pa pokreni `python -m scripts.reembed` sa istim `DATABASE_URL`.
+Migracija 007 beleži model i dimenziju. Skripta ponovo vektorizuje SVE sačuvane
+`chunks.text` i `facts.text`, bez preuzimanja izvora, uz očuvanje ID-jeva i metapodataka.
+Privremene tabele i novi HNSW indeksi prelaze u upotrebu u jednoj transakciji;
+greška vraća i stare vektore i šemu. Za to vreme tabele su zaključane, pa bot mora
+ostati ugašen. Tek posle uspeha pokreni bot sa novim podešavanjem. Normalan start
+odbija model/dimenziju koji ne odgovaraju bazi. Stare popunjene baze bez profila
+prepoznaju se po ranijim dimenzijama: 1536 = OpenAI small, 384 = multilingual-e5-small.
+Ako si ranije menjao modele mimo ove aplikacije, prvo proveri poreklo vektora.
+`reindex_all` menja seckanje; `reembed` čuva postojeće delove i menja samo vektorski prostor.
