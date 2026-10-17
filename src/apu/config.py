@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     model_deep: str = "claude-opus-5-5"
     max_tokens: int = 8192
     prompt_cache: Literal["on", "off"] = "on"
+    router_mode: Literal["rule", "classifier"] = "rule"
 
     database_url: str = "postgresql://apu:apu@localhost:5432/apu"
 

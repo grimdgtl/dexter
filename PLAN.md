@@ -283,7 +283,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F3.1 Benchmark troška.** `evals/cost_bench.py` pušta fiksnih 50 poruka
   (`evals/prompts.jsonl`, alati mock-ovani) i meri cenu, procenat keša i
   latenciju; prekidač `PROMPT_CACHE=off` za poređenje. Rezultat u `EVAL.md`.
-- [ ] **F3.2 Klasifikator za izbor modela.** Brzi model klasifikuje poruku
+- [x] **F3.2 Klasifikator za izbor modela.** Brzi model klasifikuje poruku
   (lako / srednje / teško). Označi 40 poruka ručno (`evals/router.jsonl`),
   uporedi tačnost i cenu sa pravilom; zadrži bolji.
 - [ ] **F3.3 Streaming.** Tekst se pojavljuje dok nastaje: `messages.stream`,

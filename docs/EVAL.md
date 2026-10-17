@@ -227,3 +227,23 @@ Reprodukcija: `python -m evals.cost_bench --simulacija --uporedi` u zasebnoj baz
 meri prijavljene tokene i celokupno trajanje razmene; alati i tada ostaju lažni.
 Za produkciono poređenje proveriti cenovnik, koristiti iste modele/alate/skup i
 izdvojene pokušaje radi toplog/hladnog keša. Test: `test_cost_benchmark_cache_comparison_and_isolation`.
+
+## F3.2 — izbor modela (17.10.2026)
+
+`evals/router.jsonl`: 40 ručno definisanih sintetičkih slučajeva sa autorskim oznakama
+(14 lako, 14 srednje, 12 teško). To nisu korisnikove poruke ni potvrđene ljudske oznake.
+
+| Pristup | Tačnost oznake | Trošak izbora USD | ms/poruka |
+|---|---|---|---|
+| Postojeće pravilo | 0.525 | 0 | 0.00 |
+| Kontrolni klasifikator koji vraća poznatu oznaku | 1.000 | 0.000646 ukupno | 0.35 |
+
+Pravilo bira srednji model za 14 lakih i pet teških poruka. Kontrolni model samo
+proverava mapiranje sva tri nivoa, evidenciju 38 poziva i očuvanje dva eksplicitna
+prefiksa za jaki model. Njegova tačnost ne meri sposobnost pravog modela; tokeni
+(120 ulaznih i 10 izlaznih po pozivu) i cena po `usage.PRICES` su sintetički.
+Odluka: **ROUTER_MODE ostaje rule** dok stvarni klasifikator ne pokaže bolji odnos
+kvaliteta odgovora, ukupnog troška (klasifikacija + odgovor) i latencije.
+`python -m evals.router_eval` meri pravi klasifikator, a `--simulacija` kontrolni.
+Korisnik treba da potvrdi oznake i dopuni slučajeve svojim porukama. Neispravan JSON,
+nepoznat nivo, API greška ili timeout vraćaju pravilo; eksplicitni `/duboko` ga zaobilazi.

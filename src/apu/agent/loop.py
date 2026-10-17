@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from apu import llm, memory
 from apu.agent import history
 from apu.agent.prompts import SYSTEM_PROMPT, turn_context
-from apu.agent.router import pick_model
+from apu.agent.router import select_model
 from apu.config import settings
 from apu.tools import registry
 
@@ -64,7 +64,7 @@ async def run(chat_id: int, user_content: str | list[dict]) -> AgentResult:
     cfg = settings()
 
     if isinstance(user_content, str):
-        model, user_text = pick_model(user_content)
+        model, user_text = await select_model(user_content)
         blocks: list[dict] = [{"type": "text", "text": user_text}]
     else:
         blocks = user_content

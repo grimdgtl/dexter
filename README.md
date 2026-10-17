@@ -89,6 +89,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `HISTORY_TURNS` | `12` | Broj razmena u istoriji modela |
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
 | `PROMPT_CACHE` | `on` | `off` uklanja sve cache breakpointe iz zahteva za poređenje troška |
+| `ROUTER_MODE` | `rule` | `classifier` uključuje brzi klasifikator; kvar vraća izbor pravilom |
 | `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
 | `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
 | `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
@@ -293,3 +294,11 @@ a `--simulacija` uključuje kontrolni model bez API poziva. Izveštaj sadrži ce
 udeo keša, prosečnu/p95 latenciju i otisak skupa. Privremena istorija se briše;
 redovi `usage` ostaju u izdvojenoj bazi. `PROMPT_CACHE=off` uklanja breakpointe iz
 celog zahteva bez promene statičkog sistemskog prompta.
+
+Izbor modela: `ROUTER_MODE=classifier` dodaje brzi poziv koji vraća lako/srednje/teško.
+Neispravan odgovor ili čekanje preko tri sekunde vraća postojeće pravilo. `/duboko`
+i `duboko:` direktno biraju jaki model. Slike ostaju na glavnom modelu.
+`python -m evals.router_eval` poredi oba pristupa na 40 unapred označenih sintetičkih
+poruka; `--simulacija` koristi kontrolne oznake kao odgovor lažnog modela.
+Oznake treba potvrditi i proširiti svojim slučajevima pre uključivanja klasifikatora;
+podrazumevano ostaje `rule` dok pravi eval ne potvrdi kvalitet i ukupan trošak.

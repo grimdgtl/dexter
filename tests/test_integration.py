@@ -1250,3 +1250,14 @@ async def test_cost_benchmark_cache_comparison_and_isolation(db, monkeypatch):
     assert await db.fetchval("SELECT count(*) FROM messages") == 0
     assert await db.fetchval("SELECT count(*) FROM facts") == 0
     print("F3.1 test eval:", reports)
+
+
+async def test_router_evaluation_tracks_accuracy_cost_and_confusion(db):
+    from evals.router_eval import evaluate
+
+    reports = await evaluate(simulation=True)
+    assert reports[0]["n"] == reports[1]["n"] == 40
+    assert reports[1]["tačnost"] == 1 > reports[0]["tačnost"]
+    assert reports[0]["trošak_izbora_usd"] == 0 < reports[1]["trošak_izbora_usd"]
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='router'") == 38
+    print("F3.2 test eval:", reports)
