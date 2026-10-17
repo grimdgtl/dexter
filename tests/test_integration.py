@@ -56,7 +56,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -1888,3 +1888,72 @@ async def test_failed_tts_preserves_agent_history_and_text(db, monkeypatch, resp
     assert "Glasovni dodatak nije uspeo" in bot.send_message.await_args_list[1].args[1]
     bot.send_voice.assert_not_awaited()
     assert [m["role"] for m in await history.load(1, 12)] == ["user", "assistant"]
+
+
+async def test_commitment_extraction_proof_dedup_and_completion(db, monkeypatch):
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import commitments, llm, memory
+    from apu.tools import registry
+
+    promise = "Poslaću ponudu Marku do petka."
+    item = {
+        "tekst": "Послати понуду Марку",
+        "osoba": "Марко",
+        "rok": "2026-10-23",
+        "dokaz": promise,
+    }
+    raw = {"cinjenice": [], "obaveze": [item, {**item, "dokaz": "Izmišljeni citat asistenta"}]}
+    monkeypatch.setattr(llm, "complete", AsyncMock(return_value=json.dumps(raw)))
+    now = datetime(2026, 10, 17, 23, 55, tzinfo=ZoneInfo("Europe/Belgrade"))
+    assert (
+        await memory.extract_and_save(promise, "Predlog asistenta nije obećanje korisnika.", now)
+        == 1
+    )
+    assert await memory.extract_and_save(promise, "", now) == 0
+    rows = await commitments.list_all()
+    assert len(rows) == 1 and rows[0]["tekst"] == "Poslati ponudu Marku"
+    assert "2026-10-17T23:55" in llm.complete.await_args.args[0]
+    assert not (await registry.execute("commitment_done", {"id": rows[0]["id"]})).is_error
+    assert not await commitments.list_all()
+    assert await commitments.done(rows[0]["id"]) and not await commitments.done(999)
+
+
+async def test_commitment_reminder_is_local_day_once_and_respects_quiet(db, monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import commitments
+    from apu.config import settings
+
+    monkeypatch.setattr(settings(), "quiet_hours", "22-07")
+    text = "Poslaću ponudu Marku do sutra."
+    await commitments.save(commitments.Commitment(tekst=text, rok="2026-10-18", dokaz=text), text)
+    bot = SimpleNamespace(send_message=AsyncMock())
+    tz = ZoneInfo("Europe/Belgrade")
+    assert await commitments.remind(bot, datetime(2026, 10, 17, 23, tzinfo=tz)) == 0
+    now = datetime(2026, 10, 17, 9, tzinfo=tz)
+    assert (
+        sum(await asyncio.gather(commitments.remind(bot, now), commitments.remind(bot, now))) == 1
+    )
+    assert bot.send_message.await_count == 1
+    assert await db.fetchval("SELECT reminder_sent_at IS NOT NULL FROM commitments")
+
+
+async def test_commitment_delivery_error_is_durable_and_not_retried_blindly(db):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import commitments
+
+    text = "Sutra šaljem ponudu."
+    await commitments.save(commitments.Commitment(tekst=text, rok="2026-10-18", dokaz=text), text)
+    bot = SimpleNamespace(send_message=AsyncMock(side_effect=RuntimeError("Prekid veze")))
+    now = datetime(2026, 10, 17, 9, tzinfo=ZoneInfo("Europe/Belgrade"))
+    with pytest.raises(RuntimeError):
+        await commitments.remind(bot, now)
+    assert await commitments.remind(bot, now) == 0
+    assert bot.send_message.await_count == 1
+    assert await db.fetchval("SELECT reminder_error FROM commitments") == "Prekid veze"

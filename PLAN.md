@@ -338,7 +338,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
 ### Faza 6 — Proaktivni sagovornik (decembar)
 
-- [ ] **F6.1 Obaveze.** Izvlačenje memorije izvlači i obaveze sa rokom ("poslaću
+- [x] **F6.1 Obaveze.** Izvlačenje memorije izvlači i obaveze sa rokom ("poslaću
   ponudu Marku do petka") → tabela `commitments(tekst, osoba, rok, status)`.
   Alati `commitments_list`, `commitment_done`. Podsetnik dan pre roka.
 - [ ] **F6.2 Dnevni uvid.** Posao u 08:30: skupi kalendar (danas, sutra),

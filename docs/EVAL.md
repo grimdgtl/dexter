@@ -491,3 +491,15 @@ TTS nije deo Anthropic obračuna `usage` niti njegovog dnevnog budžeta; nema tv
 nultom trošku. Ugovor zahteva oslanja se na zvanični
 [TTS vodič](https://developers.openai.com/api/docs/guides/text-to-speech) i
 [model card](https://developers.openai.com/api/docs/models/gpt-4o-mini-tts).
+
+## F6.1 — obaveze iz razgovora (17.10.2026)
+
+Pre: prolazna obećanja sa rokom nisu imala zasebno stanje. Posle: memorija istim
+pozivom vraća trajne činjenice i strukturisane obaveze; prihvata se samo obaveza sa
+citatom iz korisnikove poruke. Datum poruke se hvata pre modelskog odgovora radi
+relativnih rokova. Test baze odbija citat asistenta, čuva latinicu, ne duplira zapis
+pri ponovljenoj ekstrakciji i omogućava idempotentno zatvaranje kroz alat.
+Dva paralelna podsetnika za isti lokalni dan daju jedan Telegram poziv. Tišina se
+proverava na granicama 22:00 i 07:00. Mrežna greška ostaje u bazi, bez slepog retry-a.
+Modelski odgovori i Telegram su kontrolni; stvarno prepoznavanje rokova i isporuku
+podsetnika treba ručno proveriti. SYSTEM_PROMPT nije menjan.

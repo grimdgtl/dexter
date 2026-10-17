@@ -18,6 +18,7 @@ from apu.agent import history, summary
 from apu.agent.prompts import SYSTEM_PROMPT, turn_context
 from apu.agent.router import select_model
 from apu.config import settings
+from apu.proactive_time import local_now
 from apu.tools import registry
 
 log = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ async def run(chat_id: int, user_content: str | list[dict], *, on_text=None) -> 
 
 async def _run(chat_id: int, user_content: str | list[dict], *, on_text=None) -> AgentResult:
     cfg = settings()
+    started_at = local_now()
 
     if isinstance(user_content, str):
         model, user_text = await select_model(user_content)
@@ -142,7 +144,7 @@ async def _run(chat_id: int, user_content: str | list[dict], *, on_text=None) ->
     await history.append(chat_id, new_messages, note_ids=[n["id"] for n in notes])
 
     # Memorija se izvlači u pozadini — korisnik ne čeka na to.
-    task = asyncio.create_task(memory.extract_and_save(user_text, final_text))
+    task = asyncio.create_task(memory.extract_and_save(user_text, final_text, started_at))
     _background.add(task)
     task.add_done_callback(_background.discard)
 

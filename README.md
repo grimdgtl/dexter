@@ -105,6 +105,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `TTS_MODEL` | `gpt-4o-mini-tts` | OpenAI model za sintezu glasa, uz `OPENAI_API_KEY` |
 | `TTS_VOICE` | `coral` | Glas podržan izabranim TTS modelom |
 | `TIMEZONE` | `Europe/Belgrade` | Vremenska zona konteksta i zakazanih poslova |
+| `QUIET_HOURS` | `22-07` | Tišina za proaktivne poruke; HH-HH, isti početak/kraj znači ceo dan |
 | `WEATHER_LAT` / `WEATHER_LON` | `44.8125` / `20.4612` | Koordinate prognoze |
 | `WEATHER_LOCATION` | `Beograd` | Naziv lokacije u porukama |
 | `LOG_LEVEL` | `INFO` | Nivo logovanja |
@@ -513,3 +514,17 @@ dugmad. Dobijaš kratku napomenu o neuspelom dodatku. Tekst odgovora se pri TTS-
 OpenAI-ju; dodatak ima poseban API trošak. Taj trošak nije obračunat u Anthropic
 `usage` izveštaju niti ograničen `DAILY_BUDGET_USD` mehanizmom. Podrazumevano je
 isključen. Lokalni TTS nije uveden.
+
+Obaveze iz razgovora (F6.1): isti pozadinski poziv koji izvlači memoriju izdvaja i
+izričito preuzete obaveze sa rokom. Referentni datum je početak korisnikove razmene
+u `TIMEZONE`. Obaveza mora imati doslovan citat iz korisnikove poruke; predlog
+asistenta i izmišljeni citati se odbijaju. Rok bez dovoljno podataka se ne nagađa.
+`commitments_list` prikazuje otvorene/završene obaveze, a `commitment_done` ih zatvara.
+Migracija 010 čuva tekst, osobu, rok, status i izvorni citat. Ponovljen isti zapis
+ne otvara duplikat niti vraća završenu obavezu u otvorene.
+
+Podsetnik u 09:00 obuhvata otvorene obaveze za sutra. `QUIET_HOURS=22-07` sprečava
+slanje u tihim satima; jednak početak i kraj znači celodnevnu tišinu. Pokušaj slanja
+rezerviše se u bazi pre Telegram poziva da retry/restart ne pošalje duplikat.
+Ako veza pukne, ishod može biti neizvestan: automatsko ponovno slanje je izostavljeno,
+a `reminder_error` i `reminder_sent_at` omogućavaju ručnu proveru. `/reset` ne briše obaveze.

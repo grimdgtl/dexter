@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     tts_voice: str = Field("coral", min_length=1)
 
     timezone: str = "Europe/Belgrade"
+    quiet_hours: str = Field("22-07", pattern=r"^\d{2}-\d{2}$")
     weather_lat: float = 44.8125
     weather_lon: float = 20.4612
     weather_location: str = "Beograd"
@@ -76,6 +77,8 @@ class Settings(BaseSettings):
     def valid_chunking(self):
         if self.chunk_overlap >= self.chunk_chars:
             raise ValueError("CHUNK_OVERLAP mora biti manji od CHUNK_CHARS.")
+        if any(int(h) > 23 for h in self.quiet_hours.split("-")):
+            raise ValueError("QUIET_HOURS koristi sate 00–23, npr. 22-07.")
         return self
 
     @property
