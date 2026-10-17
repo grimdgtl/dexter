@@ -131,6 +131,37 @@ recall/MRR, stvarne `usage` tokene/cenu i ukupnu latenciju, pa uključiti samo u
 Reprodukcija: `pytest tests/test_integration.py::test_rerank_evaluation_top_twenty_cost_and_fallback -s`
 uz `TEST_DATABASE_URL`.
 
+## F2.5 — negativna pitanja i prag relevantnosti (17.10.2026)
+
+Tri sintetička dokumenta, tri pozitivna i dva negativna pitanja, uz kontrolisane
+jedinične vektore. Pozitivni primeri pokrivaju semantički pogodak bez zajedničkih reči
+(kosinus 0.4), jači semantički pogodak (0.8) i tačan PIB sa slabim vektorom (0.01).
+Negativni upiti imaju kosinuse do 0.2 odnosno 0. Nema pravih model/API poziva.
+
+| Prag | recall@5 | MRR | Preciznost upita | precision@5 | Tačnost negativnih | ms/upit |
+|---|---|---|---|---|---|---|
+| 0 (pre, bez odbacivanja) | 1.0 | 1.0 | 0.60 | 0.20 | 0.0 | 1.81 |
+| 0.15 | 1.0 | 1.0 | 0.75 | 0.50 | 0.5 | 0.80 |
+| 0.30 (izabrano) | 1.0 | 1.0 | 1.00 | 1.00 | 1.0 | 0.76 |
+| 0.45 | 0.667 | 0.667 | 1.00 | 1.00 | 1.0 | 0.76 |
+
+Izabrano je `RAG_MIN_SIMILARITY=0.3`: odbacuje oba negativna primera, a čuva sva tri
+pozitivna. Prag 0.45 gubi slabiji semantički pogodak. Tačan full-text pogodak za PIB
+ostaje čak i pri pragu 1. Prag se primenjuje pre preslaganja; RRF rang nije prag relevantnosti.
+Ovo je provera granica na kontrolisanoj geometriji, ne kalibracija produkcionog modela.
+Za svaki embedding model/provajder treba ponoviti kalibraciju na privatnim pitanjima.
+
+Recall/MRR koriste samo pozitivna pitanja. Preciznost upita je broj pozitivnih upita
+sa očekivanim dokumentom u top k, podeljen brojem svih upita sa nepraznim top k (uključujući
+negativne). `precision_at_k` deli broj relevantnih jedinstvenih top k dokumenata ukupnim
+brojem vraćenih jedinstvenih dokumenata. Bez odgovora preciznosti su 0. Tačnost negativnih
+je udeo negativnih pitanja bez pogodaka, odnosno null kad negativnih pitanja nema.
+Stari logovi ostaju čitljivi; poređenje prikazuje i preciznost i tačnost negativnih.
+
+Reprodukcija: `pytest tests/test_integration.py::test_relevance_threshold_calibration -s`
+uz `TEST_DATABASE_URL`. Privatna kalibracija: za svaku vrednost postavi
+`RAG_MIN_SIMILARITY`, pokreni `python -m evals.rag_eval --oznaka prag-03` i uporedi logove.
+
 ## Šablon zapisa promene
 
 - Datum i verzija/commit:

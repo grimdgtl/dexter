@@ -63,3 +63,46 @@ async def test_missing_questions_do_not_connect(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="Napravi"):
         await rag_eval.main(5, "test")
     connect.assert_not_awaited()
+
+
+def test_negative_metrics_and_deduplication():
+    result = rag_eval.metrics([["a", "a", "b"], [], ["c"], []], ["a", None, None, "d"], 5)
+    assert result["recall_at_k"] == result["mrr"] == 0.5
+    assert result["precision"] == 0.5
+    assert result["precision_at_k"] == 0.333
+    assert result["negative_accuracy"] == 0.5
+    assert result["n_positive"] == result["n_negative"] == 2
+    assert rag_eval.metrics([[]], [None], 5)["negative_accuracy"] == 1
+    assert rag_eval.metrics([], [], 5)["precision"] == 0
+    with pytest.raises(ValueError):
+        rag_eval.metrics([], [], 0)
+
+
+def test_questions_accept_explicit_null_but_reject_missing_id(tmp_path):
+    path = tmp_path / "questions.jsonl"
+    path.write_text('{"pitanje":"Nema odgovora?","dokument":null}\n')
+    assert rag_eval.read_questions(path)[0]["dokument"] is None
+    for bad in (
+        '{"pitanje":"Test"}',
+        '{"pitanje":"Test","dokument":""}',
+        '{"pitanje":"Test","dokument":42}',
+    ):
+        path.write_text(bad)
+        with pytest.raises(ValueError):
+            rag_eval.read_questions(path)
+
+
+async def test_negative_question_is_miss_only_when_something_is_returned(
+    tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(rag_eval, "HERE", tmp_path)
+    (tmp_path / "questions.jsonl").write_text('{"pitanje":"Nepoznato?","dokument":null}\n')
+    monkeypatch.setattr(rag_eval.db, "connect", AsyncMock())
+    monkeypatch.setattr(rag_eval.db, "close", AsyncMock())
+    search = AsyncMock(return_value=[])
+    monkeypatch.setattr(rag_eval.store, "search", search)
+    assert (await rag_eval.main(5, "negativno"))["negative_accuracy"] == 1
+    assert "PROMAŠAJ:" not in capsys.readouterr().out
+    search.return_value = [SimpleNamespace(document_id="doc:1")]
+    assert (await rag_eval.main(5, "pogrešno"))["negative_accuracy"] == 0
+    assert "PROMAŠAJ:" in capsys.readouterr().out

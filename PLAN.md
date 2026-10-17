@@ -272,7 +272,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F2.4 Reranking.** Opciono (`RERANK=on`): brzi model dobije pitanje i top
   20 odlomaka, vrati redosled kao JSON listu indeksa; uzmi top `limit`. Izmeri
   recall, latenciju i cenu; zadrži samo ako se isplati.
-- [ ] **F2.5 Negativna pitanja i prag.** Eval podržava `"dokument": null`
+- [x] **F2.5 Negativna pitanja i prag.** Eval podržava `"dokument": null`
   (očekivano: ništa relevantno) i meri preciznost. Uvedi prag (npr. bez
   keyword pogotka i kosinus ispod X → prazno) kalibrisan na evalu.
 - [ ] **F2.6 Filtriranje po vremenu.** `documents.modified_at`; `knowledge_search`

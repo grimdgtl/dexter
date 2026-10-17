@@ -91,6 +91,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
 | `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
 | `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
+| `RAG_MIN_SIMILARITY` | `0.3` | Najmanji kosinus za odlomak bez full-text pogotka; opseg 0–1 |
 | `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze i transkripciju |
 | `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
 | `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
@@ -119,6 +120,16 @@ Sa `RERANK=on`, brzi model preslaže do 20 hybrid odlomaka pre odabira `limit` r
 Vraćeni indeksi moraju biti potpuna permutacija; pri grešci, odsečenom odgovoru ili
 čekanju dužem od 10 sekundi ostaje hybrid redosled. Trošak se beleži kao `usage.purpose=rerank`.
 Opcija je podrazumevano ugašena dok privatni eval ne potvrdi dobitak u odnosu na cenu i čekanje.
+Pre preslaganja se odbacuju odlomci bez full-text pogotka čiji je kosinus ispod
+`RAG_MIN_SIMILARITY`. Zato nepoznat upit može dati praznu listu. Tačan full-text pogodak
+(npr. PIB) prolazi i sa slabim vektorom. RRF ocena služi za rangiranje i nije kosinus.
+Eval prihvata `"dokument": null` za pitanja na koja indeks nema odgovor. Recall i MRR
+računaju se samo nad pozitivnim pitanjima; `precision` je udeo upita sa rezultatom čiji
+top k sadrži očekivani dokument, a `negative_accuracy` udeo negativnih pitanja bez rezultata.
+`precision_at_k` meri relevantne jedinstvene dokumente među svim vraćenim top k dokumentima.
+Ako nema vraćenih rezultata, obe preciznosti su 0; bez negativnih pitanja njihova tačnost
+je null. Za kalibraciju poredi ista pitanja sa npr. `RAG_MIN_SIMILARITY=0`, `0.15`, `0.3`
+i `0.45` kroz `python -m evals.rag_eval --oznaka prag-03`, pa pogledaj `--uporedi`.
 Nepromenjen tekst ne troši nove embedding pozive; nestali dokumenti brišu se tek posle
 uspešnog obilaska celog izvora. API verzija Notion-a je fiksirana na `2025-09-03`.
 

@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     chunk_chars: int = Field(2000, ge=100)
     chunk_overlap: int = Field(200, ge=0)
     rerank: Literal["on", "off"] = "off"
+    rag_min_similarity: float = Field(0.3, ge=0, le=1)
     openai_api_key: str | None = None
     notion_api_key: str | None = None
     semantic_index_cron: str = "0 4 * * *"

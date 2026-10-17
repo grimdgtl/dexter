@@ -36,6 +36,7 @@ class Hit:
     score: float
     vector_rank: int | None = None
     keyword_rank: int | None = None
+    similarity: float | None = None
 
 
 def rrf(*rankings: list[int], k: int = RRF_K) -> dict[int, float]:
@@ -97,7 +98,8 @@ async def search(query: str, limit: int = 6, source: str | None = None) -> list[
     qvec = await embed_one(query, kind="query")
 
     vector_rows = await db.fetch(
-        """SELECT c.id FROM chunks c JOIN documents d ON d.id = c.document_id
+        """SELECT c.id, 1 - (c.embedding <=> $1) AS similarity
+           FROM chunks c JOIN documents d ON d.id = c.document_id
            WHERE ($3::text IS NULL OR d.source = $3)
            ORDER BY c.embedding <=> $1 LIMIT $2""",
         qvec, CANDIDATES, source,
@@ -113,7 +115,17 @@ async def search(query: str, limit: int = 6, source: str | None = None) -> list[
 
     vec_ids = [r["id"] for r in vector_rows]
     kw_ids = [r["id"] for r in keyword_rows]
+    similarities = {r["id"]: r["similarity"] for r in vector_rows}
     scores = rrf(vec_ids, kw_ids)
+    # RRF rang nije mera relevantnosti: slab vektor bez tačnog pogotka ne vraćamo.
+    scores = {
+        cid: score
+        for cid, score in scores.items()
+        if cid in kw_ids
+        or (
+            similarities.get(cid) is not None and similarities[cid] >= settings().rag_min_similarity
+        )
+    }
     top = sorted(scores, key=scores.__getitem__, reverse=True)[
         : 20 if settings().rerank == "on" else limit
     ]
@@ -136,6 +148,7 @@ async def search(query: str, limit: int = 6, source: str | None = None) -> list[
             score=round(scores[cid], 5),
             vector_rank=vec_ids.index(cid) + 1 if cid in vec_ids else None,
             keyword_rank=kw_ids.index(cid) + 1 if cid in kw_ids else None,
+            similarity=similarities.get(cid),
         )
         for cid in top
     ]

@@ -969,3 +969,64 @@ async def test_rerank_evaluation_top_twenty_cost_and_fallback(db, monkeypatch):
     model.reset_mock()
     await store.search("ponuda projekat")
     model.assert_not_awaited()
+
+
+async def test_relevance_threshold_calibration(db, monkeypatch):
+    import json
+    import time
+
+    from apu.config import settings
+    from apu.rag import store
+    from evals.rag_eval import metrics
+
+    def vector(parts):
+        v = [0.0] * 1536
+        for i, value in parts.items():
+            v[i] = value
+        v[10] = math.sqrt(max(0, 1 - sum(x * x for x in v)))
+        return v
+
+    async def embed(texts, kind="passage"):
+        return [
+            vector({0 if "Razvoj" in text else 1 if "Odsustvo" in text else 2: 1}) for text in texts
+        ]
+
+    queries = {
+        "Novi portal": ({0: 0.8}, "test:razvoj"),
+        "Koliki je predah": ({1: 0.4}, "test:odmor"),
+        "108073515": ({2: 0.01}, "test:racun"),
+        "Kako popraviti kosilicu": ({0: 0.2, 1: 0.2, 2: 0.2}, None),
+        "Recept za palačinke": ({}, None),
+    }
+
+    async def embed_one(text, kind="query"):
+        return vector(queries[text][0])
+
+    monkeypatch.setattr(store, "embed", embed)
+    monkeypatch.setattr(store, "embed_one", embed_one)
+    for name, text in (
+        ("razvoj", "Razvoj internet prezentacija."),
+        ("odmor", "Odsustvo zaposlenih traje dvadeset radnih dana."),
+        ("racun", "Račun firme, PIB 108073515."),
+    ):
+        await store.upsert_document(f"test:{name}", "test", name, text)
+    results = []
+    for threshold in (0, 0.15, 0.3, 0.45):
+        monkeypatch.setattr(settings(), "rag_min_similarity", threshold)
+        start = time.perf_counter()
+        ranked = [[h.document_id for h in await store.search(q)] for q in queries]
+        result = metrics(ranked, [value[1] for value in queries.values()], 5)
+        result |= {
+            "threshold": threshold,
+            "ms_po_upitu": round((time.perf_counter() - start) * 1000 / len(queries), 2),
+        }
+        results.append(result)
+    print("F2.5 test eval:", json.dumps(results))
+    assert results[0]["recall_at_k"] == results[2]["recall_at_k"] == 1
+    assert results[0]["precision"] == 0.6 and results[2]["precision"] == 1
+    assert results[0]["negative_accuracy"] == 0 and results[2]["negative_accuracy"] == 1
+    assert results[3]["recall_at_k"] < results[2]["recall_at_k"]
+    monkeypatch.setattr(settings(), "rag_min_similarity", 1)
+    hits = await store.search("108073515")
+    assert len(hits) == 1 and hits[0].keyword_rank == 1
+    assert hits[0].similarity < 0.1

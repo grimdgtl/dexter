@@ -7,6 +7,7 @@ podacima — fajl je u .gitignore jer sadrži lične stvari):
 
     {"pitanje": "koliki je PIB firme ABC Studio", "dokument": "notion:abc123"}
     {"pitanje": "šta piše o otkaznom roku", "dokument": "zakon:zakon-o-radu.pdf"}
+    {"pitanje": "koji je recept za palačinke", "dokument": null}
 
 Pokretanje (uz pokrenutu bazu i indeks):
     python -m evals.rag_eval --k 5 --oznaka "hybrid-1200"
@@ -14,6 +15,8 @@ Pokretanje (uz pokrenutu bazu i indeks):
 Metrike:
   recall@k — udeo pitanja gde je tačan dokument u top k
   MRR      — prosek 1/mesto prvog tačnog (1.0 = uvek prvi)
+  precision — udeo upita sa rezultatom koji sadrže očekivani dokument u top k
+  negative_accuracy — udeo negativnih upita bez rezultata
 Rezultat se dopisuje u evals/results/log.jsonl da možeš da porediš verzije.
 """
 
@@ -31,16 +34,35 @@ from apu.rag import store
 HERE = Path(__file__).parent
 
 
-def metrics(ranked_docs: list[list[str]], expected: list[str], k: int) -> dict:
-    hits, rr = 0, 0.0
+def metrics(ranked_docs: list[list[str]], expected: list[str | None], k: int) -> dict:
+    if k < 1:
+        raise ValueError("k mora biti pozitivan ceo broj.")
+    hits, rr, answered, negative_correct, relevant, retrieved = 0, 0.0, 0, 0, 0, 0
+    positive = sum(exp is not None for exp in expected)
+    negative = len(expected) - positive
     for docs, exp in zip(ranked_docs, expected, strict=True):
         unique = list(dict.fromkeys(docs))  # više delova istog dokumenta = jedno mesto
-        if exp in unique[:k]:
+        top = unique[:k]
+        answered += bool(top)
+        retrieved += len(top)
+        if exp is None:
+            negative_correct += not top
+            continue
+        if exp in top:
             hits += 1
+            relevant += 1
         if exp in unique:
             rr += 1 / (unique.index(exp) + 1)
-    n = max(len(expected), 1)
-    return {"recall_at_k": round(hits / n, 3), "mrr": round(rr / n, 3), "n": len(expected)}
+    return {
+        "recall_at_k": round(hits / max(positive, 1), 3),
+        "mrr": round(rr / max(positive, 1), 3),
+        "precision": round(hits / max(answered, 1), 3),
+        "precision_at_k": round(relevant / max(retrieved, 1), 3),
+        "negative_accuracy": round(negative_correct / negative, 3) if negative else None,
+        "n": len(expected),
+        "n_positive": positive,
+        "n_negative": negative,
+    }
 
 
 def read_log(path: Path) -> list[dict]:
@@ -64,13 +86,22 @@ def comparison(rows: list[dict]) -> str:
     if not rows:
         return "Nema prethodnih eval pokretanja."
     lines = [
-        "Datum | Oznaka | k | recall@k | MRR | ms po upitu",
-        "--- | --- | --- | --- | --- | ---",
+        "Datum | Oznaka | k | recall@k | MRR | preciznost | negativna tačnost | ms po upitu",
+        "--- | --- | --- | --- | --- | --- | --- | ---",
     ]
     for row in rows:
         values = [
             row.get(key, "—")
-            for key in ("datum", "oznaka", "k", "recall_at_k", "mrr", "ms_po_upitu")
+            for key in (
+                "datum",
+                "oznaka",
+                "k",
+                "recall_at_k",
+                "mrr",
+                "precision",
+                "negative_accuracy",
+                "ms_po_upitu",
+            )
         ]
         lines.append(
             " | ".join(str(value).replace("|", "/").replace("\n", " ") for value in values)
@@ -83,11 +114,16 @@ def read_questions(path: Path) -> list[dict]:
     if not qs:
         raise ValueError("Napravi evals/questions.jsonl sa pitanjima nad svojim podacima.")
     for i, question in enumerate(qs, 1):
-        if not all(
-            isinstance(question.get(key), str) and question[key].strip()
-            for key in ("pitanje", "dokument")
+        if (
+            not isinstance(question.get("pitanje"), str)
+            or not question["pitanje"].strip()
+            or "dokument" not in question
+            or not (
+                question["dokument"] is None
+                or (isinstance(question["dokument"], str) and question["dokument"].strip())
+            )
         ):
-            raise ValueError(f"Pitanje {i} mora imati tekstualna polja pitanje i dokument.")
+            raise ValueError(f"Pitanje {i} mora imati tekst pitanja i dokument (ID ili null).")
     return qs
 
 
@@ -104,7 +140,9 @@ async def main(k: int, label: str) -> dict:
             docs = [h.document_id for h in hits]
             ranked.append(docs)
             top_k = list(dict.fromkeys(docs))[:k]
-            if q["dokument"] not in top_k:
+            if (q["dokument"] is None and top_k) or (
+                q["dokument"] is not None and q["dokument"] not in top_k
+            ):
                 misses.append(
                     {"pitanje": q["pitanje"], "ocekivano": q["dokument"], "dobijeno": top_k}
                 )
@@ -113,7 +151,7 @@ async def main(k: int, label: str) -> dict:
         m |= {
             "k": k,
             "oznaka": label,
-            "ms_po_upitu": round(1000 * elapsed / len(qs)),
+            "ms_po_upitu": round(1000 * elapsed / len(qs), 2),
             "datum": datetime.now(UTC).isoformat(),
         }
         print(u_latinicu(json.dumps(m, ensure_ascii=False, indent=2)))
