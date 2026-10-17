@@ -145,6 +145,23 @@ HTML se svodi na tekst bez skripti i stilova. Poruka se preuzima kao MIME celina
 pa granica priloga ograničava indeksiranje, a ne IMAP mrežni saobraćaj.
 Alati za čitanje pojedinačnog mejla, draftovi i slanje ostaju u zasebnoj Fazi 1b.
 
+Razgovori su lokalni izvor `razgovor`, dostupan bez dodatnih ključeva za izvore.
+Svakog dana u 03:30, u zoni `TIMEZONE`, brzi model sažima sve ranije završene dane
+sa sačuvanim porukama vlasnika (`TELEGRAM_OWNER_CHAT_ID`). Prvo pokretanje obrađuje i
+propuštene dane. Današnje poruke čekaju narednu noć da dan ne bi bio nepotpun.
+Dokument `razgovor:YYYY-MM-DD` sadrži teme, odluke, dogovore, rokove i imena.
+Za pretragu ili ručno osvežavanje koristi `knowledge_search` odnosno `knowledge_reindex`
+sa `izvor="razgovor"`. Izvor se proverava i tokom redovnog osvežavanja indeksa.
+
+Nepromenjen dan ne troši ponovo model ni embeddinge; naknadno dodate stare poruke
+obnavljaju samo taj dan. Dugi dani sažimaju se u delovima pa objedinjuju, bez odsecanja
+kraja istorije. Trošak modela beleži se u `usage` kao `conversation_summary`.
+Umetnuti kontekst memorije, pozivi/rezultati alata i bajtovi slika ne ulaze u sažetak;
+za sliku ostaje samo oznaka da je poslata. Predlozi asistenta nisu potvrđene odluke.
+Greška ili nepotpun odgovor modela čuva prethodni indeks i omogućava ponovni pokušaj
+kroz isti omotač poslova kao ostali zakazani zadaci. `/reset` briše sirovu istoriju,
+ali već indeksirani sažeci ostaju u znanju; poruke obrisane pre sažimanja ne mogu se vratiti.
+
 ## Uvoz lokalnih dokumenata
 
 Sačuvaj važeće tekstove Zakona o radu, Zakona o zaštiti potrošača i Zakona o PDV-u

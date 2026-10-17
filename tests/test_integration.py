@@ -56,7 +56,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -681,3 +681,160 @@ async def test_mail_source_evaluation_deduplication_and_safe_cleanup(
     imap_server.fail_folder = None
     assert (await mail.reindex())["obrisano"] == 1
     assert await db.fetchval("SELECT count(*) FROM documents WHERE source = 'notion'") == 1
+
+
+@pytest.fixture
+def conversation_model(monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from apu import config, llm
+    from apu.sources import conversations
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 17, 3, 30, tzinfo=ZoneInfo("Europe/Belgrade")).astimezone(tz)
+
+    async def create(**kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        name = "Orion" if "Orion" in prompt else "Atlas"
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text=f"Теме: {name}. Договор са Марком о року.")],
+            stop_reason="end_turn",
+            usage=SimpleNamespace(
+                input_tokens=100,
+                output_tokens=25,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
+            ),
+        )
+
+    config.settings().telegram_owner_chat_id = 1
+    config.settings().timezone = "Europe/Belgrade"
+    model = AsyncMock(side_effect=create)
+    monkeypatch.setattr(
+        llm, "client", lambda: SimpleNamespace(messages=SimpleNamespace(create=model))
+    )
+    monkeypatch.setattr(conversations, "datetime", FrozenDateTime)
+    return model
+
+
+async def add_conversation_message(db, stamp, text, chat_id=1, role="user"):
+    from datetime import datetime
+
+    await db.execute(
+        "INSERT INTO messages (chat_id, role, content, created_at) VALUES ($1, $2, $3, $4)",
+        chat_id,
+        role,
+        text,
+        datetime.fromisoformat(stamp),
+    )
+
+
+async def test_conversation_source_evaluation_dates_retry_and_reset(
+    db, conversation_model, monkeypatch
+):
+    import json
+    import time
+
+    from apu import sources
+    from apu.agent import history
+    from apu.rag import store
+    from apu.sources import conversations
+    from evals.rag_eval import metrics
+
+    await add_conversation_message(db, "2026-09-30T20:30:00+00:00", "Orion: dogovor sa Markom.")
+    # Posle 22:00 UTC u ovoj zoni počinje sledeći lokalni dan.
+    await add_conversation_message(db, "2026-09-30T22:30:00+00:00", "Atlas: rok je petak.")
+    await add_conversation_message(db, "2026-10-16T22:30:00+00:00", "Današnja tema")
+    await add_conversation_message(db, "2026-09-29T10:00:00+00:00", "DRUGI_KORISNIK", chat_id=2)
+    expected = ["razgovor:2026-09-30", "razgovor:2026-10-01"]
+
+    async def measure():
+        start = time.perf_counter()
+        result = metrics(
+            [
+                [h.document_id for h in await store.search(query, source="razgovor")]
+                for query in ("Orion", "Atlas")
+            ],
+            expected,
+            5,
+        )
+        result["ms_po_upitu"] = round(1000 * (time.perf_counter() - start) / 2, 2)
+        return result
+
+    before = await measure()
+    assert (await sources.reindex("razgovor"))["razgovor"]["indeksirano"] == 2
+    after = await measure()
+    assert before["recall_at_k"] == before["mrr"] == 0
+    assert after["recall_at_k"] == after["mrr"] == 1
+    print("F2.2 test eval:", json.dumps({"pre": before, "posle": after, "dokumenata": 2}))
+    assert conversation_model.await_count == 2
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='conversation_summary'") == 2
+    assert not any("DRUGI_KORISNIK" in str(c) for c in conversation_model.call_args_list)
+    assert "Dogovor sa Markom" in (await store.search("Orion", source="razgovor"))[0].text
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE source='razgovor'") == 2
+
+    embed = AsyncMock(wraps=store.embed)
+    monkeypatch.setattr(store, "embed", embed)
+    assert (await conversations.reindex())["preskoceno"] == 2
+    assert conversation_model.await_count == 2
+    embed.assert_not_awaited()
+    # Kasnije dodata stara poruka obnavlja samo odgovarajući dan.
+    await add_conversation_message(db, "2026-09-30T21:00:00+00:00", "Orion: dodat dogovor.")
+    assert (await conversations.reindex())["indeksirano"] == 1
+    assert conversation_model.await_count == 3
+    await history.clear(1)
+    assert (await conversations.reindex())["ukupno"] == 0
+    assert await db.fetchval("SELECT count(*) FROM documents WHERE source='razgovor'") == 2
+
+
+@pytest.mark.parametrize("failure", ["model", "empty", "truncated", "embedding"])
+async def test_conversation_failure_keeps_index_and_progress(
+    db, conversation_model, monkeypatch, failure
+):
+    from apu.rag import store
+    from apu.sources import conversations
+
+    await add_conversation_message(db, "2026-09-30T10:00:00+00:00", "Orion dogovor.")
+    await conversations.reindex()
+    original_hash = await db.fetchval("SELECT content_hash FROM documents WHERE source='razgovor'")
+    original_state = await db.fetchval("SELECT value FROM kv_state")
+    await add_conversation_message(db, "2026-09-30T11:00:00+00:00", "Novi Orion rok.")
+    original_create, original_embed = conversation_model.side_effect, store.embed
+    if failure == "model":
+        conversation_model.side_effect = RuntimeError("Prekid modela")
+    elif failure in ("empty", "truncated"):
+
+        async def invalid(**kwargs):
+            result = await original_create(**kwargs)
+            if failure == "empty":
+                result.content = []
+            else:
+                result.stop_reason = "max_tokens"
+            return result
+
+        conversation_model.side_effect = invalid
+    else:
+        # Promenjen sažetak mora da pokuša nove embeddinge.
+        async def changed(**kwargs):
+            result = await original_create(**kwargs)
+            result.content[0].text += " Novi rok."
+            return result
+
+        conversation_model.side_effect = changed
+        monkeypatch.setattr(
+            store, "embed", AsyncMock(side_effect=RuntimeError("Prekid embeddinga"))
+        )
+    with pytest.raises(RuntimeError):
+        await conversations.reindex()
+    assert (
+        await db.fetchval("SELECT content_hash FROM documents WHERE source='razgovor'")
+        == original_hash
+    )
+    assert await db.fetchval("SELECT value FROM kv_state") == original_state
+    conversation_model.side_effect = original_create
+    monkeypatch.setattr(store, "embed", original_embed)
+    assert (await conversations.reindex())["indeksirano"] == 1
+    assert (await conversations.reindex())["preskoceno"] == 1

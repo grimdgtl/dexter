@@ -133,7 +133,7 @@ async def test_mail_only_configuration_connects_to_reindex_scheduler(imap_server
     ):
         monkeypatch.delenv(name, raising=False)
     config.settings.cache_clear()
-    assert sources.available() == ["mail"]
+    assert sources.available() == ["mail", "razgovor"]
     reindex = AsyncMock(return_value={"ukupno": 0})
     monkeypatch.setattr(source, "reindex", reindex)
     assert await sources.reindex("mail") == {"mail": {"ukupno": 0}}

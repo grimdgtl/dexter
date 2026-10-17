@@ -17,7 +17,7 @@ class SearchArgs(BaseModel):
         description="Šta se traži. Može prirodnim jezikom ili tačnim pojmom (PIB, ime)."
     )
     izvor: str | None = Field(
-        None, description="Opciono suzi na izvor: notion, drive, mail, fajl, zakon."
+        None, description="Opciono suzi na izvor: notion, drive, mail, razgovor, fajl, zakon."
     )
     limit: int = Field(6, ge=1, le=15)
 
@@ -39,7 +39,8 @@ async def knowledge_reindex(args: ReindexArgs) -> dict:
 
 @tool(
     "knowledge_search",
-    "Pretražuje korisnikove dokumente, beleške i fajlove po značenju i po tačnim rečima "
+    "Pretražuje korisnikove dokumente, beleške, fajlove i dnevne sažetke razgovora "
+    "po značenju i po tačnim rečima "
     "(hybrid). Vraća odlomke sa izvorom. Kad odgovaraš na osnovu njih, navedi izvor "
     "(naslov). Ako odlomci ne sadrže odgovor, reci to — ne dopunjuj iz glave.",
 )

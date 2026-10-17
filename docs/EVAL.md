@@ -53,6 +53,36 @@ pytest tests/test_integration.py::test_mail_source_evaluation_deduplication_and_
 Produkcioni pre/posle eval čeka korisnikov `evals/questions.jsonl` i sopstveni mejl nalog.
 Stvarni mejlovi i privatna eval pitanja nisu preuzimani niti dodavani u git.
 
+## F2.2 — razgovori kao izvor (17.10.2026)
+
+Kontrolisani integracioni test koristi dva dana razgovora i dva upita („Orion” i „Atlas”).
+Brzi model i embeddinzi zamenjeni su determinističkim test funkcijama, dok su PostgreSQL,
+pgvector, indeksiranje, evidencija troška i hybrid pretraga pravi. Ovo meri prolazak
+kroz novi izvor, ne kvalitet sažimanja pravog modela ili produkcionih embeddinga.
+
+| Stanje | Dokumenata razgovora | recall@5 | MRR | ms po upitu |
+|---|---|---|---|---|
+| Pre, prazan indeks razgovora | 0 | 0.0 | 0.0 | 1.10 |
+| Posle F2.2 | 2 | 1.0 | 1.0 | 2.94 |
+
+Merenje je sa lokalnog PostgreSQL 14 + pgvector 0.8.1; prosečna vremena za dva upita
+nisu produkcioni benchmark. Sažimanje i izgradnja indeksa nisu uključeni u vreme pretrage.
+Ponovljeno indeksiranje oba dana ne poziva ni model ni embeddinge. Provereni su lokalna
+ponoć, izostavljanje tekućeg dana i drugog korisnika, dopuna starog dana, očuvanje sažetaka
+posle `/reset` i čuvanje starog indeksa/napretka posle greške modela, praznog ili odsečenog
+odgovora i prekida embeddinga. Jedinični test proverava obradu kraja dugog razgovora i
+objedinjavanje delimičnih sažetaka, kao i posao u 03:30 kroz evidenciju i retry omotač.
+
+Reprodukcija sa test bazom:
+
+```bash
+TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test \
+pytest tests/test_integration.py::test_conversation_source_evaluation_dates_retry_and_reset -s
+```
+
+Produkcioni pre/posle eval čeka privatni skup pitanja i ručnu proveru sažetaka pravog
+brzog modela u Telegramu. Privatni razgovori nisu preuzimani niti dodavani u git.
+
 ## Šablon zapisa promene
 
 - Datum i verzija/commit:

@@ -264,7 +264,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > IZMENA: Na izričit zahtev korisnika Faza 2 počinje pre nezavršene Faze 1b.
   > F2.1 zato uvodi samo zajedničko IMAP čitanje za indeks; mejl alati, draftovi
   > i slanje iz F1b.3 ostaju zaseban zadatak.
-- [ ] **F2.2 Razgovori kao izvor.** Posao u 03:30: za svaki dan sa porukama brzi
+- [x] **F2.2 Razgovori kao izvor.** Posao u 03:30: za svaki dan sa porukama brzi
   model napiše sažetak (teme, odluke, dogovori, imena) → dokument
   `razgovor:YYYY-MM-DD`. Tako radi "šta smo pričali o X u septembru".
 - [ ] **F2.3 Parametri seckanja.** `CHUNK_CHARS` i `CHUNK_OVERLAP` u config;
