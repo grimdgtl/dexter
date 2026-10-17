@@ -97,10 +97,13 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `CHUNK_OVERLAP` | `200` | Preklapanje, od 0 do manje od `CHUNK_CHARS` |
 | `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
 | `RAG_MIN_SIMILARITY` | `0.3` | Najmanji kosinus za odlomak bez full-text pogotka; opseg 0–1 |
-| `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze i transkripciju |
+| `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze, transkripciju i glasovni odgovor |
 | `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
 | `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
 | `OCR_MAX_PAGES` | `20` | Najviše stranica bez tekstualnog sloja za OCR jednog PDF-a; prekoračenje odbija ceo uvoz |
+| `GLAS_ODGOVOR` | `off` | `on` dodaje glasovni odgovor na primljene glasovne/audio poruke; tekst se šalje uvek |
+| `TTS_MODEL` | `gpt-4o-mini-tts` | OpenAI model za sintezu glasa, uz `OPENAI_API_KEY` |
+| `TTS_VOICE` | `coral` | Glas podržan izabranim TTS modelom |
 | `TIMEZONE` | `Europe/Belgrade` | Vremenska zona konteksta i zakazanih poslova |
 | `WEATHER_LAT` / `WEATHER_LON` | `44.8125` / `20.4612` | Koordinate prognoze |
 | `WEATHER_LOCATION` | `Beograd` | Naziv lokacije u porukama |
@@ -490,3 +493,23 @@ Parseri rade u radnoj niti. Office ZIP je ograničen na 50 MB raspakovanih podat
 Excel na 100 listova, 50000 redova/1000 kolona po listu i 500000 obrađenih ćelija.
 Prekoračenje odbija ceo uvoz, pa veći fajl podeli pre slanja. Promena dokumenta
 ponovo indeksira sadržaj; nepromenjen tekst ne pravi nove delove.
+
+Glasovni odgovor: postavi `GLAS_ODGOVOR=on` i `OPENAI_API_KEY`, pa odgovor na glasovnu
+ili audio poruku dobijaš i kao Telegram voice. Tekst ostaje uvek poslat. Za pojedinačni
+zahtev dovoljno je „odgovori glasom” u tekstu, transkriptu ili opisu slike; „samo tekst”
+ili „ne odgovaraj glasom” isključuju dodatak za tu poruku. Običan tekstualni zahtev
+bez te fraze ostaje tekstualan, čak i kada je `GLAS_ODGOVOR=on`.
+
+OpenAI `POST /v1/audio/speech` koristi `TTS_MODEL=gpt-4o-mini-tts`, `TTS_VOICE=coral`
+i Opus izlaz u OGG poruci, označenoj „AI generisan glas”. Tekst se pre slanja
+preslovljava u latinicu i deli na delove do 1500 UTF-8 bajtova, bez sečenja reči kad
+postoji pogodno mesto. To ostavlja prostor ispod ulaznog ograničenja podrazumevanog
+modela i izbegava skraćivanje dugog odgovora. Glas može stići u više poruka.
+Zahtev koristi zvanični [OpenAI TTS vodič](https://developers.openai.com/api/docs/guides/text-to-speech)
+i [ograničenje modela](https://developers.openai.com/api/docs/models/gpt-4o-mini-tts).
+
+Kvar TTS-a ili slanja voice poruke ostavlja već poslati tekst, istoriju i potvrdna
+dugmad. Dobijaš kratku napomenu o neuspelom dodatku. Tekst odgovora se pri TTS-u šalje
+OpenAI-ju; dodatak ima poseban API trošak. Taj trošak nije obračunat u Anthropic
+`usage` izveštaju niti ograničen `DAILY_BUDGET_USD` mehanizmom. Podrazumevano je
+isključen. Lokalni TTS nije uveden.

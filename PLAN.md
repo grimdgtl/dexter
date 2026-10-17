@@ -332,7 +332,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   `/rashodi [mesec]` (NE `/troskovi`, ta je za API troškove).
 - [x] **F5.3 Word i Excel.** Ingest `.docx` (`python-docx`) i `.xlsx`
   (`openpyxl`, svaki list kao tekst tabele).
-- [ ] **F5.4 Glasovni odgovor.** Kad korisnik pošalje glasovnu i uključi
+- [x] **F5.4 Glasovni odgovor.** Kad korisnik pošalje glasovnu i uključi
   `GLAS_ODGOVOR=on` (ili traži "odgovori glasom"), odgovor se šalje i kao voice
   (OpenAI TTS; lokalna alternativa opciono). Tekst se šalje uvek.
 

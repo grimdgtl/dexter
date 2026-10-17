@@ -9,7 +9,7 @@ import base64
 import logging
 import time
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Update
 from telegram.constants import ChatAction
 from telegram.ext import (
     Application,
@@ -20,7 +20,7 @@ from telegram.ext import (
     filters,
 )
 
-from apu import jobs, memory, receipts, status, usage
+from apu import jobs, memory, receipts, status, tts, usage
 from apu.agent import history, loop
 from apu.config import settings
 from apu.pismo import u_latinicu
@@ -116,7 +116,9 @@ async def _keep_typing(bot, chat_id: int, stop: asyncio.Event) -> None:
             pass
 
 
-async def _answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE, content) -> None:
+async def _answer(
+    update: Update, ctx: ContextTypes.DEFAULT_TYPE, content, *, voice_input=False
+) -> None:
     chat_id = update.effective_chat.id
     stop = asyncio.Event()
     typing = asyncio.create_task(_keep_typing(ctx.bot, chat_id, stop))
@@ -144,6 +146,22 @@ async def _answer(update: Update, ctx: ContextTypes.DEFAULT_TYPE, content) -> No
                     await ctx.bot.send_message(
                         chat_id, part, **({"reply_markup": kb} if i == len(parts) - 1 else {})
                     )
+            if tts.requested(content, voice_input=voice_input) and result.text.strip():
+                try:
+                    i = 0
+                    async for audio in tts.synthesize(u_latinicu(result.text)):
+                        i += 1
+                        await ctx.bot.send_voice(
+                            chat_id,
+                            InputFile(audio, filename=f"odgovor-{i}.ogg"),
+                            caption=f"AI generisan glas · deo {i}",
+                        )
+                except Exception as exc:
+                    log.warning("Glasovni dodatak nije uspeo (%s).", type(exc).__name__)
+                    await ctx.bot.send_message(
+                        chat_id,
+                        "Tekst je poslat. Glasovni dodatak nije uspeo; proveri OPENAI_API_KEY i TTS podešavanja.",
+                    )
     except Exception:
         log.exception("Agent pukao")
         await ctx.bot.send_message(chat_id, "⚠️ Nešto je puklo. Probaj ponovo za koji trenutak.")
@@ -167,13 +185,13 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     voice = update.message.voice or update.message.audio
     data = bytes(await (await voice.get_file()).download_as_bytearray())
     try:
-        text = await transcribe(data)
+        text = u_latinicu(await transcribe(data))
     except Exception:
         log.exception("Transkripcija pukla")
         await update.message.reply_text("⚠️ Nisam uspeo da razumem glasovnu poruku.")
         return
-    await update.message.reply_text(f"🎙️ {text}")
-    await _answer(update, ctx, text)
+    await update.message.reply_text(u_latinicu(f"🎙️ {text}"))
+    await _answer(update, ctx, text, voice_input=True)
 
 
 async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:

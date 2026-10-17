@@ -1856,3 +1856,35 @@ async def test_folder_office_documents_and_all_excel_sheets_are_searchable(
     assert "Drugi list" in (await store.search("Drugi list"))[0].text
     unchanged = await ingest_folder(tmp_path, "fajl")
     assert all(r["delova"] == 0 for r in unchanged)
+
+
+async def test_failed_tts_preserves_agent_history_and_text(db, monkeypatch, respx_mock):
+    from apu import llm, memory, telegram_bot
+    from apu.agent import history
+    from apu.config import settings
+
+    monkeypatch.setattr(settings(), "streaming", "off")
+    monkeypatch.setattr(settings(), "glas_odgovor", "on")
+    monkeypatch.setattr(settings(), "openai_api_key", "test")
+    monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
+    answer = {"type": "text", "text": "Одговор је послат."}
+    block = SimpleNamespace(**answer, model_dump=lambda **kw: dict(answer))
+    monkeypatch.setattr(
+        llm,
+        "create",
+        AsyncMock(return_value=SimpleNamespace(content=[block], stop_reason="end_turn")),
+    )
+    respx_mock.post("https://api.openai.com/v1/audio/speech").respond(503)
+    bot = SimpleNamespace(
+        send_message=AsyncMock(), send_voice=AsyncMock(), send_chat_action=AsyncMock()
+    )
+    await telegram_bot._answer(
+        SimpleNamespace(effective_chat=SimpleNamespace(id=1)),
+        SimpleNamespace(bot=bot),
+        "Zdravo",
+        voice_input=True,
+    )
+    assert bot.send_message.await_args_list[0].args[1] == "Odgovor je poslat."
+    assert "Glasovni dodatak nije uspeo" in bot.send_message.await_args_list[1].args[1]
+    bot.send_voice.assert_not_awaited()
+    assert [m["role"] for m in await history.load(1, 12)] == ["user", "assistant"]

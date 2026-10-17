@@ -470,3 +470,24 @@ arhiva se odbija pre parsiranja/upisa. Google SDK kroz respx čita oba Office ti
 native Google Doc nazvan .docx i dalje koristi tekstualni export. Test baze indeksira
 oba fajla kroz folder, nalazi tekst iz ugnježdene tabele i drugog Excel lista, pa
 ponovni uvoz ne pravi nove delove. Nema modelskih API poziva za samo Office čitanje.
+
+## F5.4 — dodatni glasovni odgovor (17.10.2026)
+
+Pre: glas se samo transkribuje, a odgovor je tekst. Posle: `GLAS_ODGOVOR=on` na
+glasovnom/audio ulazu ili izričit zahtev „odgovori glasom” dodaje voice posle teksta.
+Tekst je uvek prvi, streaming ostaje dostupan, a „samo tekst” isključuje dodatak za
+jednu poruku. Svaki voice nosi oznaku AI generisanog glasa.
+
+Kontrolni HTTP test proverava endpoint, ključ, model, glas, Opus format i latinicu;
+dugačak odgovor se bez gubitka reči raspoređuje u zahteve do 1500 UTF-8 bajtova.
+Za stari tts-1 ne šalje se nepodržano instructions polje. Provereni su nedostajući
+ključ, HTTP greška i neispravan audio. Telegram testovi za streaming on/off čuvaju
+redosled tekst → voice, a TTS greška ne skriva tekst niti potvrdnu dugmad.
+Integracioni test potvrđuje i očuvanje cele razmene u bazi posle HTTP 503 iz TTS-a.
+
+Ovo su mock audio odgovori, ne snimci pravog modela. Izgovor srpskog, stvarnu
+latenciju, cenu i reprodukciju OGG/Opus poruke u Telegramu proveriti ručno sa ključem.
+TTS nije deo Anthropic obračuna `usage` niti njegovog dnevnog budžeta; nema tvrdnje o
+nultom trošku. Ugovor zahteva oslanja se na zvanični
+[TTS vodič](https://developers.openai.com/api/docs/guides/text-to-speech) i
+[model card](https://developers.openai.com/api/docs/models/gpt-4o-mini-tts).
