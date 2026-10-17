@@ -7,6 +7,7 @@ Dve lekcije iz stare verzije su ovde pravila u kodu:
      `sanitize` je druga linija odbrane: izbaci nesparene pozive ako ipak uđu.
 """
 
+from apu import usage
 from apu.db import pool
 from apu.pismo import u_latinicu
 
@@ -96,8 +97,8 @@ async def append(chat_id: int, messages: list[dict], *, note_ids: list[int] | No
     if messages:
         async with pool().acquire() as conn, conn.transaction():
             await conn.executemany(
-                "INSERT INTO messages (chat_id, role, content) VALUES ($1, $2, $3)",
-                [(chat_id, m["role"], m["content"]) for m in messages],
+                "INSERT INTO messages (chat_id, role, content, turn_id) VALUES ($1, $2, $3, $4)",
+                [(chat_id, m["role"], m["content"], usage.turn_id(chat_id)) for m in messages],
             )
             if note_ids:
                 # Ne gubimo napomene pri grešci niti brišemo one pristigle tokom odgovora.

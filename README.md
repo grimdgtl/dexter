@@ -415,3 +415,32 @@ prostor bazi. Granica od 8 GB nije potvrđena ovim lokalnim benchmark-om.
 CI gradi obe Docker varijante, proverava importe lokalnih biblioteka, CPU PyTorch,
 migracije, skripte i opstanak upisivog keša između dva kontejnera. U ovoj radnoj
 okolini Docker nije dostupan, pa stvarni lokalni build i provera servera ostaju ručni.
+
+Opciono učenje izbora modela (F4.5): migracija 008 povezuje nove poruke i `usage`
+pozive jedinstvenim ID-jem razmene, bez spajanja po vremenu. Stari zapisi bez te veze
+se ne koriste za učenje. `python -m scripts.router_dataset` izvozi samo tekstualne
+poruke vlasnika sa povezanim `purpose=chat` zapisima u `data/router-candidates.jsonl`.
+Umetnuti kontekst, rezultati alata i poruke sa slikama se izostavljaju. `nivo` ostaje
+prazan za ručnu anotaciju, a `predlog_nivoa` prikazuje zabeleženi izbor; budžet i staro
+pravilo mogu taj izbor učiniti pogrešnom oznakom težine. Ponovljen izvoz ne prepisuje fajl.
+
+Posle ručne provere oznaka instaliraj `.[train]` i pokreni:
+
+```bash
+python -m scripts.train_router data/router-candidates.jsonl --output data/router-model
+```
+
+Na Linux CPU mašini koristi `uv pip install --torch-backend=cpu ".[train]"`.
+Podrazumevani model je `distilbert/distilbert-base-multilingual-cased`, CPU,
+3 epohe, seed 42 i najviše 128 tokena. Ne pravi se poziv plaćenom API-ju niti upload
+modela. Skup mora imati bar pet različitih ručno označenih poruka po nivou. Duplikati
+se uklanjaju pre stratifikovane podele 75/25; konfliktne i nepotpune oznake se odbijaju.
+Pre konačne evaluacije ručno razdvoji slične teme/šablone koji bi mogli procuriti
+iz treninga u test. Ovako mali skup služi proveri postupka, ne izboru produkcionog modela.
+
+`metrics.json` sadrži tačnost, macro-F1, matricu grešaka, vremena i otisak podele;
+`split.json` čuva privatnu podelu radi reprodukcije. Model, tokenizer i oba fajla
+ostaju u ignorisanom `data/` folderu. Postojeći izlazni folder se ne prepisuje.
+Poređenje sa pravilom iz F3.2 koristi isti izdvojeni test. `--uporedi-api` dodatno
+izvršava i meri F3.2 API klasifikator na tom testu, uz važeći Anthropic ključ i bazu
+za beleženje troška. Trening ne menja aktivni `ROUTER_MODE` niti postavke bota.

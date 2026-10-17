@@ -313,10 +313,14 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
   > Build i merenje RAM-a na serveru čekaju ručnu proveru; lokalno nema Docker-a.
   > CI sadrži proveru obe slike i trajnog keša.
-- [ ] **F4.5 (opciono) Fine-tuning malog klasifikatora.** Iz `usage` + istorije
+- [x] **F4.5 (opciono) Fine-tuning malog klasifikatora.** Iz `usage` + istorije
   napravi skup "poruka → nivo modela" i fine-tune-uj mali višejezični model
   (npr. `distilbert-base-multilingual-cased`) sa `transformers` Trainer-om.
   Uporedi sa F3.2. Ovo je vežba za oglas (fine-tuning, PyTorch).
+
+  > Izvoz i Trainer su spremni; izvršen je stvarni trening na javnom sintetičkom
+  > skupu i poređenje sa pravilom. Lična istorija traži nove povezane razmene i
+  > ručne oznake; poređenje sa pravim API klasifikatorom čeka ključ (`docs/EVAL.md`).
 
 ### Faza 5 — Dokumenti, slike, glas (24.11–30.11)
 

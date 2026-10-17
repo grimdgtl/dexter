@@ -17,16 +17,19 @@ from apu.pismo import u_latinicu
 HERE = Path(__file__).parent
 
 
-async def evaluate(*, simulation: bool = False) -> list[dict]:
-    rows = [
-        json.loads(line)
-        for line in (await asyncio.to_thread((HERE / "router.jsonl").read_text)).splitlines()
-        if line.strip()
-    ]
-    if len(rows) != 40 or any(
+async def evaluate(*, simulation: bool = False, rows: list[dict] | None = None) -> list[dict]:
+    if rows is None:
+        rows = [
+            json.loads(line)
+            for line in (await asyncio.to_thread((HERE / "router.jsonl").read_text)).splitlines()
+            if line.strip()
+        ]
+        if len(rows) != 40:
+            raise ValueError("Podrazumevani router eval zahteva 40 označenih poruka.")
+    if not rows or any(
         r.get("nivo") not in {"lako", "srednje", "teško"} or not r.get("poruka") for r in rows
     ):
-        raise ValueError("Router eval zahteva 40 označenih poruka.")
+        raise ValueError("Router eval zahteva označene poruke.")
     gold = {r["poruka"]: r["nivo"] for r in rows}
 
     async def create(**kwargs):

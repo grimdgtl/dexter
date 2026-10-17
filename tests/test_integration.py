@@ -150,6 +150,14 @@ async def test_agent_loop_parallel_tools_caching_and_history(db, monkeypatch):
 
     n = await db.fetchval("SELECT count(*) FROM usage WHERE purpose = 'chat'")
     assert n == 2
+    turn_ids = await db.fetch("SELECT DISTINCT turn_id FROM usage WHERE purpose = 'chat'")
+    assert len(turn_ids) == 1 and turn_ids[0]["turn_id"] is not None
+    assert (
+        await db.fetchval(
+            "SELECT count(*) FROM messages WHERE turn_id = $1", turn_ids[0]["turn_id"]
+        )
+        == 4
+    )
 
 
 async def _noop():
@@ -1663,3 +1671,65 @@ async def test_embedding_benchmark_three_models_uses_same_corpus_and_reports_cos
     finally:
         async with db.acquire() as conn:
             await reembed(conn)
+
+
+async def test_router_dataset_joins_only_matching_owner_turns(db, monkeypatch):
+    from apu import usage
+    from apu.agent import history
+    from apu.config import settings
+    from scripts.router_dataset import export_rows
+
+    cfg = settings()
+    monkeypatch.setattr(cfg, "telegram_owner_chat_id", 1)
+    monkeypatch.setattr(cfg, "daily_budget_usd", 0)
+    with usage.turn(1):
+        await usage.record(usage.Usage(cfg.model_main, 1, 1), "chat", 1)
+        await usage.record(usage.Usage(cfg.model_deep, 1, 1), "history_summary", 1)
+        await history.append(
+            1,
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "<kontekst>\nprivatna memorija</kontekst>"},
+                        {"type": "text", "text": "Здраво Марко"},
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "t", "content": "rezultat"}],
+                },
+                {"role": "assistant", "content": "Odgovor"},
+            ],
+        )
+    with usage.turn(2):
+        await usage.record(usage.Usage(cfg.model_fast, 1, 1), "chat", 1)
+        await history.append(2, [{"role": "user", "content": "Drugi razgovor"}])
+    with usage.turn(1):
+        await usage.record(usage.Usage(cfg.model_fast, 1, 1), "chat", 1)
+        await history.append(
+            1, [{"role": "user", "content": [{"type": "image", "source": {"data": "privatno"}}]}]
+        )
+    await usage.record(usage.Usage(cfg.model_fast, 1, 1), "chat", 1)
+    await history.append(1, [{"role": "user", "content": "Stara nepovezana poruka"}])
+    rows = await export_rows()
+    assert len(rows) == 1
+    assert rows[0]["poruka"] == "Zdravo Marko"
+    assert rows[0]["nivo"] is None
+    assert rows[0]["predlog_nivoa"] == "srednje"
+    assert rows[0]["modeli"] == [cfg.model_main]
+    assert "privatna" not in str(rows)
+
+
+async def test_finetune_holdout_reuses_f3_2_comparison(db):
+    from evals.router_eval import evaluate
+
+    test = [
+        {"poruka": "Zdravo", "nivo": "lako"},
+        {"poruka": "Sastavi kratak opis firme", "nivo": "srednje"},
+        {"poruka": "Analiziraj strategiju i uporedi opcije", "nivo": "teško"},
+    ]
+    reports = await evaluate(simulation=True, rows=test)
+    assert [r["n"] for r in reports] == [3, 3]
+    assert reports[1]["tačnost"] == 1
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose = 'router'") == 3

@@ -382,3 +382,42 @@ Docker CLI/daemon nisu dostupni u ovoj okolini: stvarni build i CI izvršenje ni
 potvrđeni. Ruff i svi testovi sa PostgreSQL-om prolaze. Na serveru od 8 GB treba
 posebno izmeriti vršni RAM za E5 small + Whisper small, zatim eventualno base/medium.
 Lokalna E5 vremena iz F4.2 ne predstavljaju Docker ili Hetzner merenje.
+
+## F4.5 — fine-tuning izbora modela (17.10.2026)
+
+Migracija 008 povezuje nove zapise `messages` i `usage` preko UUID-a razmene.
+Kontekst je izolovan po async zadatku i resetuje se i pri grešci. Izvoz uzima samo
+tekstualne poruke vlasnika sa povezanim chat pozivima, bez sistemskog konteksta,
+slika i rezultata alata. Stari redovi bez veze se ne spajaju po vremenu. Izbor
+modela je samo predlog oznake, pošto pravilo i dnevni budžet mogu promeniti odluku;
+obavezne ručne oznake `nivo` ostaju prazne do pregleda.
+
+Stvarni probni CPU trening javnog `distilbert/distilbert-base-multilingual-cased`
+izvršen je pomoću transformers Trainer-a i PyTorch-a na javnih 40 sintetičkih
+poruka iz `evals/router.jsonl`, bez lične istorije i bez plaćenih API poziva.
+Posle uklanjanja duplikata podela je stratifikovana: trening 29, test 11,
+seed 42, jedna epoha, dužina 128 tokena, batch 4, learning rate 2e-5,
+weight decay 0.01, CPU arm64 sa dve niti. Biblioteke: torch 2.14.1,
+transformers 5.20.1, datasets 5.1.0, accelerate 1.15.0.
+SHA-256 podele: `50589526c1247bfda88df02a631c9b0603da1acda8612e981adcc4aec35db6d3`.
+
+| Izbor na istih 11 test poruka | Tačnost | Macro-F1 | ms/poruka |
+|---|---|---|---|
+| Pravilo iz F3.2 | 0.5455 | 0.4718 | nije mereno |
+| DistilBERT posle jedne epohe | 0.3636 | 0.3000 | 11.66 |
+| API klasifikator F3.2 | nije izvršeno | — | — |
+
+Preuzimanje/učitavanje trajalo je 83.927 s, sam trening 16.536 s.
+Sačuvan model i tokenizer ponovo su učitani bez mreže i reprodukovali su svih
+11 predikcija. Na ovom skupu trenirani model je lošiji; aktivni izbor ostaje pravilo.
+Ovo potvrđuje funkcionalan trening postupak, ne kvalitet na ličnim porukama.
+Test skup je premali za zaključak o generalizaciji i ne treba ga koristiti za
+ponovljeno podešavanje hiperparametara. Podrazumevana komanda trenira tri epohe;
+navedeno merenje je eksplicitni probni prolaz sa `--epohe 1`.
+
+Model i privatna podela čuvaju se van git-a (`data/` po podrazumevanom podešavanju).
+Za završnu proveru sakupiti nove povezane razmene, ručno označiti primere i razdvojiti
+slične teme, pa izmeriti pravilo, lokalni model i pravi F3.2 klasifikator na istom
+izdvojenom skupu (`--uporedi-api`, uz svesno pokretanje API troška).
+Testovi koriste lažne modele/API-je, a proveravaju vezu sa bazom, izolaciju razmena,
+privatnost izvoza, odbijanje neoznačenih/konfliktnih redova i curenje duplikata.

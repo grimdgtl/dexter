@@ -11,11 +11,27 @@ import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from uuid import UUID, uuid4
 
 from apu.db import pool
 
 log = logging.getLogger(__name__)
 _capture: ContextVar[list | None] = ContextVar("usage_capture", default=None)
+_turn: ContextVar[tuple[int, UUID] | None] = ContextVar("usage_turn", default=None)
+
+
+@contextmanager
+def turn(chat_id: int):
+    token = _turn.set((chat_id, uuid4()))
+    try:
+        yield
+    finally:
+        _turn.reset(token)
+
+
+def turn_id(chat_id: int | None = None) -> UUID | None:
+    current = _turn.get()
+    return current[1] if current and (chat_id is None or chat_id == current[0]) else None
 
 
 @contextmanager
@@ -74,10 +90,11 @@ async def record(u: Usage, purpose: str, latency_ms: int) -> None:
     try:
         await pool().execute(
             """INSERT INTO usage (model, purpose, input_tokens, output_tokens,
-                   cache_read_tokens, cache_write_tokens, cost_usd, latency_ms)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+                   cache_read_tokens, cache_write_tokens, cost_usd, latency_ms, turn_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)""",
             u.model, purpose, u.input_tokens, u.output_tokens,
             u.cache_read_tokens, u.cache_write_tokens, u.cost_usd, latency_ms,
+            turn_id(),
         )  # fmt: skip
         from apu import budget
 
