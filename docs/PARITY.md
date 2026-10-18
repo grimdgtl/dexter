@@ -9,6 +9,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
 | Čitanje TASK BOARD-a za uvid | F6.2: Name/Status, opciona nova Date kolona Rok; alati čekaju F1b.5 |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
+| Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto i mock/DB provereno; stvarni Notion čeka ručnu proveru. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
@@ -62,3 +63,28 @@ jednokratna je i vezana za prikazani pošiljalac/primaoce/tekst; model ne može 
 prosledi From adresu. SMTP rezultat sadrži prihvaćene i odbijene primaoce da se
 delimično poslat mejl ne bi ponavljao svima. Kopiranje u Sent nije dodato:
 kao v1, uspeh znači da je transport prihvatio poruku, ne potvrdu dostave.
+
+F1b.4 čuva šest potpisa alata, ENV nazive navika, obrnute `Bez ` stavke,
+nedeljni cilj, srpska imena dana i stare Notion kolone. Skor je broj označenih
+podešenih navika; formula u Notion-u se ne menja. Tačni nazivi se dobijaju preko
+`checklist_get`, umesto da se lične navike ugrađuju u opis alata ili SYSTEM_PROMPT.
+Izostavljena polja dnevnika ostaju netaknuta, a `prazno` traži potpitanje; kad
+red ne postoji, vraćaju se imena sva tri polja umesto neodređenog „sve”.
+
+Čitanje ne kreira red. Kreiranje dana koristi trajni ključ `kv_state` po data
+source-u i datumu radi zaštite između procesa/restarta/neizvesnog HTTP ishoda.
+Ako je prethodno potvrđen red privremeno nevidljiv u pretrazi, čita se direktno
+po sačuvanom ID-ju uz proveru baze, datuma i arhive. Obrisani/premešteni red ne
+pravi se automatski ponovo. Definitivno odbijen 4xx zahtev oslobađa pokušaj.
+Dupli dnevni redovi se odbijaju umesto nasumične izmene; nepoklapanje naziva
+Checkbox kolone prijavljuje grešku umesto da tiho proizvede loš skor iz v1.
+
+Statistika sada prati sve stranice (v1 najviše 100), ograničava period na
+1–366 dana, izostavlja neispravne/duple datume uz napomenu i navodi broj dana
+bez reda. Prosek se i dalje računa samo za postojeće redove. Prag uspešnog dana
+je 70%; tekući niz mora završiti poslednjeg dana perioda, umesto da stari niz
+iz prošlosti bude prikazan kao tekući. Veze zahtevaju najmanje 3 uparena dana
+po grupi sa poznatom ocenom, uz upozorenje da nisu dokaz uzročnosti. Dnevnik je
+opcion za statistiku. Interno kreiranje dnevnika podržava vezu `Checklista`
+kao v1; automatski zajednički upis i raspored čekaju F1b.8. U ovoj fazi nema
+novih zakazanih poruka. Ručna provera svih šest alata ostaje otvorena.

@@ -728,3 +728,38 @@ nalogu; njihove provere ostaju mock testovi. Automatski poslovi su i dalje off.
 Ova dopuna beleži ručne rezultate; izvršni kod je isti kao u zelenom CI prolazu
 sa 335 testova. Privatni sadržaj poruka, adrese i ID-jevi isporuke nisu preneti
 u repozitorijum.
+
+## F1b.4 — Checklista, dnevnik i statistika navika (18.10.2026)
+
+Pre prenosa pročitani su stari `checklist.js`, `dnevnik.js`, `insights.js`,
+njihovi opisi alata, konfiguracija i README šeme. Dodati su `checklist_get`,
+`checklist_mark`, `checklist_create_day`, `dnevnik_get`, `dnevnik_write`,
+`insights_get`, svi sa `requires`. Notion zahtevi koriste API 2025-09-03 i
+data source otkriven iz postojećeg database ID-a.
+
+Pre: 335 testova; posle: 371 test sa izolovanom PostgreSQL + pgvector bazom.
+Ruff format/check prolaze za src/tests/evals/scripts. Svi Notion HTTP pozivi su
+mock-ovani kroz respx uz pravi SDK; nijedan test ne pristupa stvarnom nalogu.
+Nema merenja troška/latencije LLM-a: računica je deterministička, SYSTEM_PROMPT
+nije menjan.
+
+Provere obuhvataju tačne prilagođene CSV nazive, nedeljni cilj 4, lokalni datum,
+strogi boolean i ISO ulaz, obe vrednosti „Bez…” stavke, očuvanje nenavedenih
+polja i listu praznih polja dnevnika, nedeljni rezime, paginaciju i loš cursor,
+prava pristupa i grešku za svaki alat. PostgreSQL testovi proveravaju paralelan
+create, trajni ključ pri nevidljivom novom redu, sledeći dan, kreiranje pri
+mark/write, odvojene baze, vezu dnevnika i checkliste, timeout/503 bez ponovnog
+create-a, naknadno pronalaženje i oslobađanje ključa posle 403. Pomeranje,
+arhiviranje i promena datuma potvrđenog reda ne prave novi red.
+
+Statističke provere pokrivaju prosek/skor, nedostajuće dane i prekid niza,
+tekući naspram starog niza, rezultate po danu nedelje, isključivanje duplikata
+i neispravnih datuma, prazan period i opcioni dnevnik. Veza se pojavljuje tek
+uz 3+3 uparena dana sa poznatom ocenom; nedostajuće/nepoznate ocene ne ulaze u
+grupu i napomena ograničava tumačenje. Razlike prema v1 su u `docs/PARITY.md`.
+
+ČEKA RUČNU PROVERU posle deploy-a: `/status` sa šest novih alata; pregled
+ličnih naziva i nedeljnog cilja 4; izričito kreiranje istog dana dva puta bez
+duplikata; označavanje obične i „Bez…” stavke; delimičan pa dopunjen dnevnik;
+statistika stvarnih redova. Automatski jutarnji upis, povezivanje i podsetnici
+ostaju F1b.8, uz `SCHEDULER_ENABLED=off` tokom ovih provera.

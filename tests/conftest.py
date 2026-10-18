@@ -18,6 +18,127 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 
 @pytest.fixture
+def habits_notion(monkeypatch, respx_mock):
+    import copy
+    import json
+    from uuid import uuid4
+
+    import httpx
+
+    from dexter.config import settings
+
+    base = "https://api.notion.com/v1"
+    check_db, check_source, diary_db, diary_source = [str(uuid4()) for _ in range(4)]
+    cfg = settings()
+    for name, value in {
+        "notion_api_key": "test-notion",
+        "notion_checklist_db_id": check_db,
+        "notion_dnevnik_db_id": diary_db,
+        "checklist_pozitivne": "Trening, Doručak",
+        "checklist_izbegavanja": "Bez slatkog",
+        "checklist_ciljna_stavka": "Trening",
+        "checklist_cilj_nedeljno": 4,
+        "timezone": "Europe/Belgrade",
+    }.items():
+        monkeypatch.setattr(cfg, name, value)
+    for database, source in [(check_db, check_source), (diary_db, diary_source)]:
+        respx_mock.get(f"{base}/databases/{database}").respond(
+            200, json={"data_sources": [{"id": source}]}
+        )
+    pages = {}
+
+    def page(datum="2026-10-18", diary=False, **values):
+        source = diary_source if diary else check_source
+        props = {
+            "Dan": {"title": [{"plain_text": "Недеља"}]},
+            "Datum": {"date": {"start": datum}},
+        }
+        if diary:
+            props.update(
+                {
+                    "Raspoloženje": {"select": None},
+                    "Energija": {"select": None},
+                    "Ključna reč": {"rich_text": []},
+                }
+            )
+        else:
+            props.update(
+                {
+                    name: {"checkbox": values.get(name, False)}
+                    for name in ("Trening", "Doručak", "Bez slatkog")
+                }
+            )
+        result = {
+            "id": str(uuid4()),
+            "url": "https://notion.so/test",
+            "properties": props,
+            "parent": {"type": "data_source_id", "data_source_id": source},
+        }
+        pages[result["id"]] = result
+        return result
+
+    def query(request):
+        body = json.loads(request.content)
+        source = request.url.path.split("/")[-2]
+        filters = body["filter"].get("and", [body["filter"]])
+        result = []
+        for entry in pages.values():
+            if entry["parent"]["data_source_id"] != source:
+                continue
+            value = entry["properties"]["Datum"]["date"]["start"]
+            conditions = [f["date"] for f in filters]
+            if all(
+                ("equals" not in f or value == f["equals"])
+                and ("on_or_after" not in f or value >= f["on_or_after"])
+                and ("on_or_before" not in f or value <= f["on_or_before"])
+                for f in conditions
+            ):
+                result.append(copy.deepcopy(entry))
+        return httpx.Response(200, json={"results": result, "has_more": False})
+
+    check_query = respx_mock.post(f"{base}/data_sources/{check_source}/query").mock(
+        side_effect=query
+    )
+    diary_query = respx_mock.post(f"{base}/data_sources/{diary_source}/query").mock(
+        side_effect=query
+    )
+
+    def create(request):
+        body = json.loads(request.content)
+        entry = page(
+            body["properties"]["Datum"]["date"]["start"],
+            diary=body["parent"]["data_source_id"] == diary_source,
+        )
+        entry["properties"].update(body["properties"])
+        return httpx.Response(200, json=entry)
+
+    def update(request):
+        entry = pages[request.url.path.split("/")[-1]]
+        entry["properties"].update(json.loads(request.content)["properties"])
+        return httpx.Response(200, json=entry)
+
+    create_route = respx_mock.post(f"{base}/pages").mock(side_effect=create)
+    update_route = respx_mock.patch(url__regex=base + r"/pages/[^/]+$").mock(side_effect=update)
+    respx_mock.get(url__regex=base + r"/pages/[^/]+$").mock(
+        side_effect=lambda request: httpx.Response(200, json=pages[request.url.path.split("/")[-1]])
+    )
+    return SimpleNamespace(
+        base=base,
+        check_db=check_db,
+        check_source=check_source,
+        diary_db=diary_db,
+        diary_source=diary_source,
+        page=page,
+        pages=pages,
+        check_query=check_query,
+        diary_query=diary_query,
+        create=create_route,
+        update=update_route,
+        create_handler=create,
+    )
+
+
+@pytest.fixture
 def todo_notion(monkeypatch, respx_mock):
     from dexter.config import settings
 

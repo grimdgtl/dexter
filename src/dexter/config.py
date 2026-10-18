@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     notion_api_key: str | None = None
     notion_tasks_db_id: str | None = None
     notion_todo_db_id: str | None = None
+    notion_checklist_db_id: str | None = None
+    notion_dnevnik_db_id: str | None = None
+    checklist_pozitivne: str = "Ustajanje 6:00, Vežbanje, Doručak, Vitamini, Večera 19:00"
+    checklist_izbegavanja: str = "Bez slatkog, Bez alkohola, Bez telefona posle 22:00"
+    checklist_ciljna_stavka: str = "Vežbanje"
+    checklist_cilj_nedeljno: int = Field(3, ge=1, le=7)
     weekly_task_title: str = Field("Nedeljni zadatak", min_length=1, max_length=2000)
     flowers_task_cron: str = "0 5 * * 1"
     scheduler_enabled: Literal["on", "off"] = "on"

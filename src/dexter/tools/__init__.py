@@ -2,6 +2,7 @@
 
 from dexter.tools import (  # noqa: F401
     calendar,
+    checklist,
     commitments,
     drive,
     knowledge,

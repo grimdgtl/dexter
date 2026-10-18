@@ -198,6 +198,115 @@ async def test_weekly_todo_rejected_write_can_retry(db, todo_notion, respx_mock)
     assert create.call_count == 2
 
 
+async def test_daily_habits_create_concurrency_persistent_claim_and_next_day(db, habits_notion):
+    from dexter.services import checklist
+
+    n = habits_notion
+    # Simulira kašnjenje Notion pretrage i posle uspešnog create-a.
+    n.check_query.respond(200, json={"results": [], "has_more": False})
+    results = await asyncio.gather(
+        checklist.create_day("2026-10-18"),
+        checklist.create_day("2026-10-18"),
+        return_exceptions=True,
+    )
+    assert n.create.call_count == 1
+    assert any(isinstance(r, dict) and not r["vecPostojao"] for r in results)
+    assert all(isinstance(r, dict | RuntimeError) for r in results)
+    again = await checklist.create_day("2026-10-18")
+    assert again["vecPostojao"] and n.create.call_count == 1
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'notion:day:%'") == 1
+    body = json.loads(n.create.calls[0].request.content)
+    assert body["parent"] == {"type": "data_source_id", "data_source_id": n.check_source}
+    assert body["properties"]["Dan"]["title"][0]["text"]["content"] == "Nedelja"
+    assert set(body["properties"]) == {"Dan", "Datum"}
+    assert not (await checklist.create_day("2026-10-19"))["vecPostojao"]
+    assert n.create.call_count == 2
+
+
+async def test_daily_mark_and_diary_write_create_missing_rows(db, habits_notion):
+    from dexter.services import checklist, dnevnik
+
+    n = habits_notion
+    marked = await checklist.mark({"Trening": True, "Bez slatkog": False}, "2026-10-18")
+    assert marked["urađeno"] == 1
+    diary = await dnevnik.write("2026-10-18", raspolozenje="Dobro")
+    assert diary["prazno"] == ["Energija", "Ključna reč"]
+    assert n.create.call_count == 2 and n.update.call_count == 2
+    await dnevnik.write("2026-10-18", energija="Srednja")
+    assert n.create.call_count == 2
+    final = await dnevnik.get("2026-10-18")
+    assert final["raspolozenje"] == "Dobro" and final["energija"] == "Srednja"
+
+
+async def test_diary_create_with_checklist_relation_and_idempotency(db, habits_notion):
+    from dexter.services import checklist, dnevnik
+
+    n = habits_notion
+    check = await checklist.create_day("2026-10-18")
+    diary = await dnevnik.create_day("2026-10-18", check["id"])
+    body = json.loads(n.create.calls[-1].request.content)
+    assert body["properties"]["Checklista"] == {"relation": [{"id": check["id"]}]}
+    assert diary["prazno"] == list(dnevnik.FIELDS)
+    assert (await dnevnik.create_day("2026-10-18", check["id"]))["vecPostojao"]
+    assert n.create.call_count == 2
+
+
+@pytest.mark.parametrize("failure", ["timeout", "server_error"])
+async def test_daily_uncertain_create_never_repeats_and_recovers(db, habits_notion, failure):
+    from dexter.services import checklist
+
+    n = habits_notion
+    if failure == "timeout":
+        n.create.mock(side_effect=httpx.ReadTimeout("Neizvestan upis"))
+    else:
+        n.create.respond(
+            503,
+            json={"object": "error", "code": "service_unavailable", "message": "Neizvestan upis"},
+        )
+    with pytest.raises((APIResponseError, RequestTimeoutError)):
+        await checklist.create_day("2026-10-18")
+    with pytest.raises(RuntimeError, match="red nije potvrđen"):
+        await checklist.create_day("2026-10-18")
+    assert n.create.call_count == 1
+    n.page()
+    assert (await checklist.create_day("2026-10-18"))["vecPostojao"]
+    assert n.create.call_count == 1
+
+
+async def test_daily_rejected_create_releases_claim(db, habits_notion):
+    from dexter.services import checklist
+
+    n = habits_notion
+    n.create.respond(
+        403, json={"object": "error", "code": "restricted_resource", "message": "Nema upisa"}
+    )
+    with pytest.raises(APIResponseError):
+        await checklist.create_day("2026-10-18")
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 0
+    n.create.mock(side_effect=n.create_handler)
+    assert not (await checklist.create_day("2026-10-18"))["vecPostojao"]
+    assert n.create.call_count == 2
+
+
+@pytest.mark.parametrize("change", ["archived", "moved", "date_changed"])
+async def test_daily_claim_does_not_recreate_deleted_or_moved_row(db, habits_notion, change):
+    from dexter.services import checklist
+
+    n = habits_notion
+    n.check_query.respond(200, json={"results": [], "has_more": False})
+    created = await checklist.create_day("2026-10-18")
+    entry = n.pages[created["id"]]
+    if change == "archived":
+        entry["archived"] = True
+    elif change == "moved":
+        entry["parent"]["data_source_id"] = n.diary_source
+    else:
+        entry["properties"]["Datum"]["date"]["start"] = "2026-10-19"
+    with pytest.raises(RuntimeError, match="red nije potvrđen"):
+        await checklist.create_day("2026-10-18")
+    assert n.create.call_count == 1
+
+
 async def test_agent_loop_parallel_tools_caching_and_history(db, monkeypatch):
     import dexter.tools  # noqa: F401  registruje alate
     from dexter import llm, memory

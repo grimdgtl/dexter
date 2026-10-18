@@ -119,6 +119,12 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `NOTION_API_KEY` | prazno | Token Notion integracije; podeli roditeljsku stranicu sa integracijom |
 | `NOTION_TASKS_DB_ID` | prazno | TASK BOARD za proaktivni uvid: Name/Status i opciona Date kolona Rok |
 | `NOTION_TODO_DB_ID` | prazno | Lična To-do lista na Life stranici, odvojena od poslovnog TASK BOARD-a |
+| `NOTION_CHECKLIST_DB_ID` | prazno | Dnevna checklista navika; postojeći database ID iz v1 |
+| `NOTION_DNEVNIK_DB_ID` | prazno | Dnevnik; opcion za insights, obavezan za dnevnik alate |
+| `CHECKLIST_POZITIVNE` | `Ustajanje 6:00, Vežbanje, Doručak, Vitamini, Večera 19:00` | CSV tačnih naziva Checkbox kolona; prepiši svoje iz v1 |
+| `CHECKLIST_IZBEGAVANJA` | `Bez slatkog, Bez alkohola, Bez telefona posle 22:00` | CSV naziva navika izbegavanja; čekirano znači uspešno izbegnuto |
+| `CHECKLIST_CILJNA_STAVKA` | `Vežbanje` | Tačan naziv jedne podešene navike koja se prati nedeljno |
+| `CHECKLIST_CILJ_NEDELJNO` | `3` | Nedeljni cilj, 1–7; koristi svoju vrednost iz v1 |
 | `WEEKLY_TASK_TITLE` | `Nedeljni zadatak` | Naslov ličnog zadatka koji se ponavlja svake nedelje |
 | `FLOWERS_TASK_CRON` | `0 5 * * 1` | Nedeljni lični zadatak ponedeljkom u 05:00 po TIMEZONE; rok nedelja |
 | `SEMANTIC_INDEX_CRON` | `0 4 * * *` | Dnevno osvežavanje znanja po `TIMEZONE` |
@@ -144,6 +150,40 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `MAIL_INDEX_SENT_FOLDER` | automatski | Pun naziv Sent foldera kada ga server ne označava standardno |
 
 `notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
+
+Checklista koristi kolone `Dan` (Title), `Datum` (Date) i po jednu Checkbox kolonu
+za svaki tačan naziv iz `CHECKLIST_POZITIVNE` / `CHECKLIST_IZBEGAVANJA`. Postojeća
+Notion formula `Skor` ostaje netaknuta; skor alata je broj čekiranih navika iz ENV-a.
+Nazivi moraju biti različiti, a ciljna stavka mora biti na tom spisku. Nedostajuća
+Checkbox kolona javlja grešku umesto lažnog rezultata „nije urađeno”.
+
+Dnevnik koristi `Dan` (Title), `Datum` (Date), `Raspoloženje` (Select: `Odlično`,
+`Dobro`, `Neutralno`, `Loše`, `Teško`), `Energija` (Select: `Visoka`, `Srednja`,
+`Niska`), `Ključna reč` (Text) i opciono `Checklista` (Relation ka dnevnoj checklisti).
+Svaka baza mora imati jedan data source; koristi iste database ID-jeve i integraciju
+kao v1, uz Read/Insert/Update pristup. Prilagođavanje novom API-ju prati
+[Notion vodič za 2025-09-03](https://developers.notion.com/guides/get-started/upgrade-guide-2025-09-03).
+
+`checklist_get` i `dnevnik_get` samo čitaju. `checklist_mark` prihvata samo tačne
+nazive i boolean vrednosti: „jeo sam slatko” znači `Bez slatkog=false`, a „nisam jeo
+slatko” znači `true`. `dnevnik_write` menja samo navedena polja i vraća `prazno`
+da bot pita za preostala. Obe izmene same kreiraju dnevni red kada ga nema;
+`checklist_create_day` služi izričitom zahtevu korisnika. Datumi su po `TIMEZONE`,
+a nedeljni cilj je ponedeljak–nedelja oko traženog datuma.
+
+Kreiranje koristi trajni ključ u PostgreSQL `kv_state`: paralelni pozivi i retry
+posle timeout-a/5xx ne ponavljaju create naslepo. Ako se prethodni red ne može
+potvrditi, proveri Notion ručno. Obrisani/premešteni red se ne kreira ponovo samo
+zato što pretraga ne nalazi datum. Dupli datumi blokiraju dnevno menjanje i nedeljni
+cilj; statistika ih izostavlja uz napomenu.
+
+`insights_get` računa 1–366 dana (podrazumevano 30), sa paginacijom svih redova.
+Prosek koristi postojeće pouzdane redove; dan bez reda prekida niz, a tekući niz
+mora dopirati do kraja perioda. Uspešan dan ima najmanje 70% čekiranih navika.
+Veze sa dnevnikom su razlike prosečnih ocena uz najmanje 3 dana po grupi, nikada
+dokaz uzročnosti. Bez podešenog dnevnika ostaje statistika navika sa napomenom.
+Automatsko jutarnje kreiranje/povezivanje, podsetnici i pohvale čekaju F1b.8;
+za trenutnu ručnu proveru ostavi `SCHEDULER_ENABLED=off`.
 
 Lična To-do lista koristi `NOTION_TODO_DB_ID` iz stare instalacije i istu Notion
 integraciju. Baza mora imati jedan data source i sledeće kolone:
