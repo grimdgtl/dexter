@@ -10,9 +10,9 @@ import pytest
 from imap_tools import MailMessage
 from imap_tools.folder import FolderInfo
 
-from apu import config, sources
-from apu.services import mail
-from apu.sources import mail as source
+from dexter import config, sources
+from dexter.services import mail
+from dexter.sources import mail as source
 
 
 @pytest.mark.parametrize(
@@ -123,7 +123,7 @@ async def test_cancellation_waits_for_imap_worker_before_cleanup():
 
 
 async def test_mail_only_configuration_connects_to_reindex_scheduler(imap_server, monkeypatch):
-    from apu import scheduler
+    from dexter import scheduler
 
     for name in (
         "NOTION_API_KEY",
@@ -149,7 +149,7 @@ async def test_scanned_pdf_attachment_is_ocr_processed_before_yield(
 
     from pypdf import PdfWriter
 
-    from apu.rag import ocr
+    from dexter.rag import ocr
 
     pdf = PdfWriter()
     pdf.add_blank_page(width=200, height=200)
@@ -166,7 +166,7 @@ async def test_scanned_pdf_attachment_is_ocr_processed_before_yield(
 
 
 async def test_overview_unread_uses_readonly_peek_and_no_seen_mutation(imap_server, make_mail):
-    from apu.services import overview
+    from dexter.services import overview
 
     imap_server.messages["INBOX"] = [
         make_mail(subject="Već pročitano"),

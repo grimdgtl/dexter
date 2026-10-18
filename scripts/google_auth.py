@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 from dotenv import load_dotenv
 from google_auth_oauthlib.flow import Flow
 
-from apu.services.google import SCOPES
+from dexter.services.google import SCOPES
 
 
 def authorize() -> str:

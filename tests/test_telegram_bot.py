@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apu import telegram_bot
-from apu.agent.loop import AgentResult
+from dexter import telegram_bot
+from dexter.agent.loop import AgentResult
 
 
 @pytest.fixture

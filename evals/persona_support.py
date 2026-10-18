@@ -42,15 +42,17 @@ def prompt_from_source(source: str) -> str:
 async def git_prompt(ref: str) -> str:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./^-]{0,127}", ref):
         raise ValueError("Neispravan Git ref.")
-    proc = await asyncio.create_subprocess_exec(
-        "git",
-        "show",
-        "--no-ext-diff",
-        f"{ref}:src/apu/agent/prompts.py",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    out, _ = await proc.communicate()
-    if proc.returncode:
-        raise ValueError(f"Git ref {ref} nema dostupan prethodni prompt.")
-    return prompt_from_source(out.decode())
+    # Stari commit-i zadržavaju putanju paketa pre preimenovanja u Dexter.
+    for path in ("src/dexter/agent/prompts.py", "src/apu/agent/prompts.py"):
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "show",
+            "--no-ext-diff",
+            f"{ref}:{path}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        out, _ = await proc.communicate()
+        if not proc.returncode:
+            return prompt_from_source(out.decode())
+    raise ValueError(f"Git ref {ref} nema dostupan prethodni prompt.")

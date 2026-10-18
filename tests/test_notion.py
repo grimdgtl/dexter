@@ -6,8 +6,8 @@ import httpx
 import pytest
 from notion_client import APIResponseError
 
-from apu import config
-from apu.services import notion
+from dexter import config
+from dexter.services import notion
 
 ROOT = "11111111-1111-1111-1111-111111111111"
 CHILD = "22222222-2222-2222-2222-222222222222"
@@ -111,7 +111,7 @@ async def test_notion_reports_permission_failure(respx_mock):
 
 
 async def test_overview_tasks_paginates_data_sources_and_keeps_unknown_due(respx_mock, monkeypatch):
-    from apu.services import overview
+    from dexter.services import overview
 
     monkeypatch.setattr(config.settings(), "notion_tasks_db_id", ROOT)
     respx_mock.get(f"{BASE}/databases/{ROOT}").respond(200, json={"data_sources": [{"id": CHILD}]})

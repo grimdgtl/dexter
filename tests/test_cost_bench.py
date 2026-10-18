@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from apu import llm, usage
-from apu.config import settings
+from dexter import llm, usage
+from dexter.config import settings
 from evals.cost_bench import read_prompts
 
 
@@ -32,7 +32,7 @@ async def test_benchmark_rejects_main_database_before_connecting(monkeypatch):
 
     from evals import cost_bench
 
-    monkeypatch.setattr(settings(), "database_url", "postgresql://test@localhost/apu")
+    monkeypatch.setattr(settings(), "database_url", "postgresql://test@localhost/dexter")
     connect = AsyncMock()
     monkeypatch.setattr(cost_bench.db, "connect", connect)
     with pytest.raises(ValueError, match="izdvojenu"):

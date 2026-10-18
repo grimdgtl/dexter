@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from apu import usage
+from dexter import usage
 from scripts import router_dataset, train_router
 
 

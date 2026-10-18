@@ -11,9 +11,9 @@ import unicodedata
 from pathlib import Path
 from unittest.mock import patch
 
-from apu import transcribe
-from apu.config import settings
-from apu.pismo import u_latinicu
+from dexter import transcribe
+from dexter.config import settings
+from dexter.pismo import u_latinicu
 
 HERE = Path(__file__).parent
 

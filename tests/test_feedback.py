@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from apu import feedback, telegram_bot
+from dexter import feedback, telegram_bot
 
 
 async def test_vote_callback_is_owner_only_and_does_not_route_to_confirmation(monkeypatch):

@@ -5,15 +5,15 @@ from datetime import datetime
 import pytest
 from pydantic import BaseModel
 
-from apu.agent.history import sanitize, trim_turns
-from apu.agent.prompts import SYSTEM_PROMPT, turn_context
-from apu.agent.router import pick_model
-from apu.config import settings
-from apu.memory import parse_facts
-from apu.pismo import u_latinicu
-from apu.rag.chunking import chunk_text
-from apu.rag.store import rrf
-from apu.tools import registry
+from dexter.agent.history import sanitize, trim_turns
+from dexter.agent.prompts import SYSTEM_PROMPT, turn_context
+from dexter.agent.router import pick_model
+from dexter.config import settings
+from dexter.memory import parse_facts
+from dexter.pismo import u_latinicu
+from dexter.rag.chunking import chunk_text
+from dexter.rag.store import rrf
+from dexter.tools import registry
 from evals.rag_eval import metrics
 
 # ── Pismo ───────────────────────────────────────────────────

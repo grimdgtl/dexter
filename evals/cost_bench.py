@@ -14,11 +14,11 @@ from urllib.parse import unquote, urlsplit
 
 from anthropic.types import Message
 
-from apu import db, llm, memory, usage
-from apu.agent import history, loop
-from apu.config import settings
-from apu.pismo import u_latinicu
-from apu.tools import registry
+from dexter import db, llm, memory, usage
+from dexter.agent import history, loop
+from dexter.config import settings
+from dexter.pismo import u_latinicu
+from dexter.tools import registry
 
 HERE = Path(__file__).parent
 

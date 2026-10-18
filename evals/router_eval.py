@@ -9,10 +9,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from apu import db, llm, usage
-from apu.agent.router import select_model
-from apu.config import settings
-from apu.pismo import u_latinicu
+from dexter import db, llm, usage
+from dexter.agent.router import select_model
+from dexter.config import settings
+from dexter.pismo import u_latinicu
 
 HERE = Path(__file__).parent
 

@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apu.agent import router
-from apu.config import settings
+from dexter.agent import router
+from dexter.config import settings
 
 
 @pytest.mark.parametrize("level,tier", [("lako", "fast"), ("srednje", "main"), ("teško", "deep")])

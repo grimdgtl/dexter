@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
-from apu import proactive
-from apu.config import settings
+from dexter import proactive
+from dexter.config import settings
 
 
 @pytest.mark.parametrize(
@@ -40,7 +40,7 @@ async def test_collect_marks_missing_sources_without_inventing_empty_state(monke
 
 
 def test_weekly_scheduler_is_sunday_at_twenty_and_preserves_other_jobs(monkeypatch):
-    from apu import scheduler
+    from dexter import scheduler
 
     monkeypatch.setattr(scheduler.AsyncIOScheduler, "start", lambda self: None)
     schedule = scheduler.start(SimpleNamespace())

@@ -27,10 +27,10 @@ import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from apu import db
-from apu.pismo import u_latinicu
-from apu.rag import store
-from apu.rag.dates import period_bounds
+from dexter import db
+from dexter.pismo import u_latinicu
+from dexter.rag import store
+from dexter.rag.dates import period_bounds
 
 HERE = Path(__file__).parent
 

@@ -5,7 +5,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
-from apu.rag import ingest, office
+from dexter.rag import ingest, office
 
 
 def test_docx_preserves_order_nested_table_headers_and_latin(office_files):
@@ -60,7 +60,7 @@ async def test_office_ingest_uses_worker_thread_and_rejects_oversized_zip(
 
 
 async def test_drive_downloads_and_parses_office_file(office_files, monkeypatch):
-    from apu.services.google import Drive, indexable
+    from dexter.services.google import Drive, indexable
 
     metadata = {
         "name": "Budžet",
@@ -77,7 +77,7 @@ async def test_drive_downloads_and_parses_office_file(office_files, monkeypatch)
 def test_mail_reads_office_attachments_in_its_worker(office_files, make_mail):
     from imap_tools import MailMessage
 
-    from apu.services import mail
+    from dexter.services import mail
 
     raw = make_mail(
         attachments=[

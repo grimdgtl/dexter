@@ -46,7 +46,7 @@ da postojeći indeks ostaje sačuvan, kao i da čišćenje ne dira Notion dokume
 Reprodukcija sa test bazom:
 
 ```bash
-TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test \
+TEST_DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter_test \
 pytest tests/test_integration.py::test_mail_source_evaluation_deduplication_and_safe_cleanup -s
 ```
 
@@ -76,7 +76,7 @@ objedinjavanje delimičnih sažetaka, kao i posao u 03:30 kroz evidenciju i retr
 Reprodukcija sa test bazom:
 
 ```bash
-TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test \
+TEST_DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter_test \
 pytest tests/test_integration.py::test_conversation_source_evaluation_dates_retry_and_reset -s
 ```
 
@@ -556,3 +556,24 @@ Simulirani sudija vraća kontrolne ocene; one se NE koriste kao brojke kvaliteta
 persone. Stvarni MODEL_MAIN/MODEL_DEEP eval nije izvršen i ostaje ručna provera.
 CI uslov proverava stvarni, kompletni pre/posle izveštaj pri promeni SYSTEM_PROMPT-a;
 kontrolni izveštaj ne može zadovoljiti taj uslov. Automatskih plaćenih poziva u CI-ju nema.
+
+## F0.1 — preimenovanje u Dexter (18.10.2026)
+
+Na zahtev korisnika novi Python paket, CLI, promptovi, logovi, Docker/Compose,
+CI i dokumentacija koriste Dexter/dexter. Reference na stari Node.js APU i čitanje
+istorijskih Git putanja ostaju radi poređenja i prenosa funkcija. Baze i volume-i
+nisu automatski preimenovani; README opisuje povezivanje postojećih podataka.
+
+SYSTEM_PROMPT ostaje statična konstanta. Njegova jedina promena je ime u prvoj
+rečenici. Persona provera prihvata samo tu tačnu zamenu, uz doslovno isti ostatak;
+regresioni test potvrđuje da bilo koja dodatna izmena i dalje zahteva stvarni eval.
+Git čitanje podržava novu i staru putanju paketa. Kontrolni CLI prolaz izvršio je
+20 pre + 20 posle scenarija, po 46 simuliranih poziva i latinicu u svih 40 izlaza.
+Stvarno ocenjivanje modelom nije izvršeno; kontrolne ocene ne mere kvalitet.
+
+Ruff prolazi, kao i svih 241 test sa izolovanom PostgreSQL 14 + pgvector 0.8.1 bazom.
+Otkrivena je i uklonjena zavisnost testa ponoćnog budžeta od stvarnog datuma DB upisa;
+poslovna logika budžeta nije menjana. Izgrađen je `dexter-2.0.0` wheel i instaliran
+u izdvojeni direktorijum: provereni su uvoz paketa, CLI entrypoint i svih 12 SQL
+migracija unutar instaliranog paketa. Docker build i pravi Telegram deploy ostaju
+ručna provera.

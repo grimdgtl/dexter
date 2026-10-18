@@ -4,10 +4,10 @@ import argparse
 import asyncio
 import math
 
-from apu import db
-from apu.config import settings
-from apu.pismo import u_latinicu
-from apu.rag import embed as embeddings
+from dexter import db
+from dexter.config import settings
+from dexter.pismo import u_latinicu
+from dexter.rag import embed as embeddings
 
 
 async def reembed(conn) -> dict:

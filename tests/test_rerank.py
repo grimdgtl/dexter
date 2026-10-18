@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from apu.rag import rerank
-from apu.rag.store import Hit
+from dexter.rag import rerank
+from dexter.rag.store import Hit
 
 
 def hits():

@@ -7,8 +7,8 @@ import httpx
 import pytest
 from googleapiclient.errors import HttpError
 
-from apu import config
-from apu.services import google
+from dexter import config
+from dexter.services import google
 
 BASE = "https://www.googleapis.com/drive/v3/files"
 
@@ -134,7 +134,7 @@ async def test_overview_calendar_paginates_native_sdk_without_writes(respx_mock,
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu.services import overview
+    from dexter.services import overview
 
     route = respx_mock.get("https://www.googleapis.com/calendar/v3/calendars/primary/events").mock(
         side_effect=[

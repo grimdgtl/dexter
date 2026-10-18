@@ -1,9 +1,15 @@
-# APU 2 — lični AI asistent (Python)
+# Dexter — lični AI asistent (Python)
 
 [![CI](https://github.com/grimdgtl/dexter/actions/workflows/ci.yml/badge.svg)](https://github.com/grimdgtl/dexter/actions/workflows/ci.yml)
 
-Nova verzija APU-a: isti Telegram asistent, ali sa pravom AI osnovom.
+Dexter je lični AI asistent na Telegramu, naslednik starog APU-a.
 Stari APU (Node.js) radi paralelno dok ovaj ne preuzme sve funkcije.
+
+Python paket i komanda za pokretanje zovu se `dexter` (`python -m dexter.main`
+ili `dexter` posle instalacije). Telegram ime i username biraš preko BotFather-a.
+Ako već imaš bazu ili Docker volume-e sa starim imenom, sačuvaj njihov `DATABASE_URL`
+i eksplicitno poveži postojeće volume-e pre pokretanja novog Compose fajla.
+Promena naziva u kodu ne preimenuje bazu, DB korisnika ili postojeće volume-e.
 
 ```
 Telegram (tekst / glas / slika / PDF)
@@ -32,7 +38,7 @@ docker compose logs -f bot
 ```
 
 Compose koristi `db:5432` iz kontejnera bota, dok lokalni Python koristi `localhost:5432`.
-Lozinke `apu:apu` u ovom Compose fajlu namenjene su lokalnom razvoju; produkcionu bazu
+Lozinke `dexter:dexter` u ovom Compose fajlu namenjene su lokalnom razvoju; produkcionu bazu
 podesi zasebno kao u uputstvu ispod.
 
 Lokalni razvoj bez Docker-a za bota:
@@ -40,7 +46,7 @@ Lokalni razvoj bez Docker-a za bota:
 ```bash
 docker compose up -d db
 uv venv && uv pip install -e ".[dev]"
-DATABASE_URL=postgresql://apu:apu@localhost:5432/apu .venv/bin/apu
+DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter .venv/bin/dexter
 ```
 
 > Koristi **drugi Telegram bot token** dok stari APU radi — dva procesa na istom
@@ -53,7 +59,7 @@ DATABASE_URL=postgresql://apu:apu@localhost:5432/apu .venv/bin/apu
 | `/status` | Aktivni i ugašeni alati, nedostajuća podešavanja, modeli i stanje baze |
 | `/poslovi [sati]` | Evidencija zakazanih poslova, uspeha i grešaka (24h podrazumevano) |
 | `/troskovi [dana]` | Cena, broj poziva, procenat keša i latencija po modelu |
-| `/memorija` | Sve što APU pamti o tebi |
+| `/memorija` | Sve što Dexter pamti o tebi |
 | `/reset` | Briše istoriju razgovora (memorija ostaje) |
 | `/duboko <pitanje>` | Forsira najjači model |
 
@@ -66,8 +72,8 @@ integracione testove. Koriste se samo test kredencijali i mock odgovori spoljnih
 
 ```bash
 pytest                                   # logika, bez baze i mreže
-docker compose exec db createdb -U apu apu_test                         # jednom
-TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test pytest   # + baza
+docker compose exec db createdb -U dexter dexter_test                         # jednom
+TEST_DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter_test pytest   # + baza
 python -m evals.rag_eval --k 5 --oznaka "hybrid-1200"                  # kvalitet pretrage
 ```
 
@@ -83,7 +89,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `TELEGRAM_BOT_TOKEN` | obavezno | Token zasebnog Telegram bota |
 | `TELEGRAM_OWNER_CHAT_ID` | obavezno | Numerički ID vlasnika; ostali razgovori se ignorišu |
 | `ANTHROPIC_API_KEY` | obavezno | Ključ za razgovor i generisanje poruka |
-| `DATABASE_URL` | lokalni `apu:apu@localhost:5432/apu` | PostgreSQL veza; na serveru koristi interni host baze |
+| `DATABASE_URL` | lokalni `dexter:dexter@localhost:5432/dexter` | PostgreSQL veza; na serveru koristi interni host baze |
 | `MODEL_FAST` / `MODEL_MAIN` / `MODEL_DEEP` | `.env.example` | ID-jevi brzog, glavnog i dubokog modela |
 | `MAX_TOKENS` | `8192` | Ograničenje dužine odgovora modela |
 | `HISTORY_TURNS` | `12` | Broj razmena u istoriji modela |
@@ -230,30 +236,30 @@ Pravne dokumente i privatne podatke drži van repozitorijuma ili u ignorisanom `
 
 ## Deploy na Hetzner / Coolify
 
-APU je pozadinski proces sa Telegram long polling-om. Potreban je server sa Docker-om,
+Dexter je pozadinski proces sa Telegram long polling-om. Potreban je server sa Docker-om,
 Coolify instancom i izlaznim HTTPS pristupom za Telegram, Anthropic, OpenAI i podešene
 integracije. Instalacija servera i kupovina resursa nisu deo ove procedure.
 
 1. Na istom serveru napravi **poseban PostgreSQL servis** sa image-om
-   `pgvector/pgvector:pg17`. Podesi bazu i korisnika `apu`, svoju jaku lozinku i trajni
+   `pgvector/pgvector:pg17`. Podesi bazu i korisnika `dexter`, svoju jaku lozinku i trajni
    volume na **`/var/lib/postgresql/data`**. Koristi internu Docker mrežu; javni port
    baze nije potreban. Coolify podržava odvojene resurse i
    [trajno skladište](https://coolify.io/docs/core/persistent-storage/storage-mounts/overview).
 2. Kreiraj aplikaciju iz ovog Git repozitorijuma. Izaberi **Dockerfile** build,
-   build context koren repoa, Dockerfile `/Dockerfile`, podrazumevanu komandu `apu`.
+   build context koren repoa, Dockerfile `/Dockerfile`, podrazumevanu komandu `dexter`.
    Docker build uključuje SQL migracije u instalirani Python paket.
    Detalji podešavanja su u [Coolify Dockerfile dokumentaciji](https://coolify.io/docs/applications/builds/dockerfile).
 3. Za bota ostavi **Domains, Ports Exposes i port mappings prazne** i isključi
    **HTTP Health Check**. Bot nema HTTP server; stanje se proverava kroz logove i Telegram.
    Health check PostgreSQL servisa ostaje uključen.
-4. U aplikaciji podesi trajni **Volume Mount** naziva npr. `apu-data`, sa Destination
+4. U aplikaciji podesi trajni **Volume Mount** naziva npr. `dexter-data`, sa Destination
    Path **`/app/data`**. Novi named volume ne traži Source Path. Tu se čuvaju keš
    lokalnih modela i radni fajlovi; razgovori, memorija i indeks su u bazi.
-   Image radi kao korisnik `apu` sa UID **10001**. Ako koristiš postojeći bind mount ili
+   Image radi kao korisnik `dexter` sa UID **10001**. Ako koristiš postojeći bind mount ili
    vraćen volume, njegov vlasnik mora omogućiti pisanje tom UID-ju.
 5. U Runtime Environment Variables unesi vrednosti iz `.env.example`. `DATABASE_URL`
    mora koristiti **interni host produkcione baze**, npr.
-   `postgresql://apu:<lozinka>@<interni-db-host>:5432/apu`. Specijalne znakove u lozinci
+   `postgresql://dexter:<lozinka>@<interni-db-host>:5432/dexter`. Specijalne znakove u lozinci
    URL-kodiraj. Bota i bazu poveži u istoj Docker mreži. API ključevi se unose pri
    pokretanju, bez build argumenata i bez `.env` fajla u image-u.
 6. Koristi **drugi Telegram bot token dok stari APU radi**. Pokreni jednu repliku
@@ -271,7 +277,7 @@ integracije. Instalacija servera i kupovina resursa nisu deo ove procedure.
 
 Podesi redovan backup baze (`pg_dump`) i app volume-a, uz proveru vraćanja kopije u
 posebnu bazu. Pre izmene šeme napravi backup. Za lokalni Compose named volume-i su
-`apu-pg` i `apu-data`; `docker compose down` ih zadržava, dok `down -v` briše njihove podatke.
+`dexter-pg` i `dexter-data`; `docker compose down` ih zadržava, dok `down -v` briše njihove podatke.
 Zadržavanje samo app volume-a ne čuva razgovore ni indeks — potreban je i PostgreSQL volume.
 
 U ovoj fazi kreirani su kod i uputstvo. Ručna provera pravog Telegram-a, Google naloga,
@@ -402,7 +408,7 @@ Na Coolify-ju zadaj isti build argument `EXTRAS=local`. Bez njega slika sadrži 
 API zavisnosti. Lokalna varijanta instalira CPU PyTorch prema
 [uv dokumentaciji](https://docs.astral.sh/uv/guides/integration/pytorch/), pa ne
 preuzima CUDA pakete. Težine modela preuzimaju se pri prvoj upotrebi, uz mrežni pristup;
-build ne preuzima težine. `HF_HOME=/app/data/hf` je unutar postojećeg `apu-data`
+build ne preuzima težine. `HF_HOME=/app/data/hf` je unutar postojećeg `dexter-data`
 volume-a, koji čuva i E5 i faster-whisper keš pri zameni kontejnera. Na serveru
 volume mora biti upisiv korisniku UID 10001. Ne uklanjaj ga između deploy-a.
 

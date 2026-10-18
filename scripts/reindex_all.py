@@ -4,10 +4,10 @@ import argparse
 import asyncio
 from datetime import date
 
-from apu import db
-from apu.pismo import u_latinicu
-from apu.rag import store
-from apu.rag.dates import day_start
+from dexter import db
+from dexter.pismo import u_latinicu
+from dexter.rag import store
+from dexter.rag.dates import day_start
 
 
 async def reindex_all(source: str | None = None) -> dict:

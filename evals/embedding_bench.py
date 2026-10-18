@@ -10,11 +10,11 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import unquote, urlsplit
 
-from apu import db
-from apu.config import settings
-from apu.pismo import u_latinicu
-from apu.rag import embed as embeddings
-from apu.rag import store
+from dexter import db
+from dexter.config import settings
+from dexter.pismo import u_latinicu
+from dexter.rag import embed as embeddings
+from dexter.rag import store
 from evals.rag_eval import metrics
 from scripts.reembed import reembed
 

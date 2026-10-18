@@ -5,10 +5,10 @@ import asyncio
 import json
 from pathlib import Path
 
-from apu import db
-from apu.agent.history import is_user_turn
-from apu.config import settings
-from apu.sources.conversations import message_text
+from dexter import db
+from dexter.agent.history import is_user_turn
+from dexter.config import settings
+from dexter.sources.conversations import message_text
 
 
 async def export_rows() -> list[dict]:

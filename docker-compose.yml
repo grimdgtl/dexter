@@ -2,15 +2,15 @@ services:
   db:
     image: pgvector/pgvector:pg17
     environment:
-      POSTGRES_USER: apu
-      POSTGRES_PASSWORD: apu
-      POSTGRES_DB: apu
+      POSTGRES_USER: dexter
+      POSTGRES_PASSWORD: dexter
+      POSTGRES_DB: dexter
     volumes:
-      - apu-pg:/var/lib/postgresql/data
+      - dexter-pg:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432" # samo lokalno, za psql i debug
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U apu"]
+      test: ["CMD-SHELL", "pg_isready -U dexter"]
       interval: 5s
       retries: 10
 
@@ -18,14 +18,14 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://apu:apu@db:5432/apu
+      DATABASE_URL: postgresql://dexter:dexter@db:5432/dexter
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - apu-data:/app/data # fajlovi, keš lokalnih modela
+      - dexter-data:/app/data # fajlovi, keš lokalnih modela
     restart: unless-stopped
 
 volumes:
-  apu-pg:
-  apu-data:
+  dexter-pg:
+  dexter-data:

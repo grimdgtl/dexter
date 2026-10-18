@@ -129,9 +129,9 @@ def make_mail():
 def imap_server(monkeypatch):
     from imap_tools.imap_utf7 import utf7_decode, utf7_encode
 
-    from apu import config
-    from apu.services import mail
-    from apu.sources import mail as source
+    from dexter import config
+    from dexter.services import mail
+    from dexter.sources import mail as source
 
     for name in mail.REQUIRES:
         monkeypatch.setenv(name, "test")

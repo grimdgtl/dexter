@@ -30,5 +30,8 @@ CI čita stari prompt iz baznog Git ref-a AST parserom, bez izvršavanja starog 
 Ako se `SYSTEM_PROMPT` promenio, zahteva stvarni pre/posle izveštaj sa odgovarajućim
 otiscima promptova, scenarija i rubrike, svih 20 ID-jeva i važećim ocenama.
 Simulacija ne može zadovoljiti taj uslov. Nepromenjen prompt ne zahteva API pozive.
+Jedini izuzetak je korisnikovo preimenovanje iz APU u Dexter: prihvata se samo
+doslovna zamena imena u prvoj rečenici, uz potpuno isti ostatak prompta. Za stare
+Git ref-ove čita se i prethodna putanja Python paketa.
 CI proverava prisustvo kompletnog poređenja; ocene i eventualni pad kvaliteta
 pregledaju se u izveštaju. Trenutni kontrolni prolaz nije ocena stvarne persone.

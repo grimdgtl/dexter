@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 import pytest
 from anthropic.types import Message
 
-from apu import llm, telegram_bot
-from apu.agent.loop import AgentResult
+from dexter import llm, telegram_bot
+from dexter.agent.loop import AgentResult
 
 
 @pytest.fixture

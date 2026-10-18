@@ -10,9 +10,9 @@ import time
 import unicodedata
 from pathlib import Path
 
-from apu.agent.router import pick_model
-from apu.config import settings
-from apu.pismo import u_latinicu
+from dexter.agent.router import pick_model
+from dexter.config import settings
+from dexter.pismo import u_latinicu
 
 LEVELS = ("lako", "srednje", "teško")
 
@@ -186,7 +186,7 @@ async def main(args):
         seed=args.seed,
     )
     if args.uporedi_api:
-        from apu import db
+        from dexter import db
         from evals.router_eval import evaluate
 
         try:

@@ -1,11 +1,11 @@
-# APU 2 — plan razvoja (specifikacija za agenta)
+# Dexter — plan razvoja (specifikacija za agenta)
 
-Ovaj dokument je jedini izvor istine za razvoj APU 2. Opisuje šta se pravi, kojim
+Ovaj dokument je jedini izvor istine za razvoj Dextera. Opisuje šta se pravi, kojim
 redom, i kako se zna da je zadatak gotov. Radi zadatke redom; ne preskači fazu.
 
-- **Projekat:** APU, lični AI asistent jednog korisnika (vlasnik male digitalne
+- **Projekat:** Dexter, lični AI asistent jednog korisnika (vlasnik male digitalne
   agencije) na Telegramu, na srpskom, isključivo latinicom.
-- **Ovaj repo (`apu2`):** nova Python verzija. Kostur (faza 0) je gotov.
+- **Ovaj repo (`dexter`):** nova Python verzija. Kostur (faza 0) je gotov.
 - **Stari APU:** https://github.com/grimdgtl/apu (Node.js). To je **referentna
   implementacija**: svako ponašanje koje postoji tamo mora da postoji i ovde. Kad
   prebacuješ funkciju, PRVO pročitaj odgovarajući stari fajl i njegov opis u
@@ -56,24 +56,24 @@ redom, i kako se zna da je zadatak gotov. Radi zadatke redom; ne preskači fazu.
 
 | Fajl | Šta radi |
 |---|---|
-| `src/apu/main.py` | Start: baza → registracija alata → Telegram polling → scheduler |
-| `src/apu/config.py` | `pydantic-settings`, sve iz `.env` |
-| `src/apu/db.py` | asyncpg pool + pgvector; šema (messages, facts, documents, chunks, usage) |
-| `src/apu/llm.py` | Anthropic klijent; svaki poziv meri tokene/cenu/latenciju |
-| `src/apu/usage.py` | Tabela cena, upis u `usage`, izveštaj za `/troskovi` |
-| `src/apu/agent/loop.py` | Agentska petlja, caching, paralelni alati, max_tokens zaštita |
-| `src/apu/agent/prompts.py` | Statičan SYSTEM_PROMPT (persona sagovornika) + `turn_context` |
-| `src/apu/agent/router.py` | Izbor modela (pravilo + `/duboko`) |
-| `src/apu/agent/history.py` | Istorija u bazi, `trim_turns`, `sanitize` |
-| `src/apu/tools/registry.py` | `@tool` dekorator, pydantic šeme, validacija, potvrde, skraćivanje |
-| `src/apu/tools/weather.py` | Primer prenetog alata (šablon) |
-| `src/apu/tools/memory_tools.py` | memory_save / search / list / forget |
-| `src/apu/tools/knowledge.py` | knowledge_search (hybrid RAG) |
-| `src/apu/memory.py` | Činjenice sa vektorima, automatsko izvlačenje, deduplikacija |
-| `src/apu/rag/` | chunking, embed (OpenAI ili lokalni e5), store (pgvector + FTS + RRF), ingest (PDF/txt) |
-| `src/apu/transcribe.py` | Whisper API ili faster-whisper, + latinica |
-| `src/apu/telegram_bot.py` | Tekst, glas, slike, fajlovi, dugmad, /start /reset /troskovi /memorija |
-| `src/apu/scheduler.py` | APScheduler; samo jutarnji pozdrav (šablon) |
+| `src/dexter/main.py` | Start: baza → registracija alata → Telegram polling → scheduler |
+| `src/dexter/config.py` | `pydantic-settings`, sve iz `.env` |
+| `src/dexter/db.py` | asyncpg pool + pgvector; šema (messages, facts, documents, chunks, usage) |
+| `src/dexter/llm.py` | Anthropic klijent; svaki poziv meri tokene/cenu/latenciju |
+| `src/dexter/usage.py` | Tabela cena, upis u `usage`, izveštaj za `/troskovi` |
+| `src/dexter/agent/loop.py` | Agentska petlja, caching, paralelni alati, max_tokens zaštita |
+| `src/dexter/agent/prompts.py` | Statičan SYSTEM_PROMPT (persona sagovornika) + `turn_context` |
+| `src/dexter/agent/router.py` | Izbor modela (pravilo + `/duboko`) |
+| `src/dexter/agent/history.py` | Istorija u bazi, `trim_turns`, `sanitize` |
+| `src/dexter/tools/registry.py` | `@tool` dekorator, pydantic šeme, validacija, potvrde, skraćivanje |
+| `src/dexter/tools/weather.py` | Primer prenetog alata (šablon) |
+| `src/dexter/tools/memory_tools.py` | memory_save / search / list / forget |
+| `src/dexter/tools/knowledge.py` | knowledge_search (hybrid RAG) |
+| `src/dexter/memory.py` | Činjenice sa vektorima, automatsko izvlačenje, deduplikacija |
+| `src/dexter/rag/` | chunking, embed (OpenAI ili lokalni e5), store (pgvector + FTS + RRF), ingest (PDF/txt) |
+| `src/dexter/transcribe.py` | Whisper API ili faster-whisper, + latinica |
+| `src/dexter/telegram_bot.py` | Tekst, glas, slike, fajlovi, dugmad, /start /reset /troskovi /memorija |
+| `src/dexter/scheduler.py` | APScheduler; samo jutarnji pozdrav (šablon) |
 | `evals/rag_eval.py` | recall@k i MRR nad `evals/questions.jsonl` |
 | `tests/` | 18 testova logike + 3 integraciona (traže `TEST_DATABASE_URL`) |
 
@@ -104,8 +104,8 @@ Telegram → `telegram_bot` (glas→tekst, slika→blok, PDF→indeks) → `agen
 ### 3.4 Alati
 Šablon (`tools/weather.py`): pydantic model ulaza → `@tool(name, opis, enabled=…,
 confirm=…, preview=…)` → async funkcija koja vraća dict/str. Spoljni klijenti
-(Notion, Google, IMAP) idu u `src/apu/services/<ime>.py`, alati u
-`src/apu/tools/<grupa>.py`. Sinhrone biblioteke se zovu kroz `asyncio.to_thread`.
+(Notion, Google, IMAP) idu u `src/dexter/services/<ime>.py`, alati u
+`src/dexter/tools/<grupa>.py`. Sinhrone biblioteke se zovu kroz `asyncio.to_thread`.
 `enabled` vraća False kad fali konfiguracija — model tada ne vidi alat.
 
 ### 3.5 Baza
@@ -117,6 +117,18 @@ modela u `/app/data`). Šema se menja samo kroz migracije (F1.3).
 ## 4. Faze
 
 Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
+
+### Izmena naziva pre test deploy-a (18.10.2026)
+
+> IZMENA: Na izričit zahtev korisnika novi projekat i bot se zovu Dexter.
+> Stari APU ostaje naziv referentne Node.js implementacije.
+
+- [x] **F0.1 Preimenovanje u Dexter.** Python paket, komanda, promptovi,
+  konfiguracija, Docker, CI, testovi i dokumentacija koriste Dexter/dexter.
+  Postojeće baze i volume-i ne preimenuju se automatski. Za isključivu zamenu
+  `Ti si APU,` → `Ti si Dexter,` persona provera poredi ostatak prompta doslovno;
+  svaka dodatna izmena i dalje zahteva stvarni eval. Kontrolni prolaz i provera
+  instalacionog paketa beleže se u `docs/EVAL.md`.
 
 ### Faza 1 — Osnova i prvi podaci (do 21.10)
 
@@ -377,7 +389,7 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 ## 6. Definicija "gotovo" za ceo projekat
 
 - Svih 46 starih alata, 14 poslova i 5 komandi rade (`docs/PARITY.md` sve ✅).
-- Novi APU radi na glavnom tokenu najmanje 2 nedelje bez ručnih intervencija.
+- Novi Dexter radi na glavnom tokenu najmanje 2 nedelje bez ručnih intervencija.
 - `docs/EVAL.md` ima brojke za: recall@5 i MRR kroz verzije, cenu po poruci sa i
   bez keša, OpenAI vs lokalni embeddinzi, Whisper API vs lokalno, ocenu persone.
 - CI je zelen, README opisuje arhitekturu, pokretanje i rezultate.

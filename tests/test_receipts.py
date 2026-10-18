@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock
 import pytest
 from pydantic import ValidationError
 
-from apu import llm, receipts, telegram_bot
-from apu.agent.loop import AgentResult
-from apu.tools import registry
+from dexter import llm, receipts, telegram_bot
+from dexter.agent.loop import AgentResult
+from dexter.tools import registry
 
 
 def receipt_data(**changes):

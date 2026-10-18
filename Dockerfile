@@ -21,7 +21,7 @@ RUN case "$EXTRAS" in \
       *) echo "Nepodržan EXTRAS: koristi prazno ili local." >&2; exit 1 ;; \
     esac
 
-RUN useradd --uid 10001 -m apu && mkdir -p /app/data && chown -R apu /app
-USER apu
+RUN useradd --uid 10001 -m dexter && mkdir -p /app/data && chown -R dexter /app
+USER dexter
 
-CMD ["apu"]
+CMD ["dexter"]

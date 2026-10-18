@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from apu import transcribe
-from apu.config import settings
+from dexter import transcribe
+from dexter.config import settings
 from evals import voice_eval
 
 

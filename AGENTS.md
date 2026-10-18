@@ -15,8 +15,8 @@ uv venv && uv pip install -e ".[dev]"
 ruff format src tests evals && ruff check src tests evals
 pytest                                   # bez baze
 docker compose up -d db
-docker compose exec db createdb -U apu apu_test   # jednom
-TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test pytest   # sa bazom
+docker compose exec db createdb -U dexter dexter_test   # jednom
+TEST_DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter_test pytest   # sa bazom
 ```
 Zadatak nije gotov dok ruff i pytest (sa bazom) ne prolaze.
 
@@ -31,7 +31,7 @@ Zadatak nije gotov dok ruff i pytest (sa bazom) ne prolaze.
 
 ## Stil
 - Python 3.12, async svuda; sinhrone biblioteke kroz `asyncio.to_thread`.
-- Alat = pydantic model ulaza + `@tool(...)` (šablon: `src/apu/tools/weather.py`).
+- Alat = pydantic model ulaza + `@tool(...)` (šablon: `src/dexter/tools/weather.py`).
 - Komentari i tekst za korisnika na srpskom, latinicom. Komentar objašnjava
   ZAŠTO, ne šta.
 - Dužina reda 100, ruff pravila iz `pyproject.toml`.

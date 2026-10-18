@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock
 import pytest
 from pydantic import ValidationError
 
-from apu.config import Settings
-from apu.rag.chunking import chunk_text
+from dexter.config import Settings
+from dexter.rag.chunking import chunk_text
 from scripts import reindex_all
 
 
@@ -15,7 +15,7 @@ def test_invalid_chunk_settings(size, overlap):
 
 
 def test_chunking_uses_settings_and_keeps_long_words(monkeypatch):
-    from apu.config import settings
+    from dexter.config import settings
 
     monkeypatch.setattr(settings(), "chunk_chars", 600)
     monkeypatch.setattr(settings(), "chunk_overlap", 100)

@@ -15,18 +15,18 @@ jobs:
       db:
         image: pgvector/pgvector:pg17
         env:
-          POSTGRES_USER: apu
-          POSTGRES_PASSWORD: apu
-          POSTGRES_DB: apu_test
+          POSTGRES_USER: dexter
+          POSTGRES_PASSWORD: dexter
+          POSTGRES_DB: dexter_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U apu -d apu_test"
+          --health-cmd "pg_isready -U dexter -d dexter_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      TEST_DATABASE_URL: postgresql://apu:apu@localhost:5432/apu_test
+      TEST_DATABASE_URL: postgresql://dexter:dexter@localhost:5432/dexter_test
       TELEGRAM_BOT_TOKEN: test
       TELEGRAM_OWNER_CHAT_ID: "1"
       ANTHROPIC_API_KEY: test
@@ -66,10 +66,10 @@ jobs:
         with:
           persist-credentials: false
       - name: Build bez preuzimanja težina modela
-        run: docker build --build-arg EXTRAS="${{ matrix.extras }}" -t apu-provera .
+        run: docker build --build-arg EXTRAS="${{ matrix.extras }}" -t dexter-provera .
       - name: Provera migracija, skripti i trajnog keša kao neprivilegovan korisnik
         run: |
-          docker volume create apu-provera-data
-          docker run --rm -v apu-provera-data:/app/data apu-provera python -c 'import os; from pathlib import Path; import scripts.reembed; assert os.getuid() == 10001; assert list(Path("/app/migrations").glob("*.sql")); p = Path(os.environ["HF_HOME"]); p.mkdir(parents=True, exist_ok=True); (p / "provera").write_text("sačuvano")'
-          docker run --rm -v apu-provera-data:/app/data apu-provera python -c 'import os; from pathlib import Path; assert (Path(os.environ["HF_HOME"]) / "provera").read_text() == "sačuvano"'
-          docker volume rm apu-provera-data
+          docker volume create dexter-provera-data
+          docker run --rm -v dexter-provera-data:/app/data dexter-provera python -c 'import os; from pathlib import Path; import scripts.reembed; assert os.getuid() == 10001; assert list(Path("/app/migrations").glob("*.sql")); p = Path(os.environ["HF_HOME"]); p.mkdir(parents=True, exist_ok=True); (p / "provera").write_text("sačuvano")'
+          docker run --rm -v dexter-provera-data:/app/data dexter-provera python -c 'import os; from pathlib import Path; assert (Path(os.environ["HF_HOME"]) / "provera").read_text() == "sačuvano"'
+          docker volume rm dexter-provera-data

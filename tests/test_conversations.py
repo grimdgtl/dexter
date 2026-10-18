@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from apu import config, scheduler, sources
-from apu.sources import conversations
+from dexter import config, scheduler, sources
+from dexter.sources import conversations
 
 
 def response(text, stop_reason="end_turn"):

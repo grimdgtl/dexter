@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock
 import pytest
 from pydantic import ValidationError
 
-from apu import budget
-from apu.config import Settings, settings
+from dexter import budget
+from dexter.config import Settings, settings
 
 
 @pytest.mark.parametrize("value", [0, -1, "NaN", "Infinity"])

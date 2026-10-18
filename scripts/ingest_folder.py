@@ -5,10 +5,10 @@ import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 
-from apu import db
-from apu.pismo import u_latinicu
-from apu.rag.ingest import ingest_file
-from apu.rag.office import SUFFIXES
+from dexter import db
+from dexter.pismo import u_latinicu
+from dexter.rag.ingest import ingest_file
+from dexter.rag.office import SUFFIXES
 
 
 async def ingest_folder(folder: Path, source: str = "zakon") -> list[dict]:

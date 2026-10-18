@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock
 import pytest
 from pydantic import ValidationError
 
-from apu.rag.dates import period_bounds, timestamp
-from apu.rag.store import Hit
-from apu.tools.knowledge import SearchArgs, knowledge_search
+from dexter.rag.dates import period_bounds, timestamp
+from dexter.rag.store import Hit
+from dexter.tools.knowledge import SearchArgs, knowledge_search
 
 
 def test_local_period_has_inclusive_days_and_handles_dst():
@@ -30,7 +30,7 @@ def test_invalid_period_is_rejected_before_search(start, end):
 
 
 async def test_knowledge_tool_forwards_dates_and_reports_source_timestamp(monkeypatch):
-    from apu.tools import knowledge
+    from dexter.tools import knowledge
 
     search = AsyncMock(
         return_value=[

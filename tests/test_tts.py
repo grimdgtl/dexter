@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from apu import telegram_bot, tts
-from apu.agent.loop import AgentResult
-from apu.config import settings
+from dexter import telegram_bot, tts
+from dexter.agent.loop import AgentResult
+from dexter.config import settings
 
 
 @pytest.mark.parametrize(

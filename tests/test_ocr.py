@@ -9,9 +9,9 @@ import pytest
 from PIL import Image
 from pypdf import PdfWriter
 
-from apu import llm
-from apu.config import settings
-from apu.rag import ingest, ocr
+from dexter import llm
+from dexter.config import settings
+from dexter.rag import ingest, ocr
 
 
 def scan_pdf(n=1):

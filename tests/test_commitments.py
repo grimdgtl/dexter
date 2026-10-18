@@ -4,9 +4,9 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
-from apu import commitments
-from apu.config import settings
-from apu.proactive_time import quiet
+from dexter import commitments
+from dexter.config import settings
+from dexter.proactive_time import quiet
 
 
 @pytest.mark.parametrize(

@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from apu.config import settings
-from apu.rag import embed
+from dexter.config import settings
+from dexter.rag import embed
 
 
 async def test_openai_sorts_indices_and_checks_dimensions(monkeypatch, respx_mock):

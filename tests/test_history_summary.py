@@ -1,5 +1,5 @@
-from apu.agent import summary
-from apu.agent.prompts import turn_context
+from dexter.agent import summary
+from dexter.agent.prompts import turn_context
 
 
 def test_summary_entries_preserve_confirmation_outcomes_without_memory_or_image_bytes():

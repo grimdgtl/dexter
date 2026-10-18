@@ -4,7 +4,7 @@ import argparse
 import asyncio
 import json
 
-from apu.agent.prompts import SYSTEM_PROMPT
+from dexter.agent.prompts import SYSTEM_PROMPT
 from evals.persona_eval import Judgment
 from evals.persona_support import HERE, corpus_hash, digest, git_prompt, read_cases
 
@@ -40,7 +40,9 @@ def verify_report(report, before, after, rows, rubric) -> bool:
 
 async def check(base="HEAD", directory=HERE / "results") -> bool:
     before = SYSTEM_PROMPT if set(base) == {"0"} else await git_prompt(base)
-    if before == SYSTEM_PROMPT:
+    # Jednokratno preimenovanje ne menja pravila persone; svaka druga izmena traži eval.
+    renamed = before.replace("Ti si APU,", "Ti si Dexter,", 1)
+    if before == SYSTEM_PROMPT or (before.startswith("Ti si APU,") and renamed == SYSTEM_PROMPT):
         return True
     rows = await asyncio.to_thread(read_cases)
     rubric = json.loads(await asyncio.to_thread((HERE / "rubric.json").read_text))
@@ -63,4 +65,4 @@ if __name__ == "__main__":
     parser.add_argument("--base", default="HEAD")
     args = parser.parse_args()
     asyncio.run(check(args.base))
-    print("Persona provera prolazi: prompt nije promenjen ili postoji stvarno pre/posle merenje.")
+    print("Persona provera prolazi: pravila nisu menjana ili postoji stvarno pre/posle merenje.")

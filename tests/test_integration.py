@@ -2,7 +2,7 @@
 
 Pokreću se samo kad postoji TEST_DATABASE_URL (prazna test baza!), npr:
     docker compose up -d db
-    TEST_DATABASE_URL=postgresql://apu:apu@localhost:5432/apu_test pytest
+    TEST_DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter_test pytest
 """
 
 import asyncio
@@ -35,8 +35,8 @@ def fake_vector(text: str, dim: int = 1536) -> list[float]:
 @pytest.fixture
 async def db(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", DB_URL)
-    from apu import config
-    from apu import db as dbmod
+    from dexter import config
+    from dexter import db as dbmod
 
     config.settings.cache_clear()
     dbmod._pool = None
@@ -47,12 +47,12 @@ async def db(monkeypatch):
     async def fake_embed_one(text, kind="query"):
         return fake_vector(text)
 
-    import apu.memory
-    import apu.rag.store
+    import dexter.memory
+    import dexter.rag.store
 
-    monkeypatch.setattr(apu.rag.store, "embed", fake_embed)
-    monkeypatch.setattr(apu.rag.store, "embed_one", fake_embed_one)
-    monkeypatch.setattr(apu.memory, "embed_one", fake_embed_one)
+    monkeypatch.setattr(dexter.rag.store, "embed", fake_embed)
+    monkeypatch.setattr(dexter.rag.store, "embed_one", fake_embed_one)
+    monkeypatch.setattr(dexter.memory, "embed_one", fake_embed_one)
 
     pool = await dbmod.connect()
     await pool.execute(
@@ -64,7 +64,7 @@ async def db(monkeypatch):
 
 
 async def test_rag_index_and_hybrid_search(db):
-    from apu.rag import store
+    from dexter.rag import store
 
     long_doc = "\n\n".join(f"Pasus {i} o održavanju sajtova i hostingu." for i in range(80))
     n = await store.upsert_document("notion:odrz", "notion", "Održavanje", long_doc)
@@ -86,7 +86,7 @@ async def test_rag_index_and_hybrid_search(db):
 
 
 async def test_memory_dedupes(db):
-    from apu import memory
+    from dexter import memory
 
     first = await memory.save("Marko je knjigovođa firme", "osoba")
     again = await memory.save("Marko je knjigovođa firme.", "osoba")
@@ -97,10 +97,10 @@ async def test_memory_dedupes(db):
 
 
 async def test_agent_loop_parallel_tools_caching_and_history(db, monkeypatch):
-    import apu.tools  # noqa: F401  registruje alate
-    from apu import llm, memory
-    from apu.agent import history, loop
-    from apu.agent.prompts import SYSTEM_PROMPT
+    import dexter.tools  # noqa: F401  registruje alate
+    from dexter import llm, memory
+    from dexter.agent import history, loop
+    from dexter.agent.prompts import SYSTEM_PROMPT
 
     await memory.save("Korisnik voli kratke odgovore", "preferencija")
 
@@ -165,8 +165,8 @@ async def _noop():
 
 
 async def test_parallel_messages_in_same_chat_preserve_history(db, monkeypatch):
-    from apu import llm, memory, telegram_bot
-    from apu.agent import history, loop
+    from dexter import llm, memory, telegram_bot
+    from dexter.agent import history, loop
 
     monkeypatch.setattr(telegram_bot.settings(), "streaming", "off")
 
@@ -223,8 +223,8 @@ async def test_parallel_messages_in_same_chat_preserve_history(db, monkeypatch):
 
 @pytest.fixture
 async def note_model(monkeypatch):
-    from apu import llm, memory
-    from apu.agent import loop
+    from dexter import llm, memory
+    from dexter.agent import loop
 
     answer = {"type": "text", "text": "U redu."}
     block = SimpleNamespace(**answer, model_dump=lambda **kwargs: answer.copy())
@@ -238,10 +238,10 @@ async def note_model(monkeypatch):
 
 @pytest.mark.parametrize("action", ["ok", "no"])
 async def test_button_note_joins_next_user_context(db, monkeypatch, note_model, action):
-    from apu import telegram_bot
-    from apu.agent import history, loop
-    from apu.agent.prompts import SYSTEM_PROMPT
-    from apu.tools import registry
+    from dexter import telegram_bot
+    from dexter.agent import history, loop
+    from dexter.agent.prompts import SYSTEM_PROMPT
+    from dexter.tools import registry
 
     class Args(BaseModel):
         pass
@@ -307,7 +307,7 @@ async def test_button_note_joins_next_user_context(db, monkeypatch, note_model, 
 
 @pytest.mark.parametrize("error", [RuntimeError, asyncio.CancelledError])
 async def test_note_survives_failed_model_call(db, note_model, error):
-    from apu.agent import history, loop
+    from dexter.agent import history, loop
 
     await history.add_note(1, "Potvrđena akcija.")
     notes = await history.load_notes(1)
@@ -319,7 +319,7 @@ async def test_note_survives_failed_model_call(db, note_model, error):
 
 
 async def test_note_added_during_answer_waits_for_next_turn(db, note_model):
-    from apu.agent import history, loop
+    from dexter.agent import history, loop
 
     await history.add_note(1, "Prva napomena.")
     await history.add_note(1, "Druga napomena.")
@@ -337,7 +337,7 @@ async def test_note_added_during_answer_waits_for_next_turn(db, note_model):
 
 
 async def test_failed_history_write_keeps_notes(db):
-    from apu.agent import history
+    from dexter.agent import history
 
     await history.add_note(1, "Potvrđena akcija.")
     notes = await history.load_notes(1)
@@ -355,7 +355,7 @@ async def test_failed_history_write_keeps_notes(db):
 
 
 async def test_reset_clears_only_current_chat_notes(db):
-    from apu.agent import history
+    from dexter.agent import history
 
     for chat_id in (1, 2):
         await history.add_note(chat_id, "Napomena.")
@@ -381,7 +381,7 @@ async def migration_conn(db):
 
 @pytest.mark.parametrize("legacy", [False, True])
 async def test_migrations_are_idempotent_and_preserve_existing_data(migration_conn, legacy):
-    from apu import db as dbmod
+    from dexter import db as dbmod
 
     conn = migration_conn
     if legacy:
@@ -410,7 +410,7 @@ async def test_migrations_are_idempotent_and_preserve_existing_data(migration_co
 
 
 async def test_migration_failure_rolls_back_schema_and_version(migration_conn, tmp_path):
-    from apu import db as dbmod
+    from dexter import db as dbmod
 
     (tmp_path / "001_test.sql").write_text("CREATE TABLE migration_probe (id int);")
     (tmp_path / "002_bad.sql").write_text("SELECT missing_migration_function();")
@@ -421,7 +421,7 @@ async def test_migration_failure_rolls_back_schema_and_version(migration_conn, t
 
 
 async def test_status_reports_database_counts(db):
-    from apu import status
+    from dexter import status
 
     text = await status.report()
     assert "Baza: dostupna" in text
@@ -430,7 +430,7 @@ async def test_status_reports_database_counts(db):
 
 @pytest.mark.parametrize("success", [True, False])
 async def test_jobs_retry_record_and_notify_once(db, monkeypatch, success):
-    from apu import jobs
+    from dexter import jobs
 
     sleep = AsyncMock()
     monkeypatch.setattr(jobs.asyncio, "sleep", sleep)
@@ -459,7 +459,7 @@ async def test_jobs_retry_record_and_notify_once(db, monkeypatch, success):
 
 
 async def test_job_success_is_not_retried_if_recording_fails(db, monkeypatch):
-    from apu import jobs
+    from dexter import jobs
 
     # Drugi poziv execute upisuje ishod, pošto je fn već uspeo.
     real_execute = db.execute
@@ -481,9 +481,9 @@ async def test_job_success_is_not_retried_if_recording_fails(db, monkeypatch):
 
 
 async def test_notion_source_full_pagination_skip_and_safe_removal(db, monkeypatch, respx_mock):
-    from apu import config
-    from apu.rag import store
-    from apu.sources import notion
+    from dexter import config
+    from dexter.rag import store
+    from dexter.sources import notion
 
     monkeypatch.setenv("NOTION_API_KEY", "test-notion")
     config.settings.cache_clear()
@@ -575,10 +575,10 @@ async def test_notion_source_full_pagination_skip_and_safe_removal(db, monkeypat
 async def test_drive_source_preserves_full_text_and_handles_missing_files(
     db, monkeypatch, respx_mock
 ):
-    from apu import config
-    from apu.rag import store
-    from apu.services import google
-    from apu.sources import drive
+    from dexter import config
+    from dexter.rag import store
+    from dexter.services import google
+    from dexter.sources import drive
 
     for name in google.REQUIRES:
         monkeypatch.setenv(name, "test")
@@ -675,8 +675,8 @@ async def test_mail_source_evaluation_deduplication_and_safe_cleanup(
     import json
     import time
 
-    from apu.rag import store
-    from apu.sources import mail
+    from dexter.rag import store
+    from dexter.sources import mail
     from evals.rag_eval import metrics
 
     shared = make_mail(
@@ -749,8 +749,8 @@ def conversation_model(monkeypatch):
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import config, llm
-    from apu.sources import conversations
+    from dexter import config, llm
+    from dexter.sources import conversations
 
     class FrozenDateTime(datetime):
         @classmethod
@@ -799,10 +799,10 @@ async def test_conversation_source_evaluation_dates_retry_and_reset(
     import json
     import time
 
-    from apu import sources
-    from apu.agent import history
-    from apu.rag import store
-    from apu.sources import conversations
+    from dexter import sources
+    from dexter.agent import history
+    from dexter.rag import store
+    from dexter.sources import conversations
     from evals.rag_eval import metrics
 
     await add_conversation_message(db, "2026-09-30T20:30:00+00:00", "Orion: dogovor sa Markom.")
@@ -859,8 +859,8 @@ async def test_conversation_source_evaluation_dates_retry_and_reset(
 async def test_conversation_failure_keeps_index_and_progress(
     db, conversation_model, monkeypatch, failure
 ):
-    from apu.rag import store
-    from apu.sources import conversations
+    from dexter.rag import store
+    from dexter.sources import conversations
 
     await add_conversation_message(db, "2026-09-30T10:00:00+00:00", "Orion dogovor.")
     await conversations.reindex()
@@ -909,8 +909,8 @@ async def test_chunk_sizes_evaluation_and_reindex_from_saved_text(db, monkeypatc
     import json
     import time
 
-    from apu.config import settings
-    from apu.rag import store
+    from dexter.config import settings
+    from dexter.rag import store
     from evals.rag_eval import metrics
     from scripts.reindex_all import reindex_all
 
@@ -967,9 +967,9 @@ async def test_rerank_evaluation_top_twenty_cost_and_fallback(db, monkeypatch):
     import json
     import time
 
-    from apu import llm
-    from apu.config import settings
-    from apu.rag import store
+    from dexter import llm
+    from dexter.config import settings
+    from dexter.rag import store
     from evals.rag_eval import metrics
 
     for i in range(24):
@@ -1040,8 +1040,8 @@ async def test_relevance_threshold_calibration(db, monkeypatch):
     import json
     import time
 
-    from apu.config import settings
-    from apu.rag import store
+    from dexter.config import settings
+    from dexter.rag import store
     from evals.rag_eval import metrics
 
     def vector(parts):
@@ -1102,7 +1102,7 @@ async def test_date_filter_evaluation_applies_before_candidate_limits(db):
     import time
     from datetime import date, datetime
 
-    from apu.rag import store
+    from dexter.rag import store
     from evals.rag_eval import metrics
 
     for i in range(35):
@@ -1147,8 +1147,8 @@ async def test_date_filter_evaluation_applies_before_candidate_limits(db):
 async def test_date_filter_boundaries_open_ranges_unknown_dates_and_dst(db, monkeypatch):
     from datetime import date, datetime
 
-    from apu.config import settings
-    from apu.rag import store
+    from dexter.config import settings
+    from dexter.rag import store
 
     stamps = {
         "pre": "2026-08-31T21:59:59+00:00",
@@ -1186,7 +1186,7 @@ async def test_date_filter_boundaries_open_ranges_unknown_dates_and_dst(db, monk
         "dst-kraj",
     }
     # I opcioni model vidi samo kandidate koji su već prošli filter.
-    from apu.rag import rerank
+    from dexter.rag import rerank
 
     reorder = AsyncMock(side_effect=lambda query, hits: hits)
     monkeypatch.setattr(rerank, "rerank", reorder)
@@ -1203,8 +1203,8 @@ async def test_date_filter_boundaries_open_ranges_unknown_dates_and_dst(db, monk
 async def test_metadata_only_updates_and_rechunk_preserve_source_date(db, monkeypatch):
     from datetime import datetime
 
-    from apu.config import settings
-    from apu.rag import store
+    from dexter.config import settings
+    from dexter.rag import store
     from scripts.reindex_all import reindex_all
 
     stamp = datetime.fromisoformat("2026-09-15T12:00:00+00:00")
@@ -1245,7 +1245,7 @@ async def test_metadata_only_updates_and_rechunk_preserve_source_date(db, monkey
 async def test_cost_benchmark_cache_comparison_and_isolation(db, monkeypatch):
     from pathlib import Path
 
-    from apu.config import settings
+    from dexter.config import settings
     from evals.cost_bench import benchmark, read_prompts
 
     rows = read_prompts(Path("evals/prompts.jsonl"))
@@ -1279,8 +1279,8 @@ async def test_router_evaluation_tracks_accuracy_cost_and_confusion(db):
 async def test_streaming_agent_keeps_tool_flow_and_history(db, monkeypatch):
     from anthropic.types import Message
 
-    from apu import llm, memory
-    from apu.agent import history, loop
+    from dexter import llm, memory
+    from dexter.agent import history, loop
 
     monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
     calls = []
@@ -1320,8 +1320,8 @@ async def test_daily_budget_warns_once_forces_fast_and_resets_at_local_midnight(
     from decimal import Decimal
     from zoneinfo import ZoneInfo
 
-    from apu import budget, llm
-    from apu.config import settings
+    from dexter import budget, llm
+    from dexter.config import settings
 
     now = [datetime(2026, 10, 17, 23, 50, tzinfo=ZoneInfo("Europe/Belgrade"))]
 
@@ -1365,6 +1365,8 @@ async def test_daily_budget_warns_once_forces_fast_and_resets_at_local_midnight(
     )
     await llm.create(purpose="budget_test", model=settings().model_deep)
     assert create.await_args.kwargs["model"] == settings().model_fast
+    # DB now() prati stvarni datum; zapis mora pripadati danu simuliranog poziva.
+    await db.execute("UPDATE usage SET created_at=$1 WHERE purpose='budget_test'", now[0])
     now[0] = datetime(2026, 10, 18, 0, 0, tzinfo=ZoneInfo("Europe/Belgrade"))
     assert await budget.model_for(settings().model_deep) == settings().model_deep
     assert (await budget.snapshot())[1] == 0
@@ -1373,8 +1375,8 @@ async def test_daily_budget_warns_once_forces_fast_and_resets_at_local_midnight(
 async def test_budget_notification_failure_retries_and_record_triggers_warning(db, monkeypatch):
     from decimal import Decimal
 
-    from apu import budget, usage
-    from apu.config import settings
+    from dexter import budget, usage
+    from dexter.config import settings
 
     monkeypatch.setattr(settings(), "daily_budget_usd", Decimal("1"))
     bot = SimpleNamespace(send_message=AsyncMock(side_effect=RuntimeError("Telegram")))
@@ -1390,9 +1392,9 @@ async def test_budget_notification_failure_retries_and_record_triggers_warning(d
 async def test_running_summary_keeps_complete_turns_and_incremental_context(db, monkeypatch):
     from anthropic.types import Message
 
-    from apu import llm, memory
-    from apu.agent import history, loop, summary
-    from apu.config import settings
+    from dexter import llm, memory
+    from dexter.agent import history, loop, summary
+    from dexter.config import settings
 
     monkeypatch.setattr(settings(), "history_turns", 2)
     monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
@@ -1466,7 +1468,7 @@ async def test_running_summary_keeps_complete_turns_and_incremental_context(db, 
 async def test_summary_failure_preserves_progress_and_raw_history(db, monkeypatch):
     from types import SimpleNamespace
 
-    from apu.agent import history, summary
+    from dexter.agent import history, summary
 
     messages = [
         {"role": role, "content": f"{i} {role}"} for i in range(4) for role in ("user", "assistant")
@@ -1497,7 +1499,7 @@ async def test_summary_failure_preserves_progress_and_raw_history(db, monkeypatc
 async def test_reset_during_summarization_does_not_restore_deleted_context(db, monkeypatch):
     from types import SimpleNamespace
 
-    from apu.agent import history, summary
+    from dexter.agent import history, summary
 
     await history.append(
         1, [{"role": r, "content": str(i)} for i in range(3) for r in ("user", "assistant")]
@@ -1524,7 +1526,7 @@ async def test_reset_during_summarization_does_not_restore_deleted_context(db, m
 async def test_long_history_summary_reads_all_parts_before_advancing(db, monkeypatch):
     from types import SimpleNamespace
 
-    from apu.agent import history, summary
+    from dexter.agent import history, summary
 
     await history.append(
         1,
@@ -1557,8 +1559,8 @@ async def test_long_history_summary_reads_all_parts_before_advancing(db, monkeyp
 
 
 async def test_reembed_changes_both_vector_dimensions_atomically(migration_conn, monkeypatch):
-    from apu import db as dbmod
-    from apu.config import settings
+    from dexter import db as dbmod
+    from dexter.config import settings
     from scripts import reembed
 
     conn = migration_conn
@@ -1626,8 +1628,8 @@ async def test_embedding_benchmark_three_models_uses_same_corpus_and_reports_cos
     import json
     from types import SimpleNamespace
 
-    from apu.config import settings
-    from apu.rag import embed, store
+    from dexter.config import settings
+    from dexter.rag import embed, store
     from evals.embedding_bench import benchmark
     from scripts.reembed import reembed
 
@@ -1674,9 +1676,9 @@ async def test_embedding_benchmark_three_models_uses_same_corpus_and_reports_cos
 
 
 async def test_router_dataset_joins_only_matching_owner_turns(db, monkeypatch):
-    from apu import usage
-    from apu.agent import history
-    from apu.config import settings
+    from dexter import usage
+    from dexter.agent import history
+    from dexter.config import settings
     from scripts.router_dataset import export_rows
 
     cfg = settings()
@@ -1740,8 +1742,8 @@ async def test_scanned_pdf_is_searchable_only_after_complete_ocr(db, monkeypatch
 
     from pypdf import PdfWriter
 
-    from apu import llm
-    from apu.rag import ingest, store
+    from dexter import llm
+    from dexter.rag import ingest, store
 
     pdf = PdfWriter()
     pdf.add_blank_page(width=200, height=200)
@@ -1774,8 +1776,8 @@ async def test_receipt_confirmation_snapshot_deduplication_and_month_report(db, 
     import base64
     from decimal import Decimal
 
-    from apu import llm, receipts
-    from apu.tools import registry
+    from dexter import llm, receipts
+    from dexter.tools import registry
 
     monkeypatch.setattr(registry, "_PENDING", {})
     raw = {
@@ -1845,7 +1847,7 @@ async def test_receipt_confirmation_snapshot_deduplication_and_month_report(db, 
 async def test_folder_office_documents_and_all_excel_sheets_are_searchable(
     db, tmp_path, office_files
 ):
-    from apu.rag import store
+    from dexter.rag import store
     from scripts.ingest_folder import ingest_folder
 
     for name, data in office_files.items():
@@ -1859,9 +1861,9 @@ async def test_folder_office_documents_and_all_excel_sheets_are_searchable(
 
 
 async def test_failed_tts_preserves_agent_history_and_text(db, monkeypatch, respx_mock):
-    from apu import llm, memory, telegram_bot
-    from apu.agent import history
-    from apu.config import settings
+    from dexter import llm, memory, telegram_bot
+    from dexter.agent import history
+    from dexter.config import settings
 
     monkeypatch.setattr(settings(), "streaming", "off")
     monkeypatch.setattr(settings(), "glas_odgovor", "on")
@@ -1895,8 +1897,8 @@ async def test_commitment_extraction_proof_dedup_and_completion(db, monkeypatch)
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import commitments, llm, memory
-    from apu.tools import registry
+    from dexter import commitments, llm, memory
+    from dexter.tools import registry
 
     promise = "Poslaću ponudu Marku do petka."
     item = {
@@ -1925,8 +1927,8 @@ async def test_commitment_reminder_is_local_day_once_and_respects_quiet(db, monk
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import commitments
-    from apu.config import settings
+    from dexter import commitments
+    from dexter.config import settings
 
     monkeypatch.setattr(settings(), "quiet_hours", "22-07")
     text = "Poslaću ponudu Marku do sutra."
@@ -1946,7 +1948,7 @@ async def test_commitment_delivery_error_is_durable_and_not_retried_blindly(db):
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import commitments
+    from dexter import commitments
 
     text = "Sutra šaljem ponudu."
     await commitments.save(commitments.Commitment(tekst=text, rok="2026-10-18", dokaz=text), text)
@@ -1964,7 +1966,7 @@ async def test_daily_insight_one_delivery_with_parallel_calls_and_restart(db, mo
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import llm, proactive
+    from dexter import llm, proactive
 
     monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={"obaveze": []}))
     monkeypatch.setattr(
@@ -2006,7 +2008,7 @@ async def test_daily_silence_no_send_and_uncertain_delivery_are_logged(db, monke
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import llm, proactive
+    from dexter import llm, proactive
 
     monkeypatch.setattr(proactive, "collect", AsyncMock(return_value={}))
     create = AsyncMock(
@@ -2045,7 +2047,7 @@ async def test_insight_rechecks_quiet_hours_after_model_and_keeps_json_failure(d
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import llm, proactive
+    from dexter import llm, proactive
 
     tz = ZoneInfo("Europe/Belgrade")
     times = iter([datetime(2026, 10, 17, 21, 59, tzinfo=tz), datetime(2026, 10, 17, 22, tzinfo=tz)])
@@ -2078,7 +2080,7 @@ async def test_daily_insight_real_sdk_json_and_usage_are_isolated(
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import llm, proactive
+    from dexter import llm, proactive
 
     monkeypatch.setattr(
         proactive,
@@ -2123,8 +2125,8 @@ async def test_weekly_review_uses_this_weeks_completed_promises_and_user_stateme
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import commitments, llm, proactive
-    from apu.agent import history
+    from dexter import commitments, llm, proactive
+    from dexter.agent import history
 
     tz = ZoneInfo("Europe/Belgrade")
     now = datetime(2026, 10, 18, 20, tzinfo=tz)
@@ -2175,7 +2177,7 @@ async def test_feedback_validates_message_upserts_and_adds_ten_examples_to_insig
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import feedback, llm, proactive
+    from dexter import feedback, llm, proactive
 
     ids = []
     for i in range(11):
@@ -2215,7 +2217,7 @@ async def test_feedback_validates_message_upserts_and_adds_ten_examples_to_insig
 
 
 async def test_persona_twenty_scenarios_compare_without_real_tools_or_history(db):
-    from apu.agent.prompts import SYSTEM_PROMPT
+    from dexter.agent.prompts import SYSTEM_PROMPT
     from evals import persona_eval
 
     report = await persona_eval.compare(SYSTEM_PROMPT, simulation=True)
@@ -2236,9 +2238,9 @@ async def test_persona_judge_real_sdk_uses_deep_model_and_validates_http_scores(
 ):
     import json
 
-    from apu import llm
-    from apu.agent.prompts import SYSTEM_PROMPT
-    from apu.config import settings
+    from dexter import llm
+    from dexter.agent.prompts import SYSTEM_PROMPT
+    from dexter.config import settings
     from evals import persona_eval
     from evals.persona_support import HERE, read_cases
 
@@ -2296,7 +2298,7 @@ async def test_reminder_rechecks_quiet_between_messages(db, monkeypatch):
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import commitments
+    from dexter import commitments
 
     tz = ZoneInfo("Europe/Belgrade")
     times = iter(
@@ -2320,7 +2322,7 @@ async def test_insight_rechecks_quiet_after_reserving_delivery(db, monkeypatch):
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from apu import llm, proactive
+    from dexter import llm, proactive
 
     tz = ZoneInfo("Europe/Belgrade")
     times = iter(

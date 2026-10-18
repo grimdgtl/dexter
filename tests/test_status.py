@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 
 from pydantic import BaseModel
 
-from apu import status, telegram_bot
-from apu.tools import registry
+from dexter import status, telegram_bot
+from dexter.tools import registry
 
 
 class Args(BaseModel):
