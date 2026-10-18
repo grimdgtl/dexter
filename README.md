@@ -436,9 +436,14 @@ u trenutnom `<kontekst>` bloku; ne dodaje se u SYSTEM_PROMPT niti umnožava u po
 sačuvane istorije. Dugi prefiksi prolaze kroz ograničene delove bez odsecanja kraja.
 Sirove poruke ostaju u bazi radi dnevnog izvora `razgovor` i pregleda.
 
-Trošak sažimanja vidi se kao `usage.purpose=history_summary`. Neuspešan ili odsečen
-sažetak ne pomera granicu ni prethodni tekst; korisnik dobija grešku i može ponoviti
-poruku. `/reset` briše i ovaj sažetak, uz sirovu istoriju i pending napomene, dok
+Trošak sažimanja vidi se kao `usage.purpose=history_summary`. Odsečen, prazan ili
+predugačak sažetak pokušava se još jednom sa većim izlaznim budžetom (1800 → 3600).
+Ako ni tada nije potpun, sažetak i granica ostaju netaknuti, a razgovor nastavlja sa
+prethodnim potvrđenim sažetkom i poslednjih HISTORY_TURNS celih razmena. Kontekst
+modela jasno navodi da deo starijih razmena nedostaje; sirova arhiva se ne briše.
+API greška ili čekanje duže od 30 sekundi po pokušaju odmah koriste isti rezervni
+kontekst. Sledeća poruka ponovo pokušava sažimanje. `/reset` briše i ovaj sažetak,
+uz sirovu istoriju i pending napomene, dok
 trajna memorija i već indeksirani dnevni sažeci ostaju. Istovremeni reset ne može
 vratiti stari kontekst. Slike se predstavljaju oznakom bez base64 sadržaja; potvrde,
 otkazivanja i rezultati alata prenose se kao podaci, bez ponovnog izvršavanja.

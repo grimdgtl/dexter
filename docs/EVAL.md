@@ -684,3 +684,31 @@ Završna provera kompatibilnosti: minimum `imap-tools` podignut je na 1.16,
 verziju korišćenu u ovih 325 testova. Stari minimum 1.7 nema `fetch(uid_list=...)`
 koji omogućava neposredno PEEK čitanje konkretnog UID-a. Time instalacija ne može
 zadržati staru biblioteku koja ne podržava novu funkciju.
+
+## F3.5 — oporavak posle neuspelog sažimanja (18.10.2026)
+
+Tokom ručne F1b.3 provere korisnik je uspešno dobio pregled pošte i sadržaj mejla
+kao sažetak. Sledeći zahtev za doslovan tekst završio se generičkom greškom.
+Produkcioni traceback pokazuje `summary.load_context`, validaciju nepotpunog ili
+predugačkog sažetka, pre novog poziva mail_read; ne pokazuje problem IMAP-a ili
+Telegram slanja. Tačan razlog validacije nije bio beležen u starom logu.
+
+Pre: jedan neispravan sažetak prekida celu razmenu. Posle: 1800-token odgovor koji
+je odsečen, prazan ili preko 6000 znakova dobija jedan pokušaj sa 3600 tokena.
+Ako ni on ne prođe, model dobija prethodni potvrđeni sažetak i poslednje cele
+razmene, uz izričito označeno ograničenje konteksta. Sirove poruke, sažetak i
+through_id ostaju netaknuti; sledeći zahtev može ponovo pokušati. Greška API-ja
+ili timeout od 30 sekundi prelaze na isti rezervni kontekst bez dodatnog retry-a.
+Otkazivanje zahteva se i dalje propagira. Log beleži stop_reason, dužinu i budžet,
+odnosno tip greške, bez sadržaja arhive ili odgovora provajdera.
+
+Kontrolni scenario sa bazom: dva neispravna history_summary odgovora zatim jedan
+uspešan chat odgovor umesto blokirane poruke. Provereni su uspeh drugog pokušaja,
+očuvanje prethodnog napretka i sirove arhive, odbacivanje delimičnog sažetka pri
+kasnijem neuspehu, pending napomene, oporavak sledećeg zahteva i reset usred oba
+ishoda. Unit provere pokrivaju prazan/predugačak/odsečen odgovor, timeout, otkazivanje
+i privatnost loga. Sve koristi lažne modele; nema pravih API poziva. Dodatni trošak
+je najviše jedan modelski retry po neispravnom delu, evidentiran kao history_summary.
+SYSTEM_PROMPT nije menjan. Stvarni zahtev za doslovan mejl ponoviti posle deploy-a.
+
+Ruff i svih 335 testova sa izolovanom PostgreSQL bazom prolaze.

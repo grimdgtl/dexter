@@ -1589,8 +1589,11 @@ async def test_summary_failure_preserves_progress_and_raw_history(db, monkeypatc
     create.return_value = SimpleNamespace(
         content=[SimpleNamespace(type="text", text="Nepotpuno")], stop_reason="max_tokens"
     )
-    with pytest.raises(RuntimeError, match="nije potpun"):
-        await summary.load_context(1, 2)
+    recent, fallback = await summary.load_context(1, 2)
+    assert recent[-1]["content"] == "Odgovor"
+    assert fallback.startswith("Sažetak.") and "Ograničenje konteksta" in fallback
+    assert "Nepotpuno" not in fallback
+    assert [c.kwargs["max_tokens"] for c in create.call_args_list[-2:]] == [1800, 3600]
     assert await db.fetchrow("SELECT * FROM conversation_context") == state
     assert await db.fetchval("SELECT count(*) FROM messages") == len(messages) + 2
     create.return_value = good
@@ -1598,7 +1601,92 @@ async def test_summary_failure_preserves_progress_and_raw_history(db, monkeypatc
     assert await db.fetchval("SELECT through_id FROM conversation_context") > state["through_id"]
 
 
-async def test_reset_during_summarization_does_not_restore_deleted_context(db, monkeypatch):
+async def test_incomplete_summary_does_not_block_next_chat_turn(db, monkeypatch):
+    from anthropic.types import Message
+
+    from dexter import llm, memory
+    from dexter.agent import history, loop
+    from dexter.config import settings
+
+    monkeypatch.setattr(settings(), "history_turns", 2)
+    monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
+    await history.append(
+        1,
+        [
+            {"role": role, "content": f"Tema {i}: {role}"}
+            for i in range(4)
+            for role in ("user", "assistant")
+        ],
+    )
+    await history.add_note(1, "Prethodno slanje je otkazano.")
+    calls = []
+
+    async def create(*, purpose, **kwargs):
+        calls.append((purpose, kwargs))
+        return Message.model_validate(
+            {
+                "id": "test-summary-failure",
+                "type": "message",
+                "role": "assistant",
+                "model": kwargs["model"],
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Odsečeno" if purpose == "history_summary" else "Razgovor radi.",
+                    }
+                ],
+                "stop_reason": "max_tokens" if purpose == "history_summary" else "end_turn",
+                "usage": {"input_tokens": 20, "output_tokens": 20},
+            }
+        )
+
+    monkeypatch.setattr(llm, "create", create)
+    result = await loop.run(1, "Prikaži izvorni tekst poslednjeg mejla.")
+    assert result.text == "Razgovor radi."
+    assert [c[0] for c in calls] == ["history_summary", "history_summary", "chat"]
+    chat = calls[-1][1]
+    context = chat["messages"][-1]["content"][0]["text"]
+    assert "Ograničenje konteksta" in context and "slanje je otkazano" in context
+    assert "Tema 2:" in str(chat["messages"]) and "Tema 0:" not in str(chat["messages"])
+    assert "Ograničenje konteksta" not in str(chat["system"])
+    assert await db.fetchval("SELECT count(*) FROM conversation_context") == 0
+    assert await db.fetchval("SELECT count(*) FROM messages") == 10
+    assert await db.fetchval("SELECT count(*) FROM pending_notes") == 0
+
+
+async def test_summary_retry_recovers_before_advancing(db, monkeypatch):
+    from dexter.agent import history, summary
+
+    await history.append(
+        1,
+        [
+            {"role": role, "content": f"Tema {i}: {role}"}
+            for i in range(3)
+            for role in ("user", "assistant")
+        ],
+    )
+    create = AsyncMock(
+        side_effect=[
+            SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="Nepotpuno")], stop_reason="max_tokens"
+            ),
+            SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="Potpun sažetak.")],
+                stop_reason="end_turn",
+            ),
+        ]
+    )
+    monkeypatch.setattr(summary.llm, "create", create)
+    recent, text = await summary.load_context(1, 1)
+    assert text == "Potpun sažetak." and len(recent) == 2
+    assert [c.kwargs["max_tokens"] for c in create.call_args_list] == [1800, 3600]
+    state = await db.fetchrow("SELECT * FROM conversation_context")
+    assert state["through_id"] == 4 and state["summary"] == text
+    assert await db.fetchval("SELECT count(*) FROM messages") == 6
+
+
+@pytest.mark.parametrize("stop", ["end_turn", "max_tokens"])
+async def test_reset_during_summarization_does_not_restore_deleted_context(db, monkeypatch, stop):
     from types import SimpleNamespace
 
     from dexter.agent import history, summary
@@ -1612,7 +1700,7 @@ async def test_reset_during_summarization_does_not_restore_deleted_context(db, m
         entered.set()
         await release.wait()
         return SimpleNamespace(
-            content=[SimpleNamespace(type="text", text="Stari sažetak")], stop_reason="end_turn"
+            content=[SimpleNamespace(type="text", text="Stari sažetak")], stop_reason=stop
         )
 
     monkeypatch.setattr(summary.llm, "create", create)
@@ -1623,6 +1711,40 @@ async def test_reset_during_summarization_does_not_restore_deleted_context(db, m
     with pytest.raises(RuntimeError, match="Istorija je promenjena"):
         await task
     assert await db.fetchval("SELECT count(*) FROM conversation_context") == 0
+
+
+async def test_partly_successful_summary_never_advances_on_later_failure(db, monkeypatch):
+    from dexter.agent import history, summary
+
+    await history.append(
+        1,
+        [
+            {"role": "user", "content": "Dugi podaci " * 2000},
+            {"role": "assistant", "content": "Odgovor"},
+            {"role": "user", "content": "Poslednje pitanje"},
+            {"role": "assistant", "content": "Poslednji odgovor"},
+        ],
+    )
+    create = AsyncMock(
+        side_effect=[
+            SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="Samo deo arhive.")],
+                stop_reason="end_turn",
+            ),
+            SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="Nepotpuno")], stop_reason="max_tokens"
+            ),
+            SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="Nepotpuno")], stop_reason="max_tokens"
+            ),
+        ]
+    )
+    monkeypatch.setattr(summary.llm, "create", create)
+    recent, context = await summary.load_context(1, 1)
+    assert len(recent) == 2 and "Ograničenje konteksta" in context
+    assert "Samo deo arhive" not in context
+    assert await db.fetchval("SELECT count(*) FROM conversation_context") == 0
+    assert await db.fetchval("SELECT count(*) FROM messages") == 4
 
 
 async def test_long_history_summary_reads_all_parts_before_advancing(db, monkeypatch):

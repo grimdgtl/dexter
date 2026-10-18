@@ -326,6 +326,10 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   `HISTORY_TURNS`, održavaj tekući sažetak razgovora (tabela, brzi model) koji ide
   u `<kontekst>`.
 
+  > Ispravka 18.10.2026: produkcioni log tokom F1b.3 ručne provere pokazao je da
+  > neispravan sažetak blokira novu poruku. Jedan veći retry i rezervni kontekst
+  > omogućavaju nastavak razgovora bez pomeranja granice ili brisanja istorije.
+
 ### Faza 4 — Lokalni modeli sa Hugging Face-a (17.11–23.11)
 
 - [x] **F4.1 Promena dimenzije vektora.** `scripts/reembed.py`: migracija koja
