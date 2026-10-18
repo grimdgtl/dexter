@@ -587,3 +587,32 @@ potvrđuje očuvane automatske poslove. Podrazumevano `on` čuva prethodno pona�
 dok `.env.example` i uputstvo za prvi test deploy koriste `off`.
 Ruff i svih 243 testa sa izolovanom bazom prolaze. SYSTEM_PROMPT nije menjan.
 Server deploy i potvrda poruka u Telegramu ostaju ručna provera.
+
+## F1b.1 — Google kalendar (18.10.2026)
+
+Pre prenosa pročitani su v1 `src/services/calendar.js`, kalendarske definicije
+alata, registracija i README odeljci za OAuth i ponavljanje. Preneta su sva tri
+alata sa istim imenima/argumentima i zajedničkim Google OAuth podešavanjima.
+`calendar_create_event` čeka potvrdu, uključujući slanje pozivnica učesnicima.
+Jedno RRULE pravilo pravi jedan insert; otkazivanje ne poziva Google, a ponovljena
+potvrda istog zahteva ne ponavlja insert. Pregled potvrde prikazuje lokalno vreme,
+kalendar, pravilo ponavljanja i primaoce pozivnica.
+
+Pravi Google SDK kroz respx proverava osvežavanje OAuth tokena, list paginaciju,
+celodnevne događaje, filtriranje otkazanih, 403 za sva tri postupka i zatvaranje
+SDK klijenta pri grešci. HTTP se izvršava van glavne niti. Freebusy testovi pokrivaju
+preklapanje zauzetosti, ograničenje na traženi period, odbijanje prošlih termina,
+prazan kalendar, vikend i promenu UTC offseta 24/25.10.2026. Nepoznata zauzetost
+ili Google greška ne pretvaraju se u prazan, slobodan kalendar.
+
+Zadržani su kraj UTC dana za `do`, alternativa `broj`, podrazumevani sati 9–18 i
+vikendi iz v1. Razlike i popravljene granice perioda su u `docs/PARITY.md`.
+[Google events list](https://developers.google.com/workspace/calendar/api/v3/reference/events/list),
+[freebusy](https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query)
+i [ponavljanje](https://developers.google.com/workspace/calendar/api/concepts/events-calendars#recurring_events)
+su reference za paginaciju, dostupnost i oblik RRULE zahteva.
+
+Ruff i svih 263 testa sa izolovanom PostgreSQL bazom prolaze. SYSTEM_PROMPT nije
+menjan; persona provera prolazi bez novog merenja. Korisnik bira `primary` umesto
+test kalendara. Pravi Google nalog nije pozivan iz testova; ručno proveriti pregled,
+slobodne termine, potvrdni upis i ponavljanje nakon deploy-a.

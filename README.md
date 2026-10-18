@@ -170,6 +170,22 @@ Popuni client ID i secret, pa pokreni `python -m scripts.google_auth`. Skripta t
 Calendar + Drive dozvole kao stari APU i ispisuje refresh token za `.env`.
 Ako je stari token imao samo Calendar pristup, ponovi odobrenje. OAuth aplikacija u
 Testing režimu može da izgubi odobrenje posle sedam dana; za stalni rad koristi Production.
+
+Kalendar koristi `GOOGLE_CALENDAR_ID` (podrazumevano `primary`) i istu OAuth trojku.
+`calendar_list_events` čita sve stranice događaja za opseg, podrazumevano narednih
+sedam dana. `calendar_find_free_slots` vraća slobodne intervale od najmanje
+`durationMinutes` (60), unutar sati `workdayStart`–`workdayEnd` (9–18), uključujući
+vikend kao u starom botu. Intervali ostaju unutar traženog opsega i ne nude prošlost;
+greška Google zauzetosti nije prazan kalendar. Datumi bez vremena znače lokalnu
+ponoć; `timeMax` je isključivi kraj. Datum/vreme mora imati UTC offset.
+
+`calendar_create_event` čeka dugme za potvrdu pre upisa i slanja pozivnica.
+Pregled prikazuje naslov, kalendar, lokalno vreme, ponavljanje i učesnike.
+`ponavljanje` pravi jedan događaj sa RRULE pravilom; različiti termini po danima
+traže zasebne serije. `do` uključuje kraj navedenog UTC dana kao u v1, a `broj`
+je alternativni broj ponavljanja. Ne mogu se zadati oba. Za zakazivanje su
+obavezna vremena sa zonom, dok se lokalni sat ponavljanja vezuje za `TIMEZONE`.
+
 `drive_read` vraća do 6000 znakova modelu; indeks čuva ceo tekst Docs, Sheets/CSV, PDF i
 tekstualnih fajlova, kroz sve strane rezultata. PDF bez teksta zahteva kasniji OCR (F5.1).
 

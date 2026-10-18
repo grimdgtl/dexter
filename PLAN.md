@@ -217,9 +217,13 @@ alata, i odgovarajući deo starog README-a; prenesi ponašanje, ne samo potpis.
 Za svaku grupu važi isto prihvatanje: alati registrovani sa `requires`, mock testovi
 za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
 
-- [ ] **F1b.1 Kalendar** — `calendar_list_events`, `calendar_find_free_slots`,
+- [x] **F1b.1 Kalendar** — `calendar_list_events`, `calendar_find_free_slots`,
   `calendar_create_event` (sa `ponavljanje` → jedan događaj sa RRULE, kao u
   starom). Google Calendar API kroz `services/google.py`.
+
+  > Korisnik bira postojeći aktivni kalendar (`primary`). SDK/respx provere su
+  > završene; stvarni pregled, slobodni termini i potvrđeni upis proveravaju se
+  > posle deploy-a. Zakazivanje obavezno traži potvrdu dugmetom.
 - [ ] **F1b.2 To-do** — `todo_list`, `todo_add`, `todo_set_status` + nedeljni
   zadatak ponedeljkom (`WEEKLY_TASK_TITLE`, `FLOWERS_TASK_CRON`).
 - [ ] **F1b.3 Mejl** — `mail_list_unread`, `mail_search`, `mail_read`,
