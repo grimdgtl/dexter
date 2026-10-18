@@ -5,6 +5,7 @@ from dexter.tools import (  # noqa: F401
     checklist,
     commitments,
     drive,
+    invoices,
     knowledge,
     mail,
     memory_tools,

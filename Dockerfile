@@ -11,6 +11,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 COPY pyproject.toml README.md ./
 COPY src ./src
+COPY assets/fonts ./assets/fonts
 COPY migrations ./migrations
 COPY scripts ./scripts
 # CPU paket sprečava preuzimanje CUDA zavisnosti na serveru bez GPU-a.

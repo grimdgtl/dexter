@@ -826,3 +826,58 @@ dugi tekstovi i delimičan HTTP neuspeh ostaju pokriveni mock testovima.
 Ova dopuna menja samo dokumentaciju; izvršni kod je isti kao u zelenom CI
 prolazu sa 432 testa. Tajne, privatni ID-jevi i fiskalni podaci nisu preneti
 u repo. `SCHEDULER_ENABLED` ostaje off.
+
+## F1b.6 — PDF fakture i potvrđeno arhiviranje (18.10.2026)
+
+Pročitani su v1 `invoice.js`, `invoices.js`, numeracija/lista/arhiva u
+`notion.js`, Drive upload, opisi oba alata, README i konfiguracija izdavaoca.
+Preneti su `invoice_create` i `invoice_list` uz privatni PDF prilog registra,
+Sačuvaj/Odbaci dugmad, fpdf2 i četiri statička Montserrat reza sa SIL OFL licencom.
+SYSTEM_PROMPT i PostgreSQL šema nisu menjani; trajni trag koristi `kv_state`.
+
+Pre: 432 testa sa bazom. Posle: 484 testa sa izolovanom PostgreSQL + pgvector
+bazom (oko 12 s); bez baze 397 prolazi, 87 integracionih je preskočeno.
+Ruff format/check prolaze za src/tests/evals/scripts. Svi spoljni HTTP zahtevi
+su respx mock-ovi uz stvarni Notion i Google SDK/OAuth transport; Telegram je mock.
+
+Provere pokrivaju godišnji prelaz, prag samo za svoju godinu, datum unazad,
+ručni noviji red, paginaciju arhive i neizvestan raniji pokušaj; pri potvrdi
+ponovo biraju broj i crtaju konačni PDF. Dve paralelne potvrde dobijaju različite
+brojeve čak i kada Notion pretraga još ne vidi nove redove. Dupli klik i ponovljen
+poziv iste operacije ne ponavljaju upload/upis. Nacrt, odbacivanje i istek
+ne ostavljaju rezervaciju. Stvarni session lock i trajni kv_state upisi su DB testovi.
+
+Za svaki obavezan podatak izdavaoca provereno je odbijanje sa imenom ENV polja
+pre čitanja klijenta/crtanja; bez logo fajla traži se i brand. Logo fajl dozvoljava
+izostavljen brand. Model ne može proslediti broj, fiskalni snapshot ili PDF;
+klijent mora doći iz Notion-a. Prazni podaci klijenta ostaju prazni uz upozorenje.
+Promena računa u konfiguraciji nakon pregleda ne menja već pregledani snapshot.
+Decimal zbir jednak je zbiru prikazanih redova; opis postaje latinica pre validacije.
+
+Telegram provere potvrđuju da PDF stiže pre dugmeta, neuspeh slanja ukida
+potvrdu, konačni novi broj dobija novi PDF i neuspeh tog dodatnog slanja ne
+ponavlja arhiviranje. Delimičan Notion neuspeh vraća poznati Drive link i
+upozorenje; neizvestan upload se proverava po unapred dobijenom ID-ju, veličini
+i checksum-u, bez drugog upload-a. Neuspešno potvrđen pokušaj zadržava svoj broj.
+Nova priprema uklanja istekle PDF priloge iz memorije. Oba alata imaju API grešku
+i requires provere; čitanje arhive radi i bez konfigurisanog izdavaoca/Google-a.
+
+Vizuelna provera: originalni Node/pdfkit obrazac i novi fpdf2 nacrt generisani
+su sa istim izmišljenim podacima i renderovani Poppler-om. Upoređene su slike
+A4 strane: naslov/broj, brand, linija, dva bloka podataka, centriran broj,
+datumi, tabela, zbir i podnožje poklapaju raspored v1. Dugi primer sa 15 stavki
+pregledan je na svih 7 strana, sa celim opisima, ponovljenim zaglavljima i
+završnim zbirom/podnožjem. Automatska provera drugog višestraničnog primera
+potvrđuje sve stavke, zbir i tekst unutar granica papira. Nema privatnih podataka
+ni stvarnih faktura u repo-u.
+
+Wheel je izgrađen i proveren: sadrži sva četiri TTF fajla i OFL licencu.
+Docker kopira fontove, a CI za obe slike proverava njihovu prisutnost u paketu.
+Implementacija koristi [fpdf2](https://py-pdf.github.io/fpdf2/Tables.html) i
+[Google Drive upload](https://developers.google.com/workspace/drive/api/guides/manage-uploads).
+Nema novog LLM poziva u PDF crtanju/arhiviranju; cena i latencija modela nisu merene.
+
+ČEKA RUČNU PROVERU: ENV izdavaoca/brand ili logo, `/status`, stvarni invoice_list,
+PDF u Telegramu sa tačnim podacima, Odbaci bez spoljnog upisa, pa zasebna izričita
+potvrda Sačuvaj i poređenje istog broja/iznosa/PDF-a u Drive-u i FAKTURE arhivi.
+Automatski poslovi ostaju off. Stvarno čuvanje se ne pokreće ovim koderskim testovima.

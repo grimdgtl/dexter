@@ -30,6 +30,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from dexter.actions import ConfirmedAction, Document, PreparedAction
 from dexter.config import settings
 
 log = logging.getLogger(__name__)
@@ -53,6 +54,8 @@ class Tool:
     requires_any: tuple[tuple[str, ...], ...] = ()
     confirm_label: str = "✅ Potvrdi"
     max_result_chars: int = MAX_RESULT_CHARS
+    cancel_label: str = "❌ Otkaži"
+    configuration_error: Callable[[], str | None] | None = None
 
     def disabled_reason(self) -> str | None:
         cfg = settings()
@@ -65,6 +68,8 @@ class Tool:
             return "Potrebno jedno od: " + " ili ".join(
                 " + ".join(group) for group in self.requires_any
             )
+        if self.configuration_error and (error := self.configuration_error()):
+            return error
         if not self.enabled():
             return "Isključeno podešavanjima."
         return None
@@ -83,6 +88,7 @@ class Pending:
     tool: Tool
     args: BaseModel
     created: float = field(default_factory=time.monotonic)
+    document: Document | None = None
 
 
 _TOOLS: dict[str, Tool] = {}
@@ -101,6 +107,8 @@ def tool(
     requires_any: list[list[str]] | None = None,
     confirm_label: str = "✅ Potvrdi",
     max_result_chars: int = MAX_RESULT_CHARS,
+    cancel_label: str = "❌ Otkaži",
+    configuration_error: Callable[[], str | None] | None = None,
 ):
     """Dekorator koji registruje alat. Tip prvog argumenta je pydantic model ulaza."""
 
@@ -121,6 +129,8 @@ def tool(
             tuple(tuple(group) for group in (requires_any or [])),
             confirm_label,
             max_result_chars,
+            cancel_label,
+            configuration_error,
         )
         return fn
 
@@ -167,15 +177,22 @@ async def execute(name: str, raw_input: dict) -> Outcome:
         return Outcome(f"Neispravni argumenti za {name}: {e.errors(include_url=False)}", True)
 
     if t.confirm:
+        # PDF predlozi mogu biti veliki; novi zahtev uklanja istekle priloge iz memorije.
+        for token, pending in list(_PENDING.items()):
+            if time.monotonic() - pending.created > CONFIRM_TTL_S:
+                _PENDING.pop(token, None)
+        document = None
         try:
             if t.prepare:
                 args = await t.prepare(args)
+            if isinstance(args, PreparedAction):
+                document, args = args.document, args.args
             opis = t.preview(args) if t.preview else f"{name}({args.model_dump_json()})"
         except Exception as e:
             log.exception("Priprema alata %s nije uspela", name)
             return Outcome(f"Priprema nije uspela: {e}", True)
         token = secrets.token_urlsafe(8)
-        _PENDING[token] = Pending(t, args)
+        _PENDING[token] = Pending(t, args, document=document)
         text = _serialize(
             {
                 "status": "ceka_potvrdu",
@@ -202,13 +219,26 @@ def pending_confirm_label(token: str) -> str:
     return pending.tool.confirm_label if pending else "✅ Potvrdi"
 
 
-async def confirm(token: str) -> str:
+def pending_cancel_label(token: str) -> str:
+    pending = _PENDING.get(token)
+    return pending.tool.cancel_label if pending else "❌ Otkaži"
+
+
+def pending_document(token: str) -> Document | None:
+    pending = _PENDING.get(token)
+    return pending.document if pending else None
+
+
+async def confirm(token: str) -> str | ConfirmedAction:
     """Poziva se kad korisnik pritisne 'Potvrdi'. Jedino mesto gde se akcija stvarno izvrši."""
     p = _PENDING.pop(token, None)
     if p is None or time.monotonic() - p.created > CONFIRM_TTL_S:
         return "Ova akcija je istekla ili je već obrađena."
     try:
-        return _serialize(await p.tool.fn(p.args))
+        result = await p.tool.fn(p.args)
+        if isinstance(result, ConfirmedAction):
+            return ConfirmedAction(_serialize(result.result), result.document, result.successful)
+        return _serialize(result)
     except Exception as e:
         log.exception("Potvrđena akcija %s pukla", p.tool.name)
         return f"Greška: {e}"

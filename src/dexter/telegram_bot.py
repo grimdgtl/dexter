@@ -133,13 +133,26 @@ async def _answer(
                 for part in _split(u_latinicu(result.text)):
                     await ctx.bot.send_message(chat_id, part)
             for token, opis in result.pending:
+                document = registry.pending_document(token)
+                if document:
+                    try:
+                        await ctx.bot.send_document(
+                            chat_id, InputFile(document.data, filename=document.filename)
+                        )
+                    except Exception:
+                        # Bez poslatog PDF-a korisnik nema šta da pregleda pre potvrde.
+                        for pending_token, _ in result.pending:
+                            registry.cancel(pending_token)
+                        raise
                 kb = InlineKeyboardMarkup(
                     [
                         [
                             InlineKeyboardButton(
                                 registry.pending_confirm_label(token), callback_data=f"ok:{token}"
                             ),
-                            InlineKeyboardButton("❌ Otkaži", callback_data=f"no:{token}"),
+                            InlineKeyboardButton(
+                                registry.pending_cancel_label(token), callback_data=f"no:{token}"
+                            ),
                         ]
                     ]
                 )
@@ -244,9 +257,29 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     action, token = q.data.split(":", 1)
     if action == "ok":
         result = await registry.confirm(token)
+        document = None
+        successful = True
+        if isinstance(result, registry.ConfirmedAction):
+            document, successful, result = result.document, result.successful, result.result
         outcome = (
-            "⚠️ Nije izvršeno." if result.startswith(("Greška:", "Ova akcija")) else "✅ Izvršeno."
+            "⚠️ Nije potpuno izvršeno."
+            if not successful
+            else "⚠️ Nije izvršeno."
+            if result.startswith(("Greška:", "Ova akcija"))
+            else "✅ Izvršeno."
         )
+        if document:
+            try:
+                await ctx.bot.send_document(
+                    update.effective_chat.id,
+                    InputFile(document.data, filename=document.filename),
+                    caption="Sačuvana verzija fakture sa konačnim brojem.",
+                )
+            except Exception as exc:
+                log.warning("Konačni PDF nije poslat (%s).", type(exc).__name__)
+                result += (
+                    "\nPDF nije ponovo poslat u Telegram; preuzmi sačuvanu verziju sa Drive linka."
+                )
         reply = f"{q.message.text}\n\n{outcome}\n{u_latinicu(result)[:3000]}"
         note = f"[Sistem: korisnik je potvrdio akciju. Rezultat: {result[:1500]}]"
     else:

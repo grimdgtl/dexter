@@ -99,6 +99,27 @@ class Drive:
 
         return await asyncio.to_thread(execute)
 
+    async def upload(self, name: str, data: bytes, mime: str, folder=None, file_id=None) -> dict:
+        media = MediaIoBaseUpload(io.BytesIO(data), mimetype=mime, resumable=False)
+        body = {"name": name, "mimeType": mime}
+        if folder:
+            body["parents"] = [folder]
+        if file_id:
+            body["id"] = file_id
+        result = await self.call(
+            "create",
+            body=body,
+            media_body=media,
+            fields="id,name,webViewLink",
+            supportsAllDrives=True,
+        )
+        return {
+            "id": result["id"],
+            "name": result.get("name", name),
+            "link": result.get("webViewLink")
+            or f"https://drive.google.com/file/d/{result['id']}/view",
+        }
+
     async def files(self, query: str = "", limit: int | None = None) -> AsyncIterator[dict]:
         q = "trashed = false"
         if query:

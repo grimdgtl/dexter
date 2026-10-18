@@ -307,6 +307,153 @@ async def test_daily_claim_does_not_recreate_deleted_or_moved_row(db, habits_not
     assert n.create.call_count == 1
 
 
+async def test_invoice_confirmation_is_only_archive_path_and_is_once(db, invoice_notion):
+    from dexter.tools import registry
+
+    n = invoice_notion
+    args = {
+        "klijent": "Primer Studio",
+        "datumIzdavanja": "2026-10-18",
+        "stavke": [{"opis": "Usluga", "cena": 100, "kolicina": 2}],
+    }
+    out = await registry.execute("invoice_create", args)
+    assert not out.is_error and out.pending
+    token = out.pending[0]
+    pdf = registry.pending_document(token).data
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 0
+    assert not n.upload.called and not n.create.called
+    results = await asyncio.gather(registry.confirm(token), registry.confirm(token))
+    success = next(r for r in results if isinstance(r, registry.ConfirmedAction))
+    data = json.loads(success.result)
+    assert data["broj"] == "001-2026" and data["sacuvano"] and data["iznos"] == "200.00"
+    assert n.upload.call_count == n.create.call_count == 1
+    assert pdf in n.upload.calls[0].request.content
+    body = json.loads(n.create.calls[0].request.content)
+    assert body["parent"]["data_source_id"] == n.source
+    props = body["properties"]
+    assert props["Klijent"] == {"relation": [{"id": n.customer["id"]}]}
+    assert props["Iznos"]["number"] == 200
+    assert props["Status"] == {"select": {"name": "Nije plaćeno"}}
+    assert props["Datum izdavanja"]["date"]["start"] == "2026-10-18"
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 1
+    assert "istekla" in next(r for r in results if isinstance(r, str))
+
+
+async def test_invoice_manual_number_collision_redraws_and_preserves_snapshot(
+    db, invoice_notion, monkeypatch
+):
+    import io
+
+    from pypdf import PdfReader
+
+    from dexter.config import settings
+    from dexter.tools import registry
+
+    n = invoice_notion
+    out = await registry.execute(
+        "invoice_create",
+        {
+            "klijent": "Primer Studio",
+            "datumIzdavanja": "2026-10-18",
+            "stavke": [{"opis": "Usluga", "cena": 100}],
+        },
+    )
+    n.add_invoice("010-2026")
+    monkeypatch.setattr(settings(), "invoice_issuer_account", "DRUGI RAČUN")
+    result = await registry.confirm(out.pending[0])
+    data = json.loads(result.result)
+    assert data["broj"] == "011-2026" and data["brojPromenjen"] and result.document
+    text = "".join(p.extract_text() for p in PdfReader(io.BytesIO(result.document.data)).pages)
+    assert "011-2026" in text and "001-2026" not in text
+    assert "000-0000000000000-00" in text and "DRUGI RAČUN" not in text
+    assert result.document.data in n.upload.calls[0].request.content
+
+
+async def test_invoice_parallel_confirmations_serialize_even_if_notion_search_is_stale(
+    db, invoice_notion
+):
+    from dexter.tools import registry
+
+    n = invoice_notion
+    n.query.respond(200, json={"results": [], "has_more": False})
+    args = {
+        "klijent": "Primer Studio",
+        "datumIzdavanja": "2026-10-18",
+        "stavke": [{"opis": "Usluga", "cena": 100}],
+    }
+    first = await registry.execute("invoice_create", args)
+    second = await registry.execute("invoice_create", args)
+    assert "001-2026" in first.pending[1] and "001-2026" in second.pending[1]
+    results = await asyncio.gather(
+        registry.confirm(first.pending[0]), registry.confirm(second.pending[0])
+    )
+    assert {json.loads(r.result)["broj"] for r in results} == {"001-2026", "002-2026"}
+    assert n.upload.call_count == n.create.call_count == 2
+
+
+async def test_invoice_partial_notion_failure_keeps_drive_and_durable_attempt(db, invoice_notion):
+    from dexter.services import invoices, notion
+    from dexter.tools import registry
+
+    n = invoice_notion
+    out = await registry.execute(
+        "invoice_create",
+        {
+            "klijent": "Primer Studio",
+            "datumIzdavanja": "2026-10-18",
+            "stavke": [{"opis": "Usluga", "cena": 100}],
+        },
+    )
+    prepared = registry._PENDING[out.pending[0]].args
+    n.create.respond(
+        503, json={"object": "error", "code": "service_unavailable", "message": "Neizvesno"}
+    )
+    result = await registry.confirm(out.pending[0])
+    data = json.loads(result.result)
+    assert not result.successful and data["status"] == "delimicno" and data["drive"]["link"]
+    repeated = await invoices.archive(prepared)
+    assert not repeated.successful and repeated.result == data
+    assert n.upload.call_count == n.create.call_count == 1
+    async with notion.client() as api:
+        assert await invoices.next_number(api, n.source, 2026) == "002-2026"
+
+
+@pytest.mark.parametrize("found", [True, False])
+async def test_invoice_uncertain_upload_checks_preallocated_id_without_reupload(
+    db, invoice_notion, respx_mock, found
+):
+    from dexter.tools import registry
+
+    n = invoice_notion
+    out = await registry.execute(
+        "invoice_create",
+        {
+            "klijent": "Primer Studio",
+            "datumIzdavanja": "2026-10-18",
+            "stavke": [{"opis": "Usluga", "cena": 100}],
+        },
+    )
+    pdf = registry.pending_document(out.pending[0]).data
+    n.upload.respond(503, json={"error": {"code": 503, "message": "Neizvestan upload"}})
+    read = respx_mock.get(url__regex=r"https://www.googleapis.com/drive/v3/files/[^/]+$")
+    if found:
+        read.respond(
+            200,
+            json={
+                "md5Checksum": hashlib.md5(pdf).hexdigest(),
+                "size": str(len(pdf)),
+                "webViewLink": "https://drive.google.com/file/d/confirmed/view",
+            },
+        )
+    else:
+        read.respond(404, json={"error": {"code": 404, "message": "Nema potvrde"}})
+    result = await registry.confirm(out.pending[0])
+    assert result.successful is found
+    assert n.upload.call_count == 1 and read.call_count == 1
+    assert n.create.call_count == int(found)
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 1
+
+
 async def test_agent_loop_parallel_tools_caching_and_history(db, monkeypatch):
     import dexter.tools  # noqa: F401  registruje alate
     from dexter import llm, memory

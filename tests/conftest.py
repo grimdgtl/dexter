@@ -18,6 +18,141 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test")
 
 
 @pytest.fixture
+def invoice_notion(monkeypatch, respx_mock):
+    import json
+    from uuid import uuid4
+
+    import httpx
+
+    from dexter.config import settings
+    from dexter.services import invoices
+
+    cfg = settings()
+    base = "https://api.notion.com/v1"
+    client_db, client_source, archive_db, archive_source, client_id = [
+        str(uuid4()) for _ in range(5)
+    ]
+    values = {
+        "name": "Primer izdavalac PR",
+        "brand": "PRIMER",
+        "address": "Primer ulica 1",
+        "city": "Probni grad",
+        "phone": "+381600000000",
+        "pib": "000000001",
+        "mb": "00000001",
+        "account": "000-0000000000000-00",
+        "bank": "Probna banka",
+        "responsible_person": "Probna osoba",
+    }
+    for key, env in invoices.ISSUER_FIELDS.items():
+        monkeypatch.setattr(cfg, env.lower(), values[key])
+    for field, value in {
+        "invoice_issuer_brand": values["brand"],
+        "invoice_logo_path": "/nepostojeci-logo.png",
+        "invoice_last_number": None,
+        "notion_api_key": "test",
+        "notion_clients_db_id": client_db,
+        "notion_invoices_db_id": archive_db,
+        "google_invoices_folder_id": "test-folder",
+        "google_client_id": "test",
+        "google_client_secret": "test",
+        "google_refresh_token": "test",
+    }.items():
+        monkeypatch.setattr(cfg, field, value)
+    for database, source in ((client_db, client_source), (archive_db, archive_source)):
+        respx_mock.get(f"{base}/databases/{database}").respond(
+            200, json={"data_sources": [{"id": source}]}
+        )
+    customer = {
+        "id": client_id,
+        "klijent": "Primer Studio",
+        "naziv": "Primer Studio DOO",
+        "adresa": "Primer adresa 2",
+        "grad": "Grad klijenta",
+        "pib": "000000002",
+        "mb": "00000002",
+    }
+    client_page = {
+        "id": client_id,
+        "properties": {
+            "Klijent": {"title": [{"plain_text": customer["klijent"]}]},
+            **{
+                column: {"rich_text": [{"plain_text": customer[field]}]}
+                for column, field in (
+                    ("Naziv za fakturu", "naziv"),
+                    ("Adresa", "adresa"),
+                    ("Grad", "grad"),
+                    ("PIB", "pib"),
+                    ("MB", "mb"),
+                )
+            },
+        },
+    }
+    client_query = respx_mock.post(f"{base}/data_sources/{client_source}/query").respond(
+        200, json={"results": [client_page], "has_more": False}
+    )
+    pages = []
+
+    def add_invoice(number):
+        entry = {
+            "id": str(uuid4()),
+            "url": "https://notion.so/invoice",
+            "properties": {
+                "Broj": {"title": [{"plain_text": number}]},
+                "Datum izdavanja": {"date": {"start": "2026-10-18"}},
+                "Status": {"select": {"name": "Nije plaćeno"}},
+                "Iznos": {"number": 100},
+            },
+        }
+        pages.append(entry)
+        return entry
+
+    query = respx_mock.post(f"{base}/data_sources/{archive_source}/query").mock(
+        side_effect=lambda request: httpx.Response(200, json={"results": pages, "has_more": False})
+    )
+
+    def create(request):
+        entry = {
+            "id": str(uuid4()),
+            "url": "https://notion.so/saved",
+            **json.loads(request.content),
+        }
+        pages.append(entry)
+        return httpx.Response(200, json=entry)
+
+    create_route = respx_mock.post(f"{base}/pages").mock(side_effect=create)
+    respx_mock.post("https://oauth2.googleapis.com/token").respond(
+        200, json={"access_token": "test", "expires_in": 3600, "token_type": "Bearer"}
+    )
+    generated = respx_mock.get("https://www.googleapis.com/drive/v3/files/generateIds").mock(
+        side_effect=lambda request: httpx.Response(200, json={"ids": [str(uuid4())]})
+    )
+    upload = respx_mock.post("https://www.googleapis.com/upload/drive/v3/files").respond(
+        200,
+        json={
+            "id": "file-test",
+            "name": "Racun.pdf",
+            "webViewLink": "https://drive.google.com/file/d/file-test/view",
+        },
+    )
+    return SimpleNamespace(
+        base=base,
+        client_db=client_db,
+        client_source=client_source,
+        archive_db=archive_db,
+        source=archive_source,
+        customer=customer,
+        client_query=client_query,
+        pages=pages,
+        add_invoice=add_invoice,
+        query=query,
+        create=create_route,
+        generated=generated,
+        upload=upload,
+    )
+
+
+@pytest.fixture
 def habits_notion(monkeypatch, respx_mock):
     import copy
     import json

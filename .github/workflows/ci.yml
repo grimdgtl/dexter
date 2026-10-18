@@ -70,6 +70,7 @@ jobs:
       - name: Provera migracija, skripti i trajnog keša kao neprivilegovan korisnik
         run: |
           docker volume create dexter-provera-data
+          docker run --rm dexter-provera python -c 'from dexter.services import invoice_pdf; assert all((invoice_pdf.FONTS / f"Montserrat-{style}.ttf").is_file() for style in ("Regular", "Medium", "SemiBold", "Bold"))'
           docker run --rm -v dexter-provera-data:/app/data dexter-provera python -c 'import os; from pathlib import Path; import scripts.reembed; assert os.getuid() == 10001; assert list(Path("/app/migrations").glob("*.sql")); p = Path(os.environ["HF_HOME"]); p.mkdir(parents=True, exist_ok=True); (p / "provera").write_text("sačuvano")'
           docker run --rm -v dexter-provera-data:/app/data dexter-provera python -c 'import os; from pathlib import Path; assert (Path(os.environ["HF_HOME"]) / "provera").read_text() == "sačuvano"'
           docker volume rm dexter-provera-data

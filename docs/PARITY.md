@@ -8,6 +8,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
 | Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
 | Klijenti, TASK BOARD i upis Knowledge Base beleške | F1b.5: osam alata preneto; pregled, pretraga, dodavanje/dopuna/izmena klijenta, poslovni zadatak i KB podstranica potvrđeni na pravom nalogu. |
+| Fakture: priprema PDF-a, potvrda, Drive i arhiva | F1b.6: oba alata i PDF tok implementirani; mock/DB i vizuelne provere, stvarni nalog čeka deploy. |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
 | Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
@@ -134,3 +135,36 @@ očuvanje naslova, pravnog naziva i statusa. Poslovni TASK BOARD je pročitan,
 probni zadatak dodat pa promenjen u Done na istom redu. KB beleška je nastala
 na pravom mestu sa oba pasusa. Dvosmisleni nazivi, veliki sadržaj i delimični
 HTTP neuspeh ostaju mock provere. Automatski poslovi su isključeni.
+
+F1b.6 prenosi `invoice_create` i `invoice_list`, automatski broj iz FAKTURE,
+godišnji prag INVOICE_LAST_NUMBER i isti Montserrat raspored. Klijent dolazi iz
+KLIJENTI, izdavalac iz ENV-a bez rezervnih ličnih podataka; model nema argumente
+za broj, PIB, MB, račun ni PDF. Nedostajući podaci klijenta ostaju prazni uz
+upozorenje kao v1; nedostajući izdavalac blokira izradu sa imenima promenljivih.
+Brand je potreban samo ako stvarni logo fajl ne postoji. Privatni logo se ne pakuje.
+
+Registar dobija privatni PDF prilog, posebne oznake dugmadi i strukturisani ishod
+potvrde. Stari mejl/kalendar tokovi ostaju tekstualni. Telegram prvo šalje PDF,
+zatim dugmad; neuspeh slanja PDF-a ukida potvrdu. Rok je zajedničkih 30 minuta,
+umesto v1 sat vremena. Novi predlog oslobađa istekle priloge iz memorije; restart
+poništava nacrte. Nacrt/odustanak ne rezervišu broj. Na Sačuvaj se ponovo bira
+broj; promenjen broj ponovo crta isti pregledani sadržaj i konačni PDF se šalje
+posle arhiviranja. Google/Notion su jedini spoljašnji upisi, isključivo posle dugmeta.
+
+Decimal računanje zaokružuje svaki red na pare pa sabira te iste iznose;
+v1 je koristio floating point zbir. Ulaz odbija loše datume, nekonačne/negativne
+cene, nepozitivnu količinu i interne/fiskalne argumente. Granice su 50 stavki,
+cena do 1e9 RSD, količina do 1e6, ukupno do 1e12 RSD. Predugačka zaglavlja ili
+znaci koje Montserrat ne podržava prijavljuju grešku umesto odsečenog dokumenta.
+Duži opis se nastavlja na sledećoj strani sa ponovljenim zaglavljem tabele.
+Tekst Stavke se više ne seče na 1900 znakova; Notion dobija sve dozvoljene opise.
+
+Potvrđen pokušaj ostavlja kv_state trag po bazi/godini/operaciji; session advisory
+lock sprečava dva Dexter procesa da uzmu isti broj i pri kasnoj vidljivosti
+Notion reda. Neizvestan pokušaj zadržava broj za ručnu proveru, a ne za ponovno
+korišćenje. Drive upload koristi unapred dobijen ID i proveru sadržaja posle
+izgubljenog odgovora. Delimičan neuspeh čuva poznati link i ne tvrdi da je sve
+izvršeno, za razliku od generičke greške v1. Ne pokreće se automatski drugi upis;
+kv_state čuva ishod i preko restarta. Ručni upisi i drugi botovi nisu deo tog lock-a.
+`invoice_list` traži samo Notion, zadržava status/limit i paginira do limita.
+Šema PostgreSQL-a i SYSTEM_PROMPT nisu menjani. Stvarni nalog još čeka ručnu proveru.

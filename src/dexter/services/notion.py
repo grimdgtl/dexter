@@ -45,7 +45,11 @@ async def database_source(api: AsyncClient, database_id: str | None, env: str) -
 
 
 async def query_pages(
-    api: AsyncClient, source_id: str, filter_: dict | None = None, limit: int | None = None
+    api: AsyncClient,
+    source_id: str,
+    filter_: dict | None = None,
+    limit: int | None = None,
+    sorts: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
     cursor, seen, count = None, set(), 0
     while True:
@@ -53,6 +57,7 @@ async def query_pages(
             data_source_id=source_id,
             page_size=min(100, limit - count) if limit else 100,
             **({"filter": filter_} if filter_ else {}),
+            **({"sorts": sorts} if sorts else {}),
             **({"start_cursor": cursor} if cursor else {}),
         )
         for page in response["results"]:

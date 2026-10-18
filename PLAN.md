@@ -266,7 +266,7 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > Korisnik je 18.10.2026. potvrdio pregled/pretragu klijenata, novi probni red,
   > dopunu alternativnim nazivom bez duplikata i delimičnu izmenu. Poslovni zadatak
   > je dodat i završen, a KB podstranica ima oba pasusa na pravom mestu. Scheduler ostaje off.
-- [ ] **F1b.6 Fakture** — `invoice_create`, `invoice_list`. Proširi registar:
+- [x] **F1b.6 Fakture** — `invoice_create`, `invoice_list`. Proširi registar:
   potvrdni alat može imati `prepare` korak koji vraća prilog (PDF bajtovi) koji
   bot šalje kao dokument uz dugmad **Sačuvaj / Odbaci**. `prepare` crta PDF sa
   sledećim brojem `NNN-YYYY` izvedenim iz FAKTURE baze (+ `INVOICE_LAST_NUMBER`
@@ -278,6 +278,12 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   starog repoa (`assets/fonts`), raspored isti kao stari (uporedi vizuelno).
   *Prihvatanje:* testovi za numeraciju (prelaz godine, ručno dodat red, zauzet
   broj), odbijanje bez podataka izdavaoca.
+
+  > Implementirani PDF prilog, Sačuvaj/Odbaci, provera broja pri potvrdi,
+  > Drive upload i Notion arhiva. Montserrat obrazac vizuelno upoređen sa v1
+  > uz izmišljene podatke; provere numeracije/grešaka/konkurentnosti su mock + DB.
+  > Stvarni PDF u Telegramu, odbacivanje i potvrđeno čuvanje čekaju ručnu proveru
+  > posle deploy-a. Podaci izdavaoca ostaju bez podrazumevanih vrednosti; scheduler off.
 - [ ] **F1b.7 Rođendani, monitoring, izveštaji, memory_update** —
   `birthdays_today`, `birthdays_upcoming`, `birthday_mark_greeted` (tabela
   `birthday_greetings`), `monitor_check_sites`, `monitor_uptime` (tabela

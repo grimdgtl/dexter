@@ -120,6 +120,22 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `NOTION_TASKS_DB_ID` | prazno | Poslovni TASK BOARD: Name/Status; opciona Date kolona Rok za proaktivni uvid |
 | `NOTION_CLIENTS_DB_ID` | prazno | KLIJENTI baza iz stare instalacije, za pretragu i dopunu klijenata |
 | `NOTION_KB_PAGE_ID` | prazno | Roditeljska Knowledge Base stranica; nove beleške nastaju kao podstranice |
+| `NOTION_INVOICES_DB_ID` | prazno | FAKTURE arhiva; merodavna za numeraciju |
+| `GOOGLE_INVOICES_FOLDER_ID` | prazno | Drive folder za PDF-ove; prazno znači koren Drive-a |
+| `INVOICE_LAST_NUMBER` | prazno | Poslednji broj pre bota, NNN-GGGG; prag važi samo za tu godinu |
+| `INVOICE_ISSUER_NAME` | prazno | Pun naziv izdavaoca; obavezno, bez rezervne vrednosti |
+| `INVOICE_ISSUER_BRAND` | prazno | Tekst brenda u zaglavlju, obavezan ako logo fajl ne postoji |
+| `INVOICE_ISSUER_ADDRESS` | prazno | Adresa izdavaoca; obavezno |
+| `INVOICE_ISSUER_CITY` | prazno | Grad izdavaoca i podrazumevano mesto prometa; obavezno |
+| `INVOICE_ISSUER_PHONE` | prazno | Telefon izdavaoca; obavezno |
+| `INVOICE_ISSUER_PIB` | prazno | PIB izdavaoca; obavezno, samo ENV |
+| `INVOICE_ISSUER_MB` | prazno | Matični broj izdavaoca; obavezno, samo ENV |
+| `INVOICE_ISSUER_ACCOUNT` | prazno | Bankovni račun izdavaoca; obavezno, samo ENV |
+| `INVOICE_ISSUER_BANK` | prazno | Naziv banke; obavezno |
+| `INVOICE_RESPONSIBLE_PERSON` | prazno | Odgovorno lice; obavezno |
+| `INVOICE_LOGO_PATH` | prazno | Privatni logo fajl u trajnom volume-u, npr. /app/data/logo.png; do 5 MB |
+| `INVOICE_COMMENT` | `Račun je važeći bez pečata i potpisa.` | Komentar iz v1; može se zameniti, do 1000 znakova |
+| `INVOICE_VAT_NOTE` | `Pravno lice nije u sistemu PDV-a.` | Napomena iz v1; podesi tekst koji važi za izdavaoca, do 1000 znakova |
 | `NOTION_TODO_DB_ID` | prazno | Lična To-do lista na Life stranici, odvojena od poslovnog TASK BOARD-a |
 | `NOTION_CHECKLIST_DB_ID` | prazno | Dnevna checklista navika; postojeći database ID iz v1 |
 | `NOTION_DNEVNIK_DB_ID` | prazno | Dnevnik; opcion za insights, obavezan za dnevnik alate |
@@ -152,6 +168,47 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `MAIL_INDEX_SENT_FOLDER` | automatski | Pun naziv Sent foldera kada ga server ne označava standardno |
 
 `notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
+
+Fakture se pripremaju zahtevom „napravi fakturu za [klijent], [usluga], [cena]”.
+`invoice_create` šalje PDF u Telegram, pa dugmad **Sačuvaj / Odbaci**. Sam nacrt
+ne upisuje ništa na Drive ni u Notion i ne rezerviše broj. Model prosleđuje
+samo naziv klijenta, usluge/cene i opcione datume/mesto: fiskalni podaci klijenta
+čitaju se iz KLIJENTI, a izdavaoca isključivo iz ENV-a. Nedostajući izdavalac
+blokira alat uz imena promenljivih u `/status`; ništa se ne nadoknađuje iz
+primerâ. Klijentu nedostajući podaci ostaju prazni uz vidljivo upozorenje, kao v1.
+
+FAKTURE koristi tačne kolone: `Broj` (Title), `Klijent` (Relation ka KLIJENTI),
+`Datum izdavanja` i `Datum prometa` (Date), `Iznos` (Number), `Stavke` i `Mesto`
+(Text), `Status` (Select: `Nije plaćeno`, `Plaćeno`, `Stornirano`), `PDF` (URL).
+Potrebni su postojeći Notion ID-jevi, Google OAuth sa Drive scope-om i podaci
+izdavaoca iz stare instalacije. U Coolify sve ide u Production Runtime, bez
+Build time i Preview. Logo stavi u trajni volume; bez logo fajla upiši svoj
+`INVOICE_ISSUER_BRAND`. Fontovi Montserrat sa SIL OFL licencom dolaze u paketu.
+
+Broj NNN-GGGG je najveći postojeći za godinu izdavanja + 1; `INVOICE_LAST_NUMBER`
+je samo donji prag za svoju godinu. Tako povratak na stariji datum i nova godina
+koriste pravu seriju, a ručni noviji red u arhivi pomera sledeći broj. Na potvrdi
+se broj ponovo računa. Ako se promenio, PDF se ponovo crta sa istim pregledanim
+podacima, čuva i šalje sa konačnim brojem. Arhiva dobija `Nije plaćeno`, vezu
+klijenta i isti ukupan iznos kao PDF. `invoice_list` čita najnovije fakture,
+opciono po statusu, do 25 (najviše 100), bez potrebe za izdavaocem ili Google ključevima.
+
+Potvrda je jednokratna i važi 30 minuta. Bez uspešnog slanja PDF-a nema dugmeta
+za čuvanje. Odbacivanje/istek/restart gube samo nacrt u memoriji. Pri potvrđenom
+pokušaju PostgreSQL `kv_state` čuva broj i ishod, a advisory lock serijalizuje
+Dexter procese za istu bazu i godinu. Drive dobija unapred generisan ID: posle
+neizvesnog upload odgovora proveravaju se veličina i checksum, bez ponovnog
+upload-a. Ako je samo PDF potvrđen, rezultat jasno vraća Drive link i navodi
+da Notion nije potvrđen. Ne ponavljaj čuvanje naslepo; prvo proveri ta dva mesta.
+Broj neizvesnog potvrđenog pokušaja se ne koristi ponovo, pa do razrešenja može
+ostati praznina. Istovremeni ručni upisi/drugi botovi nisu obuhvaćeni PostgreSQL
+zaključavanjem. Izmenu `INVOICE_LAST_NUMBER` koristi samo za stvarne ranije brojeve.
+
+Količina je pozitivna sa do 3 decimale, cena nenegativna sa do 2; podržano je
+do 50 stavki i ukupno do 1000000000000 RSD. Svaki red se zaokružuje na pare,
+a zbir je suma tih redova. Dugi opisi prelaze na sledeću A4 stranu; predugačka
+zaglavlja se odbijaju. Ne menjaju se SYSTEM_PROMPT ni šema baze. Za prvi deploy
+ostavi `SCHEDULER_ENABLED=off`; prvo proveri PDF i Odbaci, pa tek onda stvarno čuvanje.
 
 F1b.5 koristi postojeće `NOTION_CLIENTS_DB_ID`, `NOTION_TASKS_DB_ID` i
 `NOTION_KB_PAGE_ID` iz v1, uz isti `NOTION_API_KEY`. U Coolify ih dodaj kao
