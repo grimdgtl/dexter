@@ -16,6 +16,7 @@ async def report() -> str:
         reason = t.disabled_reason()
         lines.append(f"❌ {t.name} — {reason}" if reason else f"✅ {t.name}")
     lines += [
+        f"Automatski poslovi: {'uključeni' if cfg.scheduler_enabled == 'on' else 'isključeni'}",
         f"Modeli: brzi {cfg.model_fast}, glavni {cfg.model_main}, duboki {cfg.model_deep}",
         f"Embeddinzi: {cfg.embed_provider}, {cfg.embed_model} ({cfg.embed_dim} dimenzija)",
     ]

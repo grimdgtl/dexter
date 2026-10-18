@@ -41,7 +41,10 @@ async def conversation_summaries() -> dict:
     return await sources.reindex("razgovor")
 
 
-def start(bot: Bot) -> AsyncIOScheduler:
+def start(bot: Bot) -> AsyncIOScheduler | None:
+    if settings().scheduler_enabled == "off":
+        log.info("Automatski poslovi su isključeni (SCHEDULER_ENABLED=off).")
+        return None
     tz = settings().timezone
     sched = AsyncIOScheduler(timezone=tz)
 

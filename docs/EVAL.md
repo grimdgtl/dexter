@@ -577,3 +577,13 @@ poslovna logika budžeta nije menjana. Izgrađen je `dexter-2.0.0` wheel i insta
 u izdvojeni direktorijum: provereni su uvoz paketa, CLI entrypoint i svih 12 SQL
 migracija unutar instaliranog paketa. Docker build i pravi Telegram deploy ostaju
 ručna provera.
+
+## F0.2 — kontrola automatskih poslova pri test deploy-u (18.10.2026)
+
+`SCHEDULER_ENABLED=off` zaustavlja kreiranje scheduler-a pre registracije poslova.
+Test pokretanja potvrđuje da inicijalizacija baze i bota ostaje dostupna, a nijedan
+scheduler nije napravljen. `/status` prikazuje isključene poslove; test sa `on`
+potvrđuje očuvane automatske poslove. Podrazumevano `on` čuva prethodno ponašanje,
+dok `.env.example` i uputstvo za prvi test deploy koriste `off`.
+Ruff i svih 243 testa sa izolovanom bazom prolaze. SYSTEM_PROMPT nije menjan.
+Server deploy i potvrda poruka u Telegramu ostaju ručna provera.

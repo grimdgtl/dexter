@@ -91,6 +91,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `ANTHROPIC_API_KEY` | obavezno | Ključ za razgovor i generisanje poruka |
 | `DATABASE_URL` | lokalni `dexter:dexter@localhost:5432/dexter` | PostgreSQL veza; na serveru koristi interni host baze |
 | `MODEL_FAST` / `MODEL_MAIN` / `MODEL_DEEP` | `.env.example` | ID-jevi brzog, glavnog i dubokog modela |
+| `SCHEDULER_ENABLED` | `on`; primer koristi `off` | Automatski poslovi; za prvi test deploy isključi sa `off` |
 | `MAX_TOKENS` | `8192` | Ograničenje dužine odgovora modela |
 | `HISTORY_TURNS` | `12` | Broj razmena u istoriji modela |
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
@@ -249,8 +250,10 @@ integracije. Instalacija servera i kupovina resursa nisu deo ove procedure.
    build context koren repoa, Dockerfile `/Dockerfile`, podrazumevanu komandu `dexter`.
    Docker build uključuje SQL migracije u instalirani Python paket.
    Detalji podešavanja su u [Coolify Dockerfile dokumentaciji](https://coolify.io/docs/applications/builds/dockerfile).
-3. Za bota ostavi **Domains, Ports Exposes i port mappings prazne** i isključi
+3. Za bota ostavi **Domains i port mappings prazne** i isključi
    **HTTP Health Check**. Bot nema HTTP server; stanje se proverava kroz logove i Telegram.
+   Ako Coolify traži **Ports Exposes**, ostavi `3000` kao internu oznaku bez domena
+   i bez mapiranja na host. To ne pokreće HTTP server u botu.
    Health check PostgreSQL servisa ostaje uključen.
 4. U aplikaciji podesi trajni **Volume Mount** naziva npr. `dexter-data`, sa Destination
    Path **`/app/data`**. Novi named volume ne traži Source Path. Tu se čuvaju keš
@@ -265,6 +268,10 @@ integracije. Instalacija servera i kupovina resursa nisu deo ove procedure.
 6. Koristi **drugi Telegram bot token dok stari APU radi**. Pokreni jednu repliku
    novog bota. Dva procesa na istom tokenu izazivaju `409 Conflict`, a Faza 1b još
    prenosi ostale stare funkcije. Glavni token preuzima se tek prema F1b.11.
+   Za prvi test postavi **`SCHEDULER_ENABLED=off`**; to zaustavlja sve automatske
+   poslove, uključujući indeksiranje i proaktivne poruke, dok razgovor i ručni alati
+   ostaju dostupni. Promena na `on` zahteva restart/redeploy. Tajne i ovu zastavicu
+   unesi kao Runtime promenljive; Build time im nije potreban.
 7. Pokreni bazu, zatim Deploy aplikacije. `db.connect` automatski primenjuje nove
    migracije u transakciji i pamti ih u `schema_migrations`. Ako aplikacioni DB nalog
    nema pravo za instalaciju ekstenzija, administrator prvo izvršava

@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     notion_api_key: str | None = None
     notion_tasks_db_id: str | None = None
+    scheduler_enabled: Literal["on", "off"] = "on"
     semantic_index_cron: str = "0 4 * * *"
     google_client_id: str | None = None
     google_client_secret: str | None = None

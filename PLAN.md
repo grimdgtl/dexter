@@ -130,6 +130,14 @@ Rokovi su orijentacioni. Faza 1 mora biti gotova do **21.10.2026**.
   svaka dodatna izmena i dalje zahteva stvarni eval. Kontrolni prolaz i provera
   instalacionog paketa beleže se u `docs/EVAL.md`.
 
+> IZMENA: Test deploy radimo pre završetka F1b; automatska javljanja uključujemo
+> tek posle provere naloga i integracija.
+
+- [x] **F0.2 Kontrola automatskih poslova pri test deploy-u.**
+  `SCHEDULER_ENABLED=off` sprečava pokretanje svih zakazanih poslova, uz dostupan
+  razgovor i ručne alate. Podrazumevano `on` čuva ponašanje postojećih instalacija;
+  `.env.example` koristi `off`. `/status` prikazuje stanje.
+
 ### Faza 1 — Osnova i prvi podaci (do 21.10)
 
 - [x] **F1.1 Zaključavanje po razgovoru.** Dve poruke koje stignu skoro istovremeno
