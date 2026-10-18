@@ -877,7 +877,7 @@ Implementacija koristi [fpdf2](https://py-pdf.github.io/fpdf2/Tables.html) i
 [Google Drive upload](https://developers.google.com/workspace/drive/api/guides/manage-uploads).
 Nema novog LLM poziva u PDF crtanju/arhiviranju; cena i latencija modela nisu merene.
 
-ČEKA RUČNU PROVERU: ENV izdavaoca/brand ili logo, `/status`, stvarni invoice_list,
+Prvobitno je čekalo ručnu proveru: ENV izdavaoca/brand ili logo, `/status`, stvarni invoice_list,
 PDF u Telegramu sa tačnim podacima, Odbaci bez spoljnog upisa, pa zasebna izričita
 potvrda Sačuvaj i poređenje istog broja/iznosa/PDF-a u Drive-u i FAKTURE arhivi.
 Automatski poslovi ostaju off. Stvarno čuvanje se ne pokreće ovim koderskim testovima.
@@ -896,5 +896,20 @@ rad bez `NOTION_CLIENTS_DB_ID`, ponovno korišćenje imena, praznu vezu/naziv,
 403/404 i timeout, više klijenata, paginaciju veze i neispravan cursor.
 Podaci fakture ostaju dostupni uz napomenu ako klijent ne može da se utvrdi.
 Paginacija prati [Notion čitanje svojstva stranice](https://developers.notion.com/reference/retrieve-a-page-property).
-Novi prikaz imena i PDF/odustanak/potvrđeno arhiviranje čekaju korisnikov redeploy
-i stvarnu proveru. Zakazani poslovi ostaju isključeni.
+Ručna provera posle redeploy-a opisana je ispod. Zakazani poslovi ostaju isključeni.
+
+### F1b.6 — završetak ručne provere (18.10.2026)
+
+Korisnik je potvrdio da `/status` prikazuje oba alata i da pregled arhive
+vraća klijente iz Notion veze. PDF nacrt je stigao u Telegram sa dugmadima
+Sačuvaj/Odbaci; na uputstvo da proveri izdavaoca, klijenta, račun i iznos
+odgovorio je „sve super”. Nakon Odbaci prosleđena provera nije našla fakturu
+u Notion arhivi ni na Drive-u. Na završno uputstvo za Sačuvaj tok (Drive +
+Notion) korisnik je odgovorio „Radi”; čuvanje se beleži na osnovu te potvrde,
+bez prepisivanja privatnih podataka ili nedostavljenih linkova konačne fakture.
+
+Glavni ručni tok F1b.6 je završen. Prelaz godine, konkurentne potvrde,
+ponovno crtanje zauzetog broja i delimične spoljne greške provereni su kroz
+mock/DB testove, bez izazivanja tih slučajeva na stvarnom nalogu. Ova dopuna
+menja samo dokumentaciju; izvršni kod odgovara zelenom CI prolazu sa 493 testa.
+`SCHEDULER_ENABLED` ostaje off.
