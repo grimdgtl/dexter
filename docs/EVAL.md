@@ -679,3 +679,8 @@ Ruff i svih 325 testova sa izolovanom PostgreSQL bazom prolaze. SYSTEM_PROMPT
 nije menjan. Pravi servisi nisu pozivani iz testova. Ručno posle deploy-a:
 nepročitana pošta i jedna puna poruka bez promene Seen, draft u stvarnom folderu,
 otkazivanje pripreme i zatim potvrđeno slanje na sopstvenu adresu.
+
+Završna provera kompatibilnosti: minimum `imap-tools` podignut je na 1.16,
+verziju korišćenu u ovih 325 testova. Stari minimum 1.7 nema `fetch(uid_list=...)`
+koji omogućava neposredno PEEK čitanje konkretnog UID-a. Time instalacija ne može
+zadržati staru biblioteku koja ne podržava novu funkciju.
