@@ -11,6 +11,10 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Fakture: priprema PDF-a, potvrda, Drive i arhiva | F1b.6: oba alata, mock/DB i vizuelne provere; korisnik potvrdio pregled, PDF, odbacivanje i čuvanje na stvarnom nalogu. |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
 | Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
+| Rođendani i evidencija čestitki | F1b.7: tri alata, lokalni datum i PostgreSQL evidencija; mock/DB provere, pravi nalog čeka redeploy. |
+| Monitoring i istorija dostupnosti | F1b.7: oba alata, GET provere i trajna istorija; mock/DB provere, pravi sajtovi čekaju ručnu proveru. |
+| Izveštaj u Google Doc | F1b.7: generate_report sa zadacima, kalendarom i opcionim sajtovima; SDK/HTTP mock provere. |
+| Izmena memorije | F1b.7: memory_update sa očuvanjem ID-ja i novim vektorom; DB provere, Telegram čeka redeploy. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
@@ -180,3 +184,56 @@ u Notion-u i na Drive-u. Na kraju je na uputstvo za Sačuvaj tok odgovorio
 „Radi”, čime je potvrđeno i stvarno čuvanje. Detalji konačne fakture nisu
 dostavljeni niti preneti u repo. Konkurentnost, promena broja i delimične API
 greške ostaju pokrivene mock/DB testovima. Automatski poslovi ostaju off.
+
+F1b.7 prenosi sedam alata iz v1: tri za rođendane, dva za sajtove,
+generate_report i memory_update. Pročitani su birthdays.js, monitor.js,
+monitorHistory.js, reports.js, memory.js, odgovarajući Notion čitači,
+tool definicije, README i feature/config uslovi. Migracija 013 uvodi
+birthday_greetings i monitor_checks; stari JSON podaci još čekaju F1b.10.
+
+Rođendani čuvaju stare nazive kolona, podatke o osobi, godišnje ponavljanje,
+nepoznate godine van opsega 1–119 i vreme iz TIMEZONE. Paginacija obuhvata
+sve aktivne redove. Pravilo 29. februar → 28. februar sada važi i za upcoming
+(v1 upcoming je kroz Date.UTC mogao pogrešno preći na 1. mart). Neispravan
+datum se prijavljuje umesto tihog nestanka osobe. Čestitke imaju jedinstveni
+ključ dan/osoba, opstaju kroz reset/restart i čuvaju istoriju umesto rotacije
+starog JSON-a na 7 dana. Tačno ime ima prednost nad podnizom; prazan ulaz bira
+jedinog slavljenika. Za razliku od v1, pogrešno eksplicitno ime ne označava
+automatski drugu osobu samo zato što danas slavi jedina. Više kandidata traži
+preciziranje. Helpers za nedelju i nečestitane osobe su spremni za F1b.8.
+
+Monitoring zadržava status <400, prag sporog odgovora i timeout iz istih ENV
+promenljivih; prati sve stranice KLIJENTI umesto prvih 100. Paralelnost je
+ograničena na 5; telo HTTP odgovora se ne učitava. DNS i svako od najviše pet
+preusmeravanja moraju voditi isključivo na javne IP adrese, bez korisničkih
+podataka u URL-u. Zahtev koristi proverenu IP uz izvorni Host/SNI i proveru
+sertifikata, bez proxy ENV-a i bez deljenja TLS sesije među redirect hostovima.
+Ako prva adresa ne može da se poveže, pokušava sledeću javnu adresu u istom roku.
+Ovo zatvara rupe stare provere hosta kod DNS-a/preusmeravanja. Jedan loš sajt
+vraća svoju grešku; problem sa čuvanjem istorije dodaje jasnu napomenu.
+
+Istorija čuva poslednjih 8000 uzoraka, serijalizovano u transakciji. Dostupnost
+prati stari zbir uspešnih uzoraka, sortiranje najlošijih prvo, poslednji problem
+i podniz imena sajta. Spor odgovor i dalje umanjuje procenat; rezultat zato
+izričito govori da nije reč o neprekidnom uptime merenju. Bez uzoraka vraća
+nepoznat procenat, ne 100%. monitor_uptime radi i bez Notion-a jer čita samo DB.
+
+Izveštaj čuva stare argumente i podrazumevane izvore/opseg. TASK BOARD je
+trenutno stanje sa do 50 stavki po statusu; dodatni 51. red proverava da li je
+lista ograničena. Ne tvrdi da je Done zadatak završen u traženom periodu, jer
+datum završetka nije dostupan. Kalendarski opseg se validira, najviše 366 dana;
+monitoring ostaje trenutni snimak. Izvori se skupljaju paralelno. Delimične
+greške ostavljaju vidljivu napomenu i u sačuvanom tekstu, umesto prekida svih
+izvora; bez dostupnog izvora nema poziva modela ni praznog dokumenta. Brzi
+model dobija fiksno uputstvo o podacima/neizmišljanju, odvojeno od izvora.
+Prekinut ili prazan izlaz se ne čuva. Drive greška vraća tekst i neizvestan
+ishod, bez ponavljanja create-a. Google kredencijali i dalje uključuju alat
+kao v1, dok saveToDoc=false preskače upis. Učitani podaci imaju granicu 80000
+znakova sa eksplicitnim odbijanjem; izlaz modela do 4096 tokena.
+
+memory_update čuva postojeći celobrojni ID iz v2 (v1 je imao kratke string ID-jeve),
+izvor i nenavedena polja; tekst i novi vektor idu u jednom UPDATE-u, bez deduplikacije
+ili stvaranja novog reda. Samo kategorija ne troši embedding poziv. Nepoznat ID,
+prazan tekst, nepoznata kategorija i zahtev bez izmene se odbijaju; v2 kategorija
+cilj ostaje dozvoljena. Ne menjaju se SYSTEM_PROMPT, scheduler ni postojeće činjenice.
+Pravi nalozi i server čekaju ručnu proveru posle redeploy-a.

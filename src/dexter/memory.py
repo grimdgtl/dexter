@@ -20,6 +20,7 @@ from pydantic import ValidationError
 
 from dexter import commitments, llm
 from dexter.db import pool
+from dexter.pismo import u_latinicu
 from dexter.proactive_time import local_now
 from dexter.rag.embed import embed_one
 
@@ -70,6 +71,33 @@ async def recall(query: str, limit: int = 8) -> list[dict]:
 
 async def forget(fact_id: int) -> bool:
     return (await pool().execute("DELETE FROM facts WHERE id = $1", fact_id)).endswith("1")
+
+
+async def update(fact_id: int, text: str | None = None, category: str | None = None) -> dict:
+    if text is None and category is None:
+        raise ValueError("Navedi novi tekst ili kategoriju činjenice.")
+    if text is not None:
+        text = u_latinicu(text).strip()
+        if not text:
+            raise ValueError("Prazna činjenica.")
+    if category is not None and category not in CATEGORIES:
+        raise ValueError("Nepoznata kategorija činjenice.")
+    if not await pool().fetchval("SELECT EXISTS(SELECT 1 FROM facts WHERE id=$1)", fact_id):
+        raise ValueError("Nema činjenice sa tim ID-jem.")
+    vec = await embed_one(text, kind="passage") if text is not None else None
+    # Tekst i njegov vektor menjaju se zajedno; nenavedena kategorija se ne prepisuje.
+    row = await pool().fetchrow(
+        "UPDATE facts SET text=COALESCE($2,text), category=COALESCE($3,category), "
+        "embedding=CASE WHEN $2::text IS NULL THEN embedding ELSE $4::vector END, "
+        "updated_at=now() WHERE id=$1 RETURNING id,text,category,source,updated_at",
+        fact_id,
+        text,
+        category,
+        vec,
+    )
+    if row is None:
+        raise ValueError("Činjenica više ne postoji; ništa nije izmenjeno.")
+    return dict(row)
 
 
 async def list_all(category: str | None = None) -> list[dict]:

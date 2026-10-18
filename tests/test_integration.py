@@ -59,7 +59,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE proactive_feedback, proactive_deliveries, proactive_runs, commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE birthday_greetings, monitor_checks, proactive_feedback, proactive_deliveries, proactive_runs, commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -2551,6 +2551,164 @@ async def test_insight_rechecks_quiet_hours_after_model_and_keeps_json_failure(d
     assert not await proactive.daily(bot)
     bot.send_message.assert_not_awaited()
     assert await db.fetchval("SELECT status FROM proactive_runs") == "policy_blocked"
+
+
+async def test_birthday_greetings_are_idempotent_and_survive_reset_and_reconnect(db, monkeypatch):
+    from dexter import db as dbmod
+    from dexter.agent import history
+    from dexter.services import birthdays
+
+    monkeypatch.setattr(birthdays, "today", lambda: date(2026, 10, 18))
+    person = {"id": "birthday-person", "name": "Probna osoba", "date": "1990-10-18"}
+    monkeypatch.setattr(birthdays, "people", AsyncMock(return_value=[person]))
+    await asyncio.gather(*(birthdays.mark_greeted("") for _ in range(4)))
+    assert await db.fetchval("SELECT count(*) FROM birthday_greetings") == 1
+    assert await birthdays.ungreeted_today() == []
+    await history.clear(1)
+    async with db.acquire() as conn:
+        assert await conn.fetchval("SELECT person_name FROM birthday_greetings") == "Probna osoba"
+    # Nova veza proverava trajni upis bez deljenja memorijskog stanja procesa.
+    conn = await asyncpg.connect(DB_URL)
+    try:
+        assert await conn.fetchval("SELECT count(*) FROM birthday_greetings") == 1
+    finally:
+        await conn.close()
+    monkeypatch.setattr(birthdays, "today", lambda: date(2027, 10, 18))
+    assert [p["id"] for p in await birthdays.ungreeted_today()] == [person["id"]]
+    assert dbmod.pool() is db
+
+
+async def test_birthday_ambiguous_or_unknown_person_leaves_database_untouched(db, monkeypatch):
+    from dexter.services import birthdays
+
+    monkeypatch.setattr(birthdays, "today", lambda: date(2026, 10, 18))
+    people = [
+        {"id": str(i), "name": name, "date": "1990-10-18"}
+        for i, name in enumerate(("Marko Marković", "Marko Petrović"))
+    ]
+    monkeypatch.setattr(birthdays, "people", AsyncMock(return_value=people))
+    assert (await birthdays.mark_greeted("Marko"))["ambiguous"]
+    assert not (await birthdays.mark_greeted("Jovan"))["matched"]
+    assert await db.fetchval("SELECT count(*) FROM birthday_greetings") == 0
+
+
+async def test_monitor_history_uptime_matches_samples_and_never_calls_network(
+    db, monkeypatch, respx_mock
+):
+    from datetime import UTC, datetime, timedelta
+
+    from dexter.services import monitor
+
+    def row(name, ok, slow=False, url="https://example.test", error=None):
+        return {
+            "name": name,
+            "url": url,
+            "ok": ok,
+            "slow": slow,
+            "status": 200 if ok or slow else 503,
+            "ms": 6000 if slow else 25,
+            "error": error,
+        }
+
+    await monitor.record([row("A", True), row("B", True)])
+    await monitor.record([row("A", False, slow=True), row("B", True)])
+    await monitor.record([row("A", False, error="HTTP 503")])
+    old = datetime.now(UTC) - timedelta(days=50)
+    await db.execute(
+        "INSERT INTO monitor_checks(checked_at,name,url,ok,slow,ms) VALUES($1,'Pre staro','https://example.test',false,false,1)",
+        old,
+    )
+    result = await monitor.uptime()
+    assert result["brojProvera"] == 5 and result["ukupanUptime"] == 60
+    assert [g["sajt"] for g in result["sajtovi"]] == ["A", "B"]
+    first = result["sajtovi"][0]
+    assert first["uptime"] == 33.33 and first["brojPadova"] == 2
+    assert first["poslednjiPad"]["greska"] == "HTTP 503"
+    assert "ne neprekidno" in result["napomena"]
+    assert (await monitor.uptime(site="b"))["ukupanUptime"] == 100
+    empty = await monitor.uptime(site="ne postoji")
+    assert empty["brojProvera"] == 0 and empty["ukupanUptime"] is None and empty["poruka"]
+    assert not respx_mock.calls
+
+
+async def test_monitor_history_rotation_keeps_latest_rows_under_parallel_writes(db, monkeypatch):
+    from dexter.services import monitor
+
+    monkeypatch.setattr(monitor, "MAX_HISTORY", 3)
+
+    def row(name):
+        return {
+            "name": name,
+            "url": "https://example.test",
+            "ok": True,
+            "slow": False,
+            "status": 200,
+            "ms": 5,
+            "error": None,
+        }
+
+    await monitor.record([row("Stari")])
+    await asyncio.gather(monitor.record([row("A"), row("B")]), monitor.record([row("C"), row("D")]))
+    assert await db.fetchval("SELECT count(*) FROM monitor_checks") == 3
+    assert not await db.fetchval("SELECT EXISTS(SELECT 1 FROM monitor_checks WHERE name='Stari')")
+
+
+async def test_memory_update_keeps_id_source_and_unspecified_fields_and_refreshes_vector(
+    db, monkeypatch
+):
+    from dexter import memory
+
+    saved = await memory.save("Probna činjenica o sajtu Alfa.", "projekat", source="izvuceno")
+    fact_id = saved["id"]
+    before = await db.fetchrow(
+        "SELECT *,embedding::text AS vector_text FROM facts WHERE id=$1", fact_id
+    )
+    result = await memory.update(fact_id, "Пробни план за пут у Нови Сад.")
+    after = await db.fetchrow(
+        "SELECT *,embedding::text AS vector_text FROM facts WHERE id=$1", fact_id
+    )
+    assert result["id"] == fact_id and result["text"] == "Probni plan za put u Novi Sad."
+    assert after["category"] == "projekat" and after["source"] == "izvuceno"
+    assert before["vector_text"] != after["vector_text"]
+    assert json.loads(after["vector_text"]) == pytest.approx(fake_vector(result["text"]), abs=1e-7)
+    embed = AsyncMock(side_effect=AssertionError("Samo kategorija ne traži novi embedding"))
+    monkeypatch.setattr(memory, "embed_one", embed)
+    changed = await memory.update(fact_id, category="cilj")
+    assert changed["text"] == result["text"] and changed["category"] == "cilj"
+    assert changed["source"] == "izvuceno" and await db.fetchval("SELECT count(*) FROM facts") == 1
+    preserved = await db.fetchval("SELECT embedding::text FROM facts WHERE id=$1", fact_id)
+    assert preserved == after["vector_text"]
+    embed.assert_not_awaited()
+
+
+async def test_memory_update_missing_or_embed_failure_preserves_database(db, monkeypatch):
+    from dexter import memory
+
+    saved = await memory.save("Probni projekat.", "projekat")
+    before = dict(await db.fetchrow("SELECT text,category FROM facts WHERE id=$1", saved["id"]))
+    embed = AsyncMock(side_effect=RuntimeError("Nema embedding servisa"))
+    monkeypatch.setattr(memory, "embed_one", embed)
+    with pytest.raises(ValueError, match="Nema činjenice"):
+        await memory.update(999999, "Novo")
+    embed.assert_not_awaited()
+    with pytest.raises(RuntimeError, match="embedding"):
+        await memory.update(saved["id"], "Novo", "osoba")
+    assert (
+        dict(await db.fetchrow("SELECT text,category FROM facts WHERE id=$1", saved["id"]))
+        == before
+    )
+
+
+async def test_memory_update_parallel_partial_changes_preserve_both_values(db):
+    from dexter import memory
+
+    saved = await memory.save("Probna činjenica.", "projekat")
+    await asyncio.gather(
+        memory.update(saved["id"], "Promenjeni tekst."),
+        memory.update(saved["id"], category="navika"),
+    )
+    row = await db.fetchrow("SELECT text,category FROM facts WHERE id=$1", saved["id"])
+    assert row["text"] == "Promenjeni tekst." and row["category"] == "navika"
 
 
 async def test_daily_insight_real_sdk_json_and_usage_are_isolated(

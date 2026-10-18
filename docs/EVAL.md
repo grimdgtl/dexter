@@ -913,3 +913,59 @@ ponovno crtanje zauzetog broja i delimične spoljne greške provereni su kroz
 mock/DB testove, bez izazivanja tih slučajeva na stvarnom nalogu. Ova dopuna
 menja samo dokumentaciju; izvršni kod odgovara zelenom CI prolazu sa 493 testa.
 `SCHEDULER_ENABLED` ostaje off.
+
+## F1b.7 — rođendani, monitoring, izveštaji i izmena memorije (18.10.2026)
+
+Preneto je sedam alata uz čitanje v1 services/birthdays.js, monitor.js,
+monitorHistory.js, reports.js, memory.js, Notion čitača i odgovarajućih opisa
+i README-a. Migracija 013 uvodi birthday_greetings i monitor_checks. Nova
+podešavanja zadržavaju nazive NOTION_BIRTHDAYS_DB_ID, SITE_MONITOR_TIMEOUT_MS
+i SITE_MONITOR_SLOW_MS iz v1. SYSTEM_PROMPT i rasporedi nisu menjani.
+
+Pre: 493 testa sa bazom. Posle: 592 testa sa izolovanom PostgreSQL + pgvector
+bazom, 13,10 s. Ruff format/check prolaze za src/tests/evals/scripts. Dodato
+je 99 provera: Notion/Google/Anthropic i HTTP sajtova koriste SDK/respx mock,
+trajnost, migracije, rotacija i izmene vektora koriste pravu izolovanu bazu.
+Nisu pozivani privatni nalozi, pravi sajtovi niti plaćeni modeli.
+
+Rođendani: svi v1 podaci/kolone i latinica, izostavljen datum, neispravan datum,
+paginacija, arhiva, prestupne godine uključujući vekove, godišnji prelaz,
+uključeni današnji dan, nepoznate godine i lokalni dan preko UTC ponoći.
+Provereni su nedeljni nazivi dana, precizan/podeljen/prazan/nepoznat naziv i
+tri API greške alata. DB test potvrđuje da četiri paralelne čestitke daju
+jedan red, stanje preživljava reset i novu vezu, a sledeće godine ne važi
+prethodna čestitka. Dvosmislen ili pogrešan naziv ne menja bazu.
+
+Monitoring: samo aktivni domeni, sve Notion stranice, najviše pet paralelnih
+provera, GET status bez čitanja tela i zatvaranje stream-a. Provereni su
+originalni Host/SNI prema javnoj provernoj IP adresi, sledeća adresa posle
+neuspelog ili isteklog IPv6 povezivanja, javno preusmeravanje, interna/mešovita DNS adresa,
+privatne IPv4/IPv6/multicast adrese, nevažeća shema, URL sa kredencijalima,
+redirect petlja, spori/404/500 odgovori, DNS/mrežne greške i ukupan rok koji
+obuhvata DNS. Greška čuvanja istorije ostavlja rezultat uz napomenu.
+DB provere pokrivaju procentualni zbir uspešnih uzoraka, spor odgovor kao
+problem, poslednji pad, period/podniz imena, nepoznat procenat bez uzoraka,
+rad bez novih HTTP zahteva i rotaciju pod paralelnim upisima. Zaštita javnog
+odredišta koristi dokumentovani [Host/SNI mehanizam](https://www.encode.io/httpcore/extensions/#sni_hostname).
+
+Izveštaj: podrazumevani lokalni opseg i sva tri statusa TASK BOARD-a, opcion
+monitoring, isključeni izvori, režim bez čuvanja, 50 stavki po statusu uz
+oznaku ograničenja, nedostupna/nepodešena grupa uz trajnu napomenu u tekstu.
+Bez izvora, sa neispravnim datumima, prevelikim ulazom ili prekinutim/praznim
+izlazom nema čuvanja. Cancel se propagira. Neizvestan Drive upis se ne ponavlja.
+Poseban HTTP test koristi stvarni Notion, Google Calendar, Anthropic i Google
+Drive SDK sa respx odgovorima: jedan model poziv, merenje purpose=report,
+latinica i ispravan Google Doc upload. Poziv koristi brzi model; stvarna
+LLM cena/latencija i kvalitet konačnog izveštaja nisu mereni na privatnim podacima.
+
+Memorija: validacija ID-ja/praznog teksta/kategorije i internih argumenata,
+odbijanje nepostojećeg ID-ja pre embedding poziva, greška embed servisa bez
+upisa. DB proverava isti ID/izvor, nenavedena polja, tačan novi vektor teksta,
+promenu samo kategorije bez embedding poziva i paralelne delimične promene
+koje se ne prepisuju međusobno. Činjenica se ne briše niti pravi ponovo.
+
+ČEKA RUČNU PROVERU: redeploy, /status sa sedam novih alata; današnji/budući
+rođendani iz pravog Notion-a, evidentiranje izričito potvrđene čestitke;
+ručna provera aktivnih sajtova pa čitanje zabeleženog uptime-a; izveštaj sa
+Google Doc linkom (otvoriti i proveriti podatke/napomene); izmena samo probne
+činjenice uz isti ID. Scheduler ostaje off; rasporedi i automatske poruke su F1b.8.

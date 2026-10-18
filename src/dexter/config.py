@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     notion_clients_db_id: str | None = None
     notion_kb_page_id: str | None = None
     notion_invoices_db_id: str | None = None
+    notion_birthdays_db_id: str | None = None
+    site_monitor_timeout_ms: int = Field(15000, ge=100, le=120000)
+    site_monitor_slow_ms: int = Field(5000, ge=1, le=120000)
     google_invoices_folder_id: str | None = None
     invoice_last_number: str | None = None
     invoice_issuer_name: str | None = None

@@ -287,11 +287,17 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > Zatim je potvrdio i čuvanje kroz Sačuvaj u Drive i Notion. Rubni slučajevi
   > numeracije i delimičnih grešaka ostaju mock/DB provere; 493 testa sa bazom prolaze.
   > Podaci izdavaoca ostaju bez podrazumevanih vrednosti; scheduler off.
-- [ ] **F1b.7 Rođendani, monitoring, izveštaji, memory_update** —
+- [x] **F1b.7 Rođendani, monitoring, izveštaji, memory_update** —
   `birthdays_today`, `birthdays_upcoming`, `birthday_mark_greeted` (tabela
   `birthday_greetings`), `monitor_check_sites`, `monitor_uptime` (tabela
   `monitor_checks`), `generate_report` (Google Doc), `memory_update` (izmena
   činjenice po id-ju, uz novi vektor).
+
+  > Svih sedam alata preneto; migracija 013 uvodi evidenciju čestitki i istoriju
+  > provera sajtova. Ruff i 592 testa sa bazom prolaze. Provereni su godišnji datumi,
+  > trajno/idempotentno čestitanje, javni HTTP ciljevi, istorija uzoraka, delimični
+  > izvori izveštaja i obnavljanje vektora bez promene ID-ja. Pravi Telegram/Notion,
+  > sajtovi i Google Doc čekaju ručnu proveru posle deploy-a; scheduler ostaje off.
 - [ ] **F1b.8 Zakazani poslovi** — svih 14 iz Dodatka B, kroz `run_job` (F1.5),
   sa istim cron promenljivima kao stari. Poruke piše brzi model iz sirovih
   podataka (kao `generateText` u starom). Jutarnja motivacija pamti poslednjih

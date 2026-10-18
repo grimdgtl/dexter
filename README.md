@@ -121,6 +121,9 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `NOTION_CLIENTS_DB_ID` | prazno | KLIJENTI baza iz stare instalacije, za pretragu i dopunu klijenata |
 | `NOTION_KB_PAGE_ID` | prazno | Roditeljska Knowledge Base stranica; nove beleške nastaju kao podstranice |
 | `NOTION_INVOICES_DB_ID` | prazno | FAKTURE arhiva; merodavna za numeraciju |
+| `NOTION_BIRTHDAYS_DB_ID` | prazno | Rođendani iz Life stranice; podeli bazu sa Notion integracijom |
+| `SITE_MONITOR_TIMEOUT_MS` | `15000` | Ukupan rok jedne provere sajta, sa DNS-om i preusmeravanjima; 100–120000 ms |
+| `SITE_MONITOR_SLOW_MS` | `5000` | Odgovor iznad praga je spor; 1–120000 ms |
 | `GOOGLE_INVOICES_FOLDER_ID` | prazno | Drive folder za PDF-ove; prazno znači koren Drive-a |
 | `INVOICE_LAST_NUMBER` | prazno | Poslednji broj pre bota, NNN-GGGG; prag važi samo za tu godinu |
 | `INVOICE_ISSUER_NAME` | prazno | Pun naziv izdavaoca; obavezno, bez rezervne vrednosti |
@@ -446,6 +449,41 @@ za sliku ostaje samo oznaka da je poslata. Predlozi asistenta nisu potvrđene od
 Greška ili nepotpun odgovor modela čuva prethodni indeks i omogućava ponovni pokušaj
 kroz isti omotač poslova kao ostali zakazani zadaci. `/reset` briše sirovu istoriju,
 ali već indeksirani sažeci ostaju u znanju; poruke obrisane pre sažimanja ne mogu se vratiti.
+
+Rođendani koriste `NOTION_BIRTHDAYS_DB_ID` i iste kolone kao v1: `Ime i prezime`
+(Title), `Rođendan` (Date, sa godinom rođenja), `Odnos` (Select), `Telefon`
+(Phone), `Ideja za poklon` i `Napomena` (Text). Alati `birthdays_today` i
+`birthdays_upcoming` porede dan/mesec u `TIMEZONE`; 29. februar prelazi na
+28. februar u neprestupnoj godini. `birthday_mark_greeted` pamti datum i osobu
+u `birthday_greetings`, nezavisno od `/reset` i restarta. Prazno ime bira samo
+jedinog današnjeg slavljenika; nepoznato ili dvosmisleno ime ne menja evidenciju.
+Ovo beleži već poslatu čestitku, ne šalje poruku drugoj osobi.
+
+`monitor_check_sites` prolazi sve aktivne klijente sa popunjenim `Domen` i
+proverava najviše pet sajtova istovremeno. Šalje GET i čita status/zaglavlja,
+bez učitavanja tela stranice. Proverava javne IP adrese pre svakog preusmeravanja;
+koristi proverenu IP uz originalni Host/TLS naziv. HTTP >=400, mrežna greška,
+timeout ili spor odgovor su problem. Svaka provera se čuva u `monitor_checks`,
+do najnovijih 8000 redova. `monitor_uptime` čita samo tu istoriju, čak i bez
+Notion podešavanja: procenat predstavlja uspešne uzorke, ne neprekidno merenu
+dostupnost. Bez podataka ne izmišlja 100% dostupnosti.
+
+`generate_report` objedinjuje trenutne TASK BOARD statuse (do 50 po statusu,
+uz oznaku ako ima još), kalendar za poslednjih sedam dana i opciono trenutnu
+proveru sajtova. `from`/`to` menjaju kalendarski opseg; ne označavaju datum
+završetka svih Done zadataka. Vraća tekst i Google Doc link; `saveToDoc=false`
+vraća samo tekst. Google OAuth je uslov dostupnosti alata kao u v1. Nedostupni
+izvori se navode, a bez ijednog dostupnog izabranog izvora nema izveštaja.
+Prekinut/prazan odgovor modela se ne čuva; neizvestan Drive upis se ne ponavlja
+automatski. Alat koristi brzi model, čiji poziv ulazi u `/troskovi`.
+
+`memory_update` menja tekst i/ili kategoriju činjenice preko ID-ja iz
+`memory_list`. Zadržava ID i izvor, čuva nenavedena polja i pri promeni teksta
+obnavlja embedding. Greška embedding servisa ostavlja prethodnu činjenicu.
+
+F1b.7 ne dodaje rasporede. Rođendanski podsetnici i automatske provere sajtova
+dolaze kroz F1b.8; `SCHEDULER_ENABLED=off` ostaje za ručne provere. Migracija
+`013_birthdays_monitor.sql` primenjuje se pri pokretanju, uz postojeći volume baze.
 
 ## Uvoz lokalnih dokumenata
 
