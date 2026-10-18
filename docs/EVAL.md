@@ -772,3 +772,46 @@ mock/DB testovi. Privatni ID-jevi i sadržaj ličnog dnevnika nisu preneti u rep
 Ova dopuna menja samo dokumentaciju; izvršni kod je iz zelenog CI prolaza sa
 371 testom. Automatski jutarnji upis, povezivanje i podsetnici ostaju F1b.8,
 uz `SCHEDULER_ENABLED=off` tokom provera.
+
+## F1b.5 — Notion klijenti, poslovni zadaci i baza znanja (18.10.2026)
+
+Pročitani su stari `services/notion.js` (klijenti, TASK BOARD i Knowledge Base),
+definicije svih osam alata i README kolone. Preneti su `client_add`,
+`client_update`, `client_list`, `client_find`, `notion_add_task`,
+`notion_list_tasks`, `notion_update_task_status`, `notion_add_knowledge`.
+Koriste stare ENV ID-jeve uz API 2025-09-03; uvedena su dva polja konfiguracije
+koja nedostaju: `NOTION_CLIENTS_DB_ID`, `NOTION_KB_PAGE_ID`.
+
+Pre: 371 test sa bazom. Posle: 432 testa sa izolovanom PostgreSQL + pgvector
+bazom (9,45 s), odnosno 351 bez baze uz 81 preskočen integracioni test.
+Ruff format/check prolaze za src/tests/evals/scripts. Novih 61 test koristi
+respx i pravi Notion SDK, bez stvarnih API poziva. Nema promene SYSTEM_PROMPT-a,
+migracije baze ni novih zakazanih poslova.
+
+Pokriveni su prioritet tačnog naziva nad dužim kandidatom, pravni oblici,
+dijakritici i ćirilica, najmanje dve značajne reči kod sadržavanja, zaseban
+podniz za pretragu/izmenu, dvosmislen i nepostojeći klijent. Proveren je novi
+klijent sa minimalnim podrazumevanim poljima, dopuna bez promene naslova,
+popunjavanje samo praznog pravnog naziva, upis svih kolona, čuvanje početnih
+nula i nenavedenih polja, cena nula, no-op i serijalizovani paralelni add pozivi.
+Prepoznavanje prati sve stranice pre odluke; obrađuju se i neispravni cursori.
+
+TASK BOARD testovi proveravaju tačan `Name`/`Status`, sva tri dozvoljena statusa,
+čitanje svih statusa bez filtera, paginaciju do limita i zaštitu tuđe baze,
+arhive i korpe pri promeni statusa. Za svaki od osam alata proverena je greška
+pristupa i `requires`. Pydantic odbija nepoznata polja/opcije, loše ID-jeve,
+limite i nekonačnu/negativnu cenu. Fiskalna polja se ne popunjavaju bez ulaza.
+
+KB provere obuhvataju roditeljsku stranicu, prazan sadržaj, neprazne redove,
+dug rich text, granicu posle preslovljavanja, 205 pasusa bez odsecanja i
+neizvestan 503 pri dopuni: rezultat čuva link i broj potvrđenih pasusa bez
+ponavljanja upisa ili tvrdnje o potpunom uspehu. Limit od 1000 pasusa odbija
+preveliku belešku pre create-a. API granice prate
+[Notion ograničenja zahteva](https://developers.notion.com/reference/request-limits).
+Nema stvarnog merenja LLM troška/latencije za ovu funkcionalnu fazu.
+
+ČEKA RUČNU PROVERU posle deploy-a: `/status`, pregled/pretraga stvarnih klijenata,
+dodavanje probnog klijenta pa dopuna alternativnim nazivom bez duplikata,
+delimična izmena postojećeg probnog reda, pregled/dodavanje/završavanje poslovnog
+zadatka i beleška sa čitljivom podstranicom u Knowledge Base-u. Tajne i privatni
+fiskalni podaci se ne prenose u repo; `SCHEDULER_ENABLED` ostaje off.

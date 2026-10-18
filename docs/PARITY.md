@@ -7,7 +7,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 |---|---|
 | Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
 | Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
-| Čitanje TASK BOARD-a za uvid | F6.2: Name/Status, opciona nova Date kolona Rok; alati čekaju F1b.5 |
+| Klijenti, TASK BOARD i upis Knowledge Base beleške | F1b.5: osam alata preneto i mock provereno; stvarni nalog čeka proveru posle deploy-a. F6.2 čitanje za uvid ostaje dostupno. |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
 | Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
@@ -96,3 +96,33 @@ za 30 dana sa napomenom o nedovoljno uparenih dnevnika i ponovljeno kreiranje
 postojećeg dana bez duplikata. Stvarno kreiranje nedostajućeg reda, prelaz
 „Bez…” stavke na true i zaseban poziv `dnevnik_get` nisu izdvojeno ručno
 provereni; pokriveni su mock/DB testovima. Automatski poslovi ostaju off.
+
+F1b.5 prenosi svih osam alata iz starog `services/notion.js` i odgovarajuće
+opise/kolone. Upsert klijenta prati iste nivoe prepoznavanja: doslovno,
+normalizovano, pa skup reči (najmanje dve kod sadržavanja). Tačan naziv ima
+prednost nad dužim sličnim nazivom. `client_find` i `client_update` tek potom
+pokušavaju podniz; `client_add` ne spaja firme samo na osnovu podniza jedne reči.
+Više kandidata ne proizvodi upis. Dopuna čuva naslov i nenavedena polja,
+drugačiji dostavljeni naziv smešta u prazno `Naziv za fakturu`, a prazan/null
+ulaz preskače kao v1. `dopunjen=false` uz `poruka` može značiti postojeći red
+bez novih podataka, kao u v1; nije dokaz da je kreiran novi klijent.
+
+Normalizacija sada radi i nad srpskom ćirilicom; nazivi sa samo pravnim oblikom
+se odbijaju umesto pretrage praznog jezgra. PIB/MB ostaju tekst (početne nule
+se čuvaju); cena mora biti konačan nenegativan broj, nula se upisuje. Select
+opcije su iste kao u v1. Prikaz klijenta dodatno vraća `ponuda`, `elementor`,
+`mojHosting` i dva postojeća datuma, bez izmene tih datuma. Paginacija prati sve
+klijente pre prepoznavanja; list filter/limit se primenjuju u Notion upitu.
+Paralelni add/update pozivi u jednom procesu su serijalizovani po data source-u.
+Ovo nije trajna zaštita pri restartu, više procesa ili kašnjenju vidljivosti
+Notion upisa: posle neizvesnog create-a prvo proveriti postojeće redove.
+
+Poslovni zadaci čuvaju `Name`/`Status`, podrazumevani `Not started` pri upisu
+i sve statuse pri čitanju bez filtera. Limit je 1–100 uz paginaciju; status
+može da se promeni samo na aktivnom redu podešenog TASK BOARD-a. KB beleška
+ostaje podstranica sa po jednim pasusom za neprazan red. Nova ograničenja su
+100000 ulaznih znakova i 1000 pasusa; rich text se deli na do 2000 znakova
+posle preslovljavanja, blokovi u grupe do 100. Delimično neuspešna dopuna
+vraća link i broj potvrđenih pasusa, bez tvrdnje da je beleška potpuno upisana.
+Ne pokreće se automatsko ponovno kreiranje niti reindeksiranje. SYSTEM_PROMPT
+ostaje isti; Notion šema i trajno stanje baze nisu menjani. Ručna provera je otvorena.

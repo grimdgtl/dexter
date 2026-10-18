@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     notion_api_key: str | None = None
     notion_tasks_db_id: str | None = None
+    notion_clients_db_id: str | None = None
+    notion_kb_page_id: str | None = None
     notion_todo_db_id: str | None = None
     notion_checklist_db_id: str | None = None
     notion_dnevnik_db_id: str | None = None

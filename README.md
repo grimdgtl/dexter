@@ -117,7 +117,9 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `WEATHER_LOCATION` | `Beograd` | Naziv lokacije u porukama |
 | `LOG_LEVEL` | `INFO` | Nivo logovanja |
 | `NOTION_API_KEY` | prazno | Token Notion integracije; podeli roditeljsku stranicu sa integracijom |
-| `NOTION_TASKS_DB_ID` | prazno | TASK BOARD za proaktivni uvid: Name/Status i opciona Date kolona Rok |
+| `NOTION_TASKS_DB_ID` | prazno | Poslovni TASK BOARD: Name/Status; opciona Date kolona Rok za proaktivni uvid |
+| `NOTION_CLIENTS_DB_ID` | prazno | KLIJENTI baza iz stare instalacije, za pretragu i dopunu klijenata |
+| `NOTION_KB_PAGE_ID` | prazno | Roditeljska Knowledge Base stranica; nove beleške nastaju kao podstranice |
 | `NOTION_TODO_DB_ID` | prazno | Lična To-do lista na Life stranici, odvojena od poslovnog TASK BOARD-a |
 | `NOTION_CHECKLIST_DB_ID` | prazno | Dnevna checklista navika; postojeći database ID iz v1 |
 | `NOTION_DNEVNIK_DB_ID` | prazno | Dnevnik; opcion za insights, obavezan za dnevnik alate |
@@ -150,6 +152,57 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `MAIL_INDEX_SENT_FOLDER` | automatski | Pun naziv Sent foldera kada ga server ne označava standardno |
 
 `notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
+
+F1b.5 koristi postojeće `NOTION_CLIENTS_DB_ID`, `NOTION_TASKS_DB_ID` i
+`NOTION_KB_PAGE_ID` iz v1, uz isti `NOTION_API_KEY`. U Coolify ih dodaj kao
+Production Runtime promenljive; Build time i Preview nisu potrebni. Integracija
+mora imati Read/Insert/Update pristup; deljenje roditeljske stranice pokriva njenu
+decu. Svaka podešena baza za ove alate mora imati tačno jedan data source.
+
+KLIJENTI zadržava sledeće tačne kolone i tipove iz starog README-a:
+
+| Kolona | Tip | Vrednosti |
+|---|---|---|
+| `Klijent` | Title | Naziv klijenta |
+| `Naziv za fakturu`, `PIB`, `MB`, `Adresa`, `Grad`, `Opis` | Text | Samo navedeni podaci |
+| `Domen` | URL | Prihvata i domen bez sheme, dopunjava `https://` |
+| `Email` | Email | Kontakt email |
+| `Telefon` | Phone | Kontakt telefon |
+| `Aktivan` | Select | `Aktivan`, `Arhiva`, `U izradi` |
+| `Tip` | Select | `Klijent`, `Interni`, `Veliki ugovor` |
+| `Status` | Select | `Plaćeno`, `Nije plaćeno`, `Ne plaća` |
+| `Faktura` | Select | `Poslato`, `Nije poslato`, `Ne plaća` |
+| `Ponuda` | Select | `Poslato`, `Nije poslato` |
+| `Trajanje` | Select | `Mesečno`, `12 meseci`, `6 meseci`, `Nema održavanja` |
+| `Održavanje cena` | Number | Cena u RSD; nula je dozvoljena |
+| `Elementor`, `Moj hosting` | Select | `Da`, `Ne` |
+| `Održavanje datum`, `Datum puštanja` | Date | Prikazuju se ako postoje; ovi alati ih ne menjaju |
+
+`client_add` prvo traži tačan naslov ili naziv za fakturu, zatim naziv bez
+pravnog oblika i dijakritika, pa sadržavanje najmanje dve značajne reči.
+Postojeći red se dopunjuje; naslov ostaje isti, a drugačiji dostavljeni naziv
+ide u prazno polje `Naziv za fakturu`. Više kandidata traži precizniji naziv.
+Novi klijent podrazumevano dobija samo `Aktivan=Aktivan` i `Tip=Klijent` uz
+navedena polja; fiskalni podaci i cena se ne dopunjavaju iz pretpostavke.
+`client_update` menja samo navedena neprazna polja; prazno/null znači „ne diraj”,
+a ne brisanje. `client_find` podržava i deo naziva; `client_list` ima limit 50
+(najviše 100) i opcion `aktivan` filter. Dostignut limit nije ukupan broj klijenata.
+
+Poslovni TASK BOARD koristi `Name` (Title) i `Status` (Status: `Not started`,
+`In progress`, `Done`). `notion_add_task` podrazumevano postavlja `Not started`;
+`notion_list_tasks` bez filtera vraća sve statuse (do 25, najviše 100).
+`notion_update_task_status` prihvata samo zadatak iz podešenog TASK BOARD-a
+koji nije u arhivi ili korpi. Ovi alati su odvojeni od ličnih `todo_*` alata;
+upis zadatka sam po sebi ne zakazuje podsetnik.
+
+`notion_add_knowledge` dodaje podstranicu pod `NOTION_KB_PAGE_ID`. Svaki neprazan
+red je paragraf; dugi tekst se deli po Notion ograničenjima bez odsecanja.
+Limit beleške je 100000 ulaznih znakova i 1000 nepraznih pasusa. Dopuna ide u
+grupama do 100 blokova. Ako dopuna ne uspe, rezultat `delimicno` sadrži link i
+broj potvrđenih pasusa; proveri postojeću stranicu umesto ponovnog kreiranja.
+Indeks za `knowledge_search` osvežava se zasebno kroz `knowledge_reindex` ili
+zakazani posao. Posle neizvesnog kreiranja (timeout/5xx) prvo proveri Notion;
+ne ponavljaj create naslepo. Automatski poslovi ostaju isključeni tokom ručnih provera.
 
 Checklista koristi kolone `Dan` (Title), `Datum` (Date) i po jednu Checkbox kolonu
 za svaki tačan naziv iz `CHECKLIST_POZITIVNE` / `CHECKLIST_IZBEGAVANJA`. Postojeća

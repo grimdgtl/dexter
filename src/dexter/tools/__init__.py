@@ -9,6 +9,7 @@ from dexter.tools import (  # noqa: F401
     mail,
     memory_tools,
     notion,
+    notion_business,
     proactive,
     receipts,
     todo,

@@ -27,6 +27,49 @@ def rich_text(items: list[dict]) -> str:
     return "".join(i.get("plain_text", i.get("text", {}).get("content", "")) for i in items)
 
 
+def text_fragments(value: str) -> list[dict]:
+    # Preslovljavanje može produžiti tekst; Notion granicu proveravamo tek posle njega.
+    value = u_latinicu(value)
+    return [{"text": {"content": value[i : i + 2000]}} for i in range(0, len(value), 2000)]
+
+
+async def database_source(api: AsyncClient, database_id: str | None, env: str) -> str:
+    if not database_id:
+        raise ValueError(f"Nedostaje {env}.")
+    database = await api.databases.retrieve(database_id=database_id)
+    sources = database.get("data_sources", [])
+    # Više tabela pod jednim database ID-jem nije dovoljan osnov za bezbedan upis.
+    if len(sources) != 1:
+        raise ValueError(f"{env}: baza mora imati tačno jedan izvor podataka (data source).")
+    return sources[0]["id"]
+
+
+async def query_pages(
+    api: AsyncClient, source_id: str, filter_: dict | None = None, limit: int | None = None
+) -> AsyncIterator[dict]:
+    cursor, seen, count = None, set(), 0
+    while True:
+        response = await api.data_sources.query(
+            data_source_id=source_id,
+            page_size=min(100, limit - count) if limit else 100,
+            **({"filter": filter_} if filter_ else {}),
+            **({"start_cursor": cursor} if cursor else {}),
+        )
+        for page in response["results"]:
+            if page.get("archived") or page.get("in_trash"):
+                continue
+            yield page
+            count += 1
+            if limit and count >= limit:
+                return
+        if not response.get("has_more"):
+            return
+        cursor = response.get("next_cursor")
+        if not cursor or cursor in seen:
+            raise ValueError("Notion je vratio neispravnu paginaciju baze.")
+        seen.add(cursor)
+
+
 async def search_pages(
     api: AsyncClient, query: str = "", limit: int | None = None
 ) -> AsyncIterator[dict]:

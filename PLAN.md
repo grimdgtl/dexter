@@ -254,11 +254,16 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > potvrdio 17 ličnih stavki, cilj 4, označavanje, delimičan pa dopunjen dnevnik,
   > statistiku i ponovljen zahtev za postojeći dnevni red bez duplikata.
   > Automatsko jutarnje kreiranje/povezivanje i podsetnici ostaju F1b.8, scheduler off.
-- [ ] **F1b.5 Notion klijenti, zadaci, baza znanja** — `client_add` (sam
+- [x] **F1b.5 Notion klijenti, zadaci, baza znanja** — `client_add` (sam
   prepoznaje postojeću firmu i kad je naziv drugačije napisan; vraća
   `dopunjen`), `client_update`, `client_list`, `client_find`,
   `notion_add_task`, `notion_list_tasks`, `notion_update_task_status`,
   `notion_add_knowledge`. Kolone po imenu tačno kao u starom README-u.
+
+  > Osam alata preneto uz postojeće ENV ID-jeve i Notion API 2025-09-03.
+  > Svih 432 testova sa bazom i ruff prolaze. Provere pokrivaju dopunu firme, dvosmislen naziv,
+  > nenavedena polja, poslovne statuse, pristup drugoj bazi i duge beleške.
+  > Stvarni pregled i upisi čekaju ručnu proveru posle deploy-a; scheduler ostaje off.
 - [ ] **F1b.6 Fakture** — `invoice_create`, `invoice_list`. Proširi registar:
   potvrdni alat može imati `prepare` korak koji vraća prilog (PDF bajtovi) koji
   bot šalje kao dokument uz dugmad **Sačuvaj / Odbaci**. `prepare` crta PDF sa
