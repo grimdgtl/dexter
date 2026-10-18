@@ -11,10 +11,10 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Fakture: priprema PDF-a, potvrda, Drive i arhiva | F1b.6: oba alata, mock/DB i vizuelne provere; korisnik potvrdio pregled, PDF, odbacivanje i čuvanje na stvarnom nalogu. |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
 | Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
-| Rođendani i evidencija čestitki | F1b.7: tri alata, lokalni datum i PostgreSQL evidencija; mock/DB provere, pravi nalog čeka redeploy. |
-| Monitoring i istorija dostupnosti | F1b.7: oba alata, GET provere i trajna istorija; mock/DB provere, pravi sajtovi čekaju ručnu proveru. |
-| Izveštaj u Google Doc | F1b.7: generate_report sa zadacima, kalendarom i opcionim sajtovima; SDK/HTTP mock provere. |
-| Izmena memorije | F1b.7: memory_update sa očuvanjem ID-ja i novim vektorom; DB provere, Telegram čeka redeploy. |
+| Rođendani i evidencija čestitki | F1b.7: pregled danas/uskoro i probna čestitka potvrđeni na pravom nalogu; rubni datumi i trajnost mock/DB provere. |
+| Monitoring i istorija dostupnosti | F1b.7: stvarna provera 22 sajta i odgovarajuća istorija potvrđeni; spori odgovori jasno odvojeni od nedostupnosti. |
+| Izveštaj u Google Doc | F1b.7: stvaran Doc link i pregled zadataka/kalendara vraćeni; opcioni izvori i greške SDK/HTTP mock provere. |
+| Izmena memorije | F1b.7: probni tekst Alfa → Beta uz isti ID i kategoriju potvrđen u Telegramu; vektor i konkurentnost DB provere. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
@@ -236,4 +236,17 @@ izvor i nenavedena polja; tekst i novi vektor idu u jednom UPDATE-u, bez dedupli
 ili stvaranja novog reda. Samo kategorija ne troši embedding poziv. Nepoznat ID,
 prazan tekst, nepoznata kategorija i zahtev bez izmene se odbijaju; v2 kategorija
 cilj ostaje dozvoljena. Ne menjaju se SYSTEM_PROMPT, scheduler ni postojeće činjenice.
-Pravi nalozi i server čekaju ručnu proveru posle redeploy-a.
+Ručni glavni tokovi potvrđeni su 18.10.2026. posle redeploy-a: /status prikazuje
+sedam alata, rođendani vraćaju danas/uskoro, a korisnik je potvrdio čestitanje
+probnoj osobi. Monitoring je proverio 22 sajta, svi HTTP 200, od kojih su dva
+bila spora. Istorija je vratila po jedan isti uzorak i 20/22 uspešnih provera,
+uz ograničenje da je reč o uzorcima, ne neprekidnom uptime-u.
+
+generate_report je vratio Google Doc link i pregled trenutnog TASK BOARD-a
+odvojeno od kalendarskog perioda, bez pretpostavljenog datuma za Done zadatke.
+To je potvrđeno prosleđenim rezultatom bota; sadržaj samog dokumenta nije
+nezavisno pregledan u ovoj sesiji. memory_update je promenio probni tekst
+Alfa → Beta uz isti ID i kategoriju; naknadno učitana lista potvrđuje izmenu.
+Prvi paralelni pregled pokazao je staru vrednost, pa za proveru treba čitati
+posle završenog upisa. Rubni datumi, reset/restart čestitki, HTTP greške,
+delimičan izveštaj i vektori ostaju mock/DB provere. Scheduler ostaje off.

@@ -964,8 +964,39 @@ upisa. DB proverava isti ID/izvor, nenavedena polja, tačan novi vektor teksta,
 promenu samo kategorije bez embedding poziva i paralelne delimične promene
 koje se ne prepisuju međusobno. Činjenica se ne briše niti pravi ponovo.
 
-ČEKA RUČNU PROVERU: redeploy, /status sa sedam novih alata; današnji/budući
+Prvobitno je čekalo ručnu proveru: redeploy, /status sa sedam novih alata; današnji/budući
 rođendani iz pravog Notion-a, evidentiranje izričito potvrđene čestitke;
 ručna provera aktivnih sajtova pa čitanje zabeleženog uptime-a; izveštaj sa
 Google Doc linkom (otvoriti i proveriti podatke/napomene); izmena samo probne
 činjenice uz isti ID. Scheduler ostaje off; rasporedi i automatske poruke su F1b.8.
+
+### F1b.7 — rezultati ručnih provera (18.10.2026)
+
+Posle redeploy-a korisnik je prosledio /status sa sedam novih aktivnih alata
+i dostupnom bazom. Pregled je vratio da danas nema rođendana i jednog narednog
+slavljenika sa datumom, odnosom i godinama, bez izmišljenih praznih podataka.
+Zatim je na uputstvo za probni današnji red i označavanje čestitke odgovorio
+„Radi”. Stvarni reset/restart i rubni datumi nisu zasebno izazivani.
+
+Ručni monitoring je vratio 22 sajta sa HTTP 200, dva preko praga sporog odgovora.
+Istorija za 30 dana zatim je vratila istih 22 uzorka, po jedan za svaki sajt,
+20 uspešnih i 90,91% ukupnog uspeha uzorka. Spori sajtovi nisu predstavljeni
+kao nedostupni; ograničenje jednog uzorka je izričito navedeno. Uptime čitanje
+nije dodalo novu proveru. Automatski monitoring ostaje isključen.
+
+Izveštaj „Dexter proba F1b.7” vratio je Google Doc link i pregled sadržaja:
+trenutne poslovne zadatke po statusu odvojene od kalendarskih događaja u opsegu.
+Done nije proglašen završenim u tom periodu. Ova evidencija se zasniva na
+prosleđenom rezultatu bota; dokument nije nezavisno otvoren kroz alat ove sesije,
+niti je korisnik posebno potvrdio detalje celodnevnog događaja. Linkovi,
+lični podaci i sadržaj klijentskih zadataka nisu preneti u repo.
+
+Probna činjenica je sačuvana sa oznakom Alfa i kategorijom projekat, zatim
+promenjena u Beta. Korisnik je prosledio naknadni pregled sa istim ID-jem i
+kategorijom. Prvi prikaz pozvan paralelno sa upisom pokazao je staru verziju;
+ponovljeno čitanje posle upisa potvrdilo je novo stanje. Obnova vektora,
+očuvanje izvora i paralelne delimične promene ostaju DB provere.
+
+Glavni ručni tokovi F1b.7 su provereni. Ova dopuna menja samo dokumentaciju;
+izvršni kod je isti kao u zelenom CI prolazu sa 592 testa. Rasporedi i
+automatske poruke ostaju F1b.8, uz SCHEDULER_ENABLED=off do dogovorenog uključivanja.

@@ -296,8 +296,10 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > Svih sedam alata preneto; migracija 013 uvodi evidenciju čestitki i istoriju
   > provera sajtova. Ruff i 592 testa sa bazom prolaze. Provereni su godišnji datumi,
   > trajno/idempotentno čestitanje, javni HTTP ciljevi, istorija uzoraka, delimični
-  > izvori izveštaja i obnavljanje vektora bez promene ID-ja. Pravi Telegram/Notion,
-  > sajtovi i Google Doc čekaju ručnu proveru posle deploy-a; scheduler ostaje off.
+  > izvori izveštaja i obnavljanje vektora bez promene ID-ja. Korisnik je 18.10.2026.
+  > posle deploy-a potvrdio pregled rođendana i probnu čestitku, proveru 22 sajta
+  > i istu istoriju uzoraka, kreiran Google Doc sa pregledom zadataka/kalendara,
+  > te izmenu probne činjenice Alfa → Beta uz isti ID i kategoriju. Scheduler ostaje off.
 - [ ] **F1b.8 Zakazani poslovi** — svih 14 iz Dodatka B, kroz `run_job` (F1.5),
   sa istim cron promenljivima kao stari. Poruke piše brzi model iz sirovih
   podataka (kao `generateText` u starom). Jutarnja motivacija pamti poslednjih
