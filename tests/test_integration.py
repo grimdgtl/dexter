@@ -7,9 +7,11 @@ Pokreću se samo kad postoji TEST_DATABASE_URL (prazna test baza!), npr:
 
 import asyncio
 import hashlib
+import json
 import math
 import os
 import re
+from datetime import date
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -17,6 +19,7 @@ from uuid import uuid4
 import asyncpg
 import httpx
 import pytest
+from notion_client import APIResponseError, RequestTimeoutError
 from pydantic import BaseModel
 
 DB_URL = os.environ.get("TEST_DATABASE_URL")
@@ -94,6 +97,105 @@ async def test_memory_dedupes(db):
     assert len(await memory.list_all()) == 1
     recalled = await memory.recall("ko je Marko knjigovođa")
     assert recalled and recalled[0]["text"].startswith("Marko")
+
+
+async def test_weekly_todo_concurrency_persistent_state_and_next_week(db, todo_notion, respx_mock):
+    from dexter.services import todo
+
+    n = todo_notion
+    query = respx_mock.post(f"{n.base}/data_sources/{n.source}/query").respond(
+        200, json={"results": [], "has_more": False}
+    )
+    create = respx_mock.post(f"{n.base}/pages").respond(200, json=n.page())
+    results = await asyncio.gather(
+        todo.create_weekly(date(2026, 10, 19)),
+        todo.create_weekly(date(2026, 10, 19)),
+        return_exceptions=True,
+    )
+    assert create.call_count == 1
+    assert any(isinstance(r, dict) and not r["vecPostojao"] for r in results)
+    assert all(isinstance(r, dict | RuntimeError) for r in results)
+    # Drugi proces može pročitati Notion pre nego što je novi red vidljiv.
+    again = await todo.create_weekly(date(2026, 10, 25))
+    assert again["vecPostojao"] and create.call_count == 1
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'todo:weekly:%'") == 1
+    body = json.loads(create.calls[0].request.content)
+    assert body["properties"]["Rok"]["date"]["start"] == "2026-10-25"
+    assert body["properties"]["Oblast"]["select"]["name"] == "Ljudi"
+    assert body["properties"]["Prioritet"]["select"]["name"] == "Srednji"
+    filters = json.loads(query.calls[0].request.content)["filter"]["and"]
+    assert filters[1]["date"] == {"on_or_after": "2026-10-19"}
+    assert filters[2]["date"] == {"on_or_before": "2026-10-25"}
+    assert not (await todo.create_weekly(date(2026, 10, 26)))["vecPostojao"]
+    assert create.call_count == 2
+
+
+async def test_weekly_todo_existing_notion_row_is_not_duplicated(db, todo_notion, respx_mock):
+    from dexter.services import todo
+
+    n = todo_notion
+    respx_mock.post(f"{n.base}/data_sources/{n.source}/query").respond(
+        200, json={"results": [n.page()], "has_more": False}
+    )
+    create = respx_mock.post(f"{n.base}/pages")
+    result = await todo.create_weekly(date(2026, 10, 19))
+    assert result["vecPostojao"] and not create.called
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 0
+
+
+@pytest.mark.parametrize("failure", ["timeout", "server_error"])
+async def test_weekly_todo_uncertain_create_never_repeats(db, todo_notion, respx_mock, failure):
+    from dexter.services import todo
+
+    n = todo_notion
+    query = respx_mock.post(f"{n.base}/data_sources/{n.source}/query").respond(
+        200, json={"results": [], "has_more": False}
+    )
+    create = respx_mock.post(f"{n.base}/pages")
+    if failure == "timeout":
+        create.mock(side_effect=httpx.ReadTimeout("Neizvestan upis"))
+    else:
+        create.respond(
+            503,
+            json={
+                "object": "error",
+                "status": 503,
+                "code": "service_unavailable",
+                "message": "Neizvestan upis",
+            },
+        )
+    with pytest.raises((APIResponseError, RequestTimeoutError)):
+        await todo.create_weekly(date(2026, 10, 19))
+    with pytest.raises(RuntimeError, match="ishod nije potvrđen"):
+        await todo.create_weekly(date(2026, 10, 19))
+    assert create.call_count == 1
+    query.respond(200, json={"results": [n.page()], "has_more": False})
+    assert (await todo.create_weekly(date(2026, 10, 19)))["vecPostojao"]
+    assert create.call_count == 1
+
+
+async def test_weekly_todo_rejected_write_can_retry(db, todo_notion, respx_mock):
+    from dexter.services import todo
+
+    n = todo_notion
+    respx_mock.post(f"{n.base}/data_sources/{n.source}/query").respond(
+        200, json={"results": [], "has_more": False}
+    )
+    create = respx_mock.post(f"{n.base}/pages").respond(
+        403,
+        json={
+            "object": "error",
+            "status": 403,
+            "code": "restricted_resource",
+            "message": "Pristup odbijen",
+        },
+    )
+    with pytest.raises(APIResponseError):
+        await todo.create_weekly(date(2026, 10, 19))
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 0
+    create.respond(200, json=n.page())
+    assert not (await todo.create_weekly(date(2026, 10, 19)))["vecPostojao"]
+    assert create.call_count == 2
 
 
 async def test_agent_loop_parallel_tools_caching_and_history(db, monkeypatch):

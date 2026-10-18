@@ -16,10 +16,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from telegram import Bot
 
-from dexter import commitments, jobs, llm, proactive, sources
+from dexter import commitments, cron, jobs, llm, proactive, sources
 from dexter.agent.prompts import SYSTEM_PROMPT
 from dexter.config import settings
 from dexter.pismo import u_latinicu
+from dexter.services import todo
 from dexter.tools.weather import WeatherArgs, weather_get
 
 log = logging.getLogger(__name__)
@@ -39,6 +40,18 @@ async def morning_greeting(bot: Bot) -> None:
 
 async def conversation_summaries() -> dict:
     return await sources.reindex("razgovor")
+
+
+async def weekly_task(bot: Bot) -> dict:
+    task = await todo.create_weekly()
+    if not task["vecPostojao"]:
+        await bot.send_message(
+            settings().telegram_owner_chat_id,
+            u_latinicu(
+                f"💐 Nova nedelja — dodao sam ti zadatak: „{task['zadatak']}” (rok: {task['rok']})."
+            ),
+        )
+    return task
 
 
 def start(bot: Bot) -> AsyncIOScheduler | None:
@@ -81,6 +94,13 @@ def start(bot: Bot) -> AsyncIOScheduler | None:
     if sources.available():
         sched.add_job(safe, CronTrigger.from_crontab(settings().semantic_index_cron, timezone=tz),
                       args=[sources.reindex], id="knowledge_index")  # fmt: skip
+    if todo.available():
+        sched.add_job(
+            safe,
+            cron.trigger(settings().flowers_task_cron, tz),
+            args=[weekly_task, bot],
+            id="weekly_task",
+        )
     sched.start()
     log.info("Scheduler pokrenut (%d poslova).", len(sched.get_jobs()))
     return sched

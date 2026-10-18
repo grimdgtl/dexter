@@ -118,6 +118,9 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `LOG_LEVEL` | `INFO` | Nivo logovanja |
 | `NOTION_API_KEY` | prazno | Token Notion integracije; podeli roditeljsku stranicu sa integracijom |
 | `NOTION_TASKS_DB_ID` | prazno | TASK BOARD za proaktivni uvid: Name/Status i opciona Date kolona Rok |
+| `NOTION_TODO_DB_ID` | prazno | Lična To-do lista na Life stranici, odvojena od poslovnog TASK BOARD-a |
+| `WEEKLY_TASK_TITLE` | `Nedeljni zadatak` | Naslov ličnog zadatka koji se ponavlja svake nedelje |
+| `FLOWERS_TASK_CRON` | `0 5 * * 1` | Nedeljni lični zadatak ponedeljkom u 05:00 po TIMEZONE; rok nedelja |
 | `SEMANTIC_INDEX_CRON` | `0 4 * * *` | Dnevno osvežavanje znanja po `TIMEZONE` |
 | `GOOGLE_CLIENT_ID` | prazno | OAuth klijent iz Google Cloud projekta |
 | `GOOGLE_CLIENT_SECRET` | prazno | Tajna istog OAuth klijenta |
@@ -133,6 +136,33 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `MAIL_INDEX_SENT_FOLDER` | automatski | Pun naziv Sent foldera kada ga server ne označava standardno |
 
 `notion_search` traži po naslovu; `notion_read_page` čita i ugnježdene blokove i podstranice.
+
+Lična To-do lista koristi `NOTION_TODO_DB_ID` iz stare instalacije i istu Notion
+integraciju. Baza mora imati jedan data source i sledeće kolone:
+
+| Kolona | Tip | Vrednosti |
+|---|---|---|
+| `Zadatak` | Title | Naziv ličnog zadatka |
+| `Status` | Status | `Not started`, `In progress`, `Done` |
+| `Oblast` | Select | `Zdravlje`, `Kuća`, `Finansije`, `Ljudi`, `Učenje`, `Ostalo` |
+| `Prioritet` | Select | `Visok`, `Srednji`, `Nizak` |
+| `Rok` | Date | Opciono, `YYYY-MM-DD` |
+
+`todo_list` podrazumevano vraća otvorene zadatke (do 25, najviše 100); zadati
+`status` omogućava i pregled završenih. `todo_add` kreira lični zadatak,
+`todo_set_status` menja samo status zadatka iz ove baze. Poslovni TASK BOARD je
+zasebna baza. Za proveru posle deploy-a traži pregled, dodaj „Dexter proba to-do”
+sa rokom, pa označi taj zadatak kao završen i proveri u Notion-u.
+
+Kad je `SCHEDULER_ENABLED=on` i To-do konfigurisan, ponedeljkom u 05:00 nastaje
+`WEEKLY_TASK_TITLE`, oblast `Ljudi`, prioritet `Srednji`, rok nedelja iste sedmice.
+`FLOWERS_TASK_CRON` koristi pet standardnih cron polja (0/7 nedelja, 1 ponedeljak)
+po `TIMEZONE`. Za već postojeći nedeljni zadatak nema novog reda ni obaveštenja.
+PostgreSQL `kv_state` sprečava ponovni upis i kada Notion još ne prikazuje novi red.
+Posle neizvesnog upisa (timeout/5xx) posao prvo ponovo traži zadatak u Notion-u;
+ako ga ne nađe, prijavljuje problem kroz `/poslovi` umesto mogućeg duplikata.
+Tada proveri listu i po potrebi dodaj nedostajući zadatak ručno. Nedeljni posao
+šalje obaveštenje samo nakon potvrđenog novog upisa; kasniji podsetnici čekaju F1b.8.
 `knowledge_reindex` osvežava sve podešene izvore ili zadati `izvor`.
 Sa `RERANK=on`, brzi model preslaže do 20 hybrid odlomaka pre odabira `limit` rezultata.
 Vraćeni indeksi moraju biti potpuna permutacija; pri grešci, odsečenom odgovoru ili

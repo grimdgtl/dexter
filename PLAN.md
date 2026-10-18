@@ -224,8 +224,12 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > Korisnik bira postojeći aktivni kalendar (`primary`). SDK/respx provere su
   > završene; stvarni pregled, slobodni termini i potvrđeni upis proveravaju se
   > posle deploy-a. Zakazivanje obavezno traži potvrdu dugmetom.
-- [ ] **F1b.2 To-do** — `todo_list`, `todo_add`, `todo_set_status` + nedeljni
+- [x] **F1b.2 To-do** — `todo_list`, `todo_add`, `todo_set_status` + nedeljni
   zadatak ponedeljkom (`WEEKLY_TASK_TITLE`, `FLOWERS_TASK_CRON`).
+
+  > Implementacija, mock i PostgreSQL provere završene. Pravi Notion: ručno
+  > proveriti pregled, dodavanje i status posle deploy-a; scheduler ostaje off
+  > tokom ručnih testova. Nedeljni automatski upis čeka proveru po uključivanju.
 - [ ] **F1b.3 Mejl** — `mail_list_unread`, `mail_search`, `mail_read`,
   `mail_folders`, `mail_save_draft`, `mail_send`. Čitanje NIKAD ne menja `\Seen`
   (PEEK; npr. `imap-tools` sa `mark_seen=False` u `to_thread`). `mail_send` je

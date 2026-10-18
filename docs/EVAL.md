@@ -616,3 +616,28 @@ Ruff i svih 263 testa sa izolovanom PostgreSQL bazom prolaze. SYSTEM_PROMPT nije
 menjan; persona provera prolazi bez novog merenja. Korisnik bira `primary` umesto
 test kalendara. Pravi Google nalog nije pozivan iz testova; ručno proveriti pregled,
 slobodne termine, potvrdni upis i ponavljanje nakon deploy-a.
+
+## F1b.2 — Lična To-do lista (18.10.2026)
+
+Pročitani su v1 `src/services/todo.js`, nedeljni posao iz `scheduler.js`, računanje
+sedmice iz `checklist.js`, definicije tri alata i README šema lične liste.
+Preneti su pregled, dodavanje, promena statusa i posao ponedeljkom u 05:00.
+Koristi se postojeći database ID uz data source otkrivanje prema
+[Notion vodiču za API 2025-09-03](https://developers.notion.com/guides/get-started/upgrade-guide-2025-09-03).
+
+SDK/respx provere pokrivaju paginaciju, otvorene/završene zadatke, sva opciona
+polja i prazne vrednosti, latinicu, 403 za sva tri alata, odbijanje višeznačne
+baze i promene statusa van lične liste. Provereni su neispravni datumi i enum
+vrednosti, registracija sa `requires`, uslovno zakazivanje i `run_job` omotač.
+Cron testovi proveravaju ponedeljak=1, nedelju=0/7, nazive, opsege i korake.
+
+Integracioni testovi sa PostgreSQL-om potvrđuju jedan create pri paralelnom
+pokretanju, trajni ključ i ponovni poziv dok je Notion rezultat još prazan,
+nov zadatak sledeće sedmice, postojeći Notion red bez novog upisa, bezbedno
+zaustavljanje posle timeout-a/503 i ponovni pokušaj posle definitivnog 403.
+Kalendarska sedmica proverena je i preko nove godine i promene sata.
+
+Ruff i svih 290 testova sa bazom prolaze. Novi testovi koriste mock HTTP;
+pravi Notion nije pozivan. SYSTEM_PROMPT je nepromenjen. Ručna provera posle
+deploy-a: pregled lične liste, dodavanje probnog zadatka sa rokom, promena na
+Done; automatski nedeljni posao proveriti tek kada se uključi scheduler.

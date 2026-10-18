@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from email import message_from_bytes
 from email.message import EmailMessage
 from email.utils import parsedate_to_datetime
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,6 +14,40 @@ import pytest
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test")
 os.environ.setdefault("TELEGRAM_OWNER_CHAT_ID", "1")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test")
+
+
+@pytest.fixture
+def todo_notion(monkeypatch, respx_mock):
+    from dexter.config import settings
+
+    base = "https://api.notion.com/v1"
+    database = "11111111-1111-1111-1111-111111111111"
+    source = "22222222-2222-2222-2222-222222222222"
+    task_id = "33333333-3333-3333-3333-333333333333"
+    monkeypatch.setattr(settings(), "notion_api_key", "test-notion")
+    monkeypatch.setattr(settings(), "notion_todo_db_id", database)
+    monkeypatch.setattr(settings(), "weekly_task_title", "Nedeljni zadatak")
+    monkeypatch.setattr(settings(), "timezone", "Europe/Belgrade")
+    respx_mock.get(f"{base}/databases/{database}").respond(
+        200, json={"data_sources": [{"id": source}]}
+    )
+
+    def page(title="Лични задатак", **kwargs):
+        return {
+            "id": task_id,
+            "url": f"https://notion.so/{task_id}",
+            "parent": {"type": "data_source_id", "data_source_id": source},
+            "properties": {
+                "Zadatak": {"title": [{"plain_text": title}]},
+                "Status": {"status": {"name": "Not started"}},
+                "Oblast": {"select": None},
+                "Prioritet": {"select": None},
+                "Rok": {"date": None},
+            },
+            **kwargs,
+        }
+
+    return SimpleNamespace(base=base, database=database, source=source, task_id=task_id, page=page)
 
 
 @pytest.fixture

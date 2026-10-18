@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     notion_api_key: str | None = None
     notion_tasks_db_id: str | None = None
+    notion_todo_db_id: str | None = None
+    weekly_task_title: str = Field("Nedeljni zadatak", min_length=1, max_length=2000)
+    flowers_task_cron: str = "0 5 * * 1"
     scheduler_enabled: Literal["on", "off"] = "on"
     semantic_index_cron: str = "0 4 * * *"
     google_client_id: str | None = None

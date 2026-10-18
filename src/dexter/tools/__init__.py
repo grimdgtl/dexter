@@ -9,5 +9,6 @@ from dexter.tools import (  # noqa: F401
     notion,
     proactive,
     receipts,
+    todo,
     weather,
 )
