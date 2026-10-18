@@ -236,9 +236,11 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   `confirm=True`; slanje preko Resend HTTP API-ja, SMTP samo kad nema
   `RESEND_API_KEY`. Isteklo posle 30 min (već u registru).
 
-  > Svih šest alata i mock provere su završeni; 325 testova sa bazom prolazi.
-  > Pravi IMAP, draft i potvrđeno slanje na sopstvenu adresu čekaju ručnu proveru
-  > nakon deploy-a. Automatski poslovi ostaju isključeni.
+  > Svih šest alata i mock provere su završeni. Korisnik je 18.10.2026. potvrdio
+  > pregled, pretragu, ceo tekst mejla, očuvanje nepročitanog stanja, draft,
+  > otkazivanje i potvrđeno Resend slanje uz prijem u inbox. SMTP rezervni put
+  > pokriven je mock testovima. Posle ispravke istorije prolazi 335 testova sa
+  > bazom. Automatski poslovi ostaju isključeni.
 - [ ] **F1b.4 Checklista, dnevnik, insights** — `checklist_get`,
   `checklist_mark`, `checklist_create_day`, `dnevnik_get`, `dnevnik_write`,
   `insights_get`. Stavke iz `CHECKLIST_POZITIVNE` / `CHECKLIST_IZBEGAVANJA`;

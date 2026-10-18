@@ -712,3 +712,19 @@ je najviše jedan modelski retry po neispravnom delu, evidentiran kao history_su
 SYSTEM_PROMPT nije menjan. Stvarni zahtev za doslovan mejl ponoviti posle deploy-a.
 
 Ruff i svih 335 testova sa izolovanom PostgreSQL bazom prolaze.
+
+## F1b.3 — završena ručna provera (18.10.2026)
+
+Korisnik je kroz stvarni Telegram bot i svoj nalog potvrdio pregled nepročitanih
+poruka, pretragu poslednjih primljenih poruka i prikaz celog tela mejla nakon
+ispravke F3.5. Zatim je potvrđeno čuvanje nacrta u Drafts bez slanja, otkazivanje
+pripreme bez slanja i slanje drugim pokušajem tek posle dugmeta Pošalji.
+Resend je vratio uspešan rezultat, a korisnik je potvrdio prijem u inbox.
+Na kraju je postojeću poruku ručno označio kao nepročitanu, zatražio čitanje od
+Dextera i potvrdio da je poruka u sandučetu ostala nepročitana.
+
+Stvarni SMTP rezervni transport, CC i istek potvrde nisu posebno isprobani na
+nalogu; njihove provere ostaju mock testovi. Automatski poslovi su i dalje off.
+Ova dopuna beleži ručne rezultate; izvršni kod je isti kao u zelenom CI prolazu
+sa 335 testova. Privatni sadržaj poruka, adrese i ID-jevi isporuke nisu preneti
+u repozitorijum.

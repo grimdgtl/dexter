@@ -8,7 +8,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
 | Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
 | Čitanje TASK BOARD-a za uvid | F6.2: Name/Status, opciona nova Date kolona Rok; alati čekaju F1b.5 |
-| Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: svih šest alata preneto, PEEK i potvrda slanja; pravi nalog čeka ručnu proveru. |
+| Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
