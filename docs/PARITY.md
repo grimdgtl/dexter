@@ -7,7 +7,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 |---|---|
 | Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
 | Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
-| Klijenti, TASK BOARD i upis Knowledge Base beleške | F1b.5: osam alata preneto i mock provereno; stvarni nalog čeka proveru posle deploy-a. F6.2 čitanje za uvid ostaje dostupno. |
+| Klijenti, TASK BOARD i upis Knowledge Base beleške | F1b.5: osam alata preneto; pregled, pretraga, dodavanje/dopuna/izmena klijenta, poslovni zadatak i KB podstranica potvrđeni na pravom nalogu. |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
 | Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
@@ -125,4 +125,12 @@ ostaje podstranica sa po jednim pasusom za neprazan red. Nova ograničenja su
 posle preslovljavanja, blokovi u grupe do 100. Delimično neuspešna dopuna
 vraća link i broj potvrđenih pasusa, bez tvrdnje da je beleška potpuno upisana.
 Ne pokreće se automatsko ponovno kreiranje niti reindeksiranje. SYSTEM_PROMPT
-ostaje isti; Notion šema i trajno stanje baze nisu menjani. Ručna provera je otvorena.
+ostaje isti; Notion šema i trajno stanje baze nisu menjani.
+
+Ručna provera završena je 18.10.2026: korisnik je potvrdio pregled aktivnih
+klijenata i pretragu skraćenog naziva, zatim dodavanje probnog klijenta u Arhivu,
+dopunu alternativnim pravnim nazivom bez duplikata i izmenu samo opisa uz
+očuvanje naslova, pravnog naziva i statusa. Poslovni TASK BOARD je pročitan,
+probni zadatak dodat pa promenjen u Done na istom redu. KB beleška je nastala
+na pravom mestu sa oba pasusa. Dvosmisleni nazivi, veliki sadržaj i delimični
+HTTP neuspeh ostaju mock provere. Automatski poslovi su isključeni.

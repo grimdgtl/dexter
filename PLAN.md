@@ -261,9 +261,11 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   `notion_add_knowledge`. Kolone po imenu tačno kao u starom README-u.
 
   > Osam alata preneto uz postojeće ENV ID-jeve i Notion API 2025-09-03.
-  > Svih 432 testova sa bazom i ruff prolaze. Provere pokrivaju dopunu firme, dvosmislen naziv,
+  > Sva 432 testa sa bazom i ruff prolaze. Provere pokrivaju dopunu firme, dvosmislen naziv,
   > nenavedena polja, poslovne statuse, pristup drugoj bazi i duge beleške.
-  > Stvarni pregled i upisi čekaju ručnu proveru posle deploy-a; scheduler ostaje off.
+  > Korisnik je 18.10.2026. potvrdio pregled/pretragu klijenata, novi probni red,
+  > dopunu alternativnim nazivom bez duplikata i delimičnu izmenu. Poslovni zadatak
+  > je dodat i završen, a KB podstranica ima oba pasusa na pravom mestu. Scheduler ostaje off.
 - [ ] **F1b.6 Fakture** — `invoice_create`, `invoice_list`. Proširi registar:
   potvrdni alat može imati `prepare` korak koji vraća prilog (PDF bajtovi) koji
   bot šalje kao dokument uz dugmad **Sačuvaj / Odbaci**. `prepare` crta PDF sa

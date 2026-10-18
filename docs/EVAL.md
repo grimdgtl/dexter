@@ -810,8 +810,19 @@ preveliku belešku pre create-a. API granice prate
 [Notion ograničenja zahteva](https://developers.notion.com/reference/request-limits).
 Nema stvarnog merenja LLM troška/latencije za ovu funkcionalnu fazu.
 
-ČEKA RUČNU PROVERU posle deploy-a: `/status`, pregled/pretraga stvarnih klijenata,
-dodavanje probnog klijenta pa dopuna alternativnim nazivom bez duplikata,
-delimična izmena postojećeg probnog reda, pregled/dodavanje/završavanje poslovnog
-zadatka i beleška sa čitljivom podstranicom u Knowledge Base-u. Tajne i privatni
-fiskalni podaci se ne prenose u repo; `SCHEDULER_ENABLED` ostaje off.
+Ručna provera posle deploy-a završena je 18.10.2026. `/status` je prikazao svih
+osam aktivnih alata. Korisnik je potvrdio pregled prvih pet aktivnih klijenata
+i pretragu skraćenog naziva, dodavanje probnog klijenta u Arhivu, zatim dopunu
+alternativnim pravnim nazivom bez drugog reda. Naslov, Arhiva i tip Interni
+ostali su sačuvani; promenjen je dostavljeni opis i popunjen prazan pravni naziv.
+Zasebna izmena samo opisa takođe je sačuvala ostala polja.
+
+U poslovnom TASK BOARD-u provereni su pregled zadataka, dodavanje probnog
+zadatka sa statusom Not started i promena istog reda u Done. KB beleška je
+sačuvana kao podstranica; korisnik je potvrdio da je na pravom mestu i da ima
+oba pasusa. Reindeksiranje nije pokretano. Dvosmisleni klijenti, paginacija,
+dugi tekstovi i delimičan HTTP neuspeh ostaju pokriveni mock testovima.
+
+Ova dopuna menja samo dokumentaciju; izvršni kod je isti kao u zelenom CI
+prolazu sa 432 testa. Tajne, privatni ID-jevi i fiskalni podaci nisu preneti
+u repo. `SCHEDULER_ENABLED` ostaje off.
