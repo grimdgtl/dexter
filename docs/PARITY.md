@@ -8,7 +8,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
 | Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
 | Klijenti, TASK BOARD i upis Knowledge Base beleške | F1b.5: osam alata preneto; pregled, pretraga, dodavanje/dopuna/izmena klijenta, poslovni zadatak i KB podstranica potvrđeni na pravom nalogu. |
-| Fakture: priprema PDF-a, potvrda, Drive i arhiva | F1b.6: oba alata i PDF tok implementirani; mock/DB i vizuelne provere, stvarni nalog čeka deploy. |
+| Fakture: priprema PDF-a, potvrda, Drive i arhiva | F1b.6: mock/DB i vizuelne provere; stvarno čitanje arhive potvrđeno, novi prikaz imena i PDF tok čekaju ručnu proveru. |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
 | Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
@@ -167,4 +167,11 @@ izgubljenog odgovora. Delimičan neuspeh čuva poznati link i ne tvrdi da je sve
 izvršeno, za razliku od generičke greške v1. Ne pokreće se automatski drugi upis;
 kv_state čuva ishod i preko restarta. Ručni upisi i drugi botovi nisu deo tog lock-a.
 `invoice_list` traži samo Notion, zadržava status/limit i paginira do limita.
-Šema PostgreSQL-a i SYSTEM_PROMPT nisu menjani. Stvarni nalog još čeka ručnu proveru.
+Šema PostgreSQL-a i SYSTEM_PROMPT nisu menjani. PDF i arhiviranje još čekaju ručnu proveru.
+
+Posle prvog stvarnog pregleda arhive 18.10.2026. `invoice_list` je dopunjen
+imenima iz Notion veze `Klijent` (v1 ih takođe nije vraćao). Čita samo povezane
+stranice, jednom po klijentu u tom pozivu, bez dodatnog ENV ID-ja i bez upisa.
+Višestruke veze vraćaju listu i napomenu; prazna/nedostupna veza ili nepotpuna
+paginacija ne proizvodi izmišljeno ime i ne skriva dostupne podatke fakture.
+Novi prikaz, PDF i potvrđeno čuvanje ostaju ručne provere posle redeploy-a.

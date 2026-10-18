@@ -56,7 +56,8 @@ async def invoice_create(args: CreateArgs):
     "invoice_list",
     "Vraća izdate fakture iz Notion arhive, najnovije prvo. Koristi za 'koje sam fakture izdao', "
     "'ko mi nije platio' (status Nije plaćeno), 'koliko sam fakturisao'. Do 25, najviše 100; "
-    "dostignut limit nije ukupan broj u arhivi.",
+    "dostignut limit nije ukupan broj u arhivi. Imena klijenata čita preko veze Klijent; "
+    "ako naziv nije dostupan ili ima više klijenata, navedi napomenu, ne nagađaj iz stavki ili PDF-a.",
     requires=invoices.READ_REQUIRES,
 )
 async def invoice_list(args: ListArgs) -> list[dict]:

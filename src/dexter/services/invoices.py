@@ -7,6 +7,8 @@ from decimal import Decimal
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from notion_client import RequestTimeoutError
+from notion_client.errors import HTTPResponseError
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from dexter import db
@@ -340,13 +342,68 @@ async def archive(invoice: PreparedInvoice) -> ConfirmedAction:
             await conn.execute("SELECT pg_advisory_unlock($1::bigint)", lock)
 
 
+async def linked_clients(api, page: dict, cache: dict) -> dict:
+    relation = page.get("properties", {}).get("Klijent", {})
+    links = list(relation.get("relation", []))
+    notes = []
+    complete = True
+    if relation.get("has_more"):
+        try:
+            cursor, seen = None, set()
+            while True:
+                response = await api.pages.properties.retrieve(
+                    page_id=page["id"],
+                    property_id=relation["id"],
+                    page_size=100,
+                    **({"start_cursor": cursor} if cursor else {}),
+                )
+                links.extend(item["relation"] for item in response["results"])
+                if not response.get("has_more"):
+                    break
+                cursor = response.get("next_cursor")
+                if not cursor or cursor in seen:
+                    raise ValueError("Neispravna paginacija veze Klijent.")
+                seen.add(cursor)
+        except (HTTPResponseError, RequestTimeoutError, ValueError):
+            complete = False
+            notes.append("Lista vezanih klijenata nije potpuna; proveri vezu Klijent u Notion-u.")
+    clients = []
+    for page_id in dict.fromkeys(link["id"] for link in links):
+        # Ista firma na više faktura traži samo jedan GET u okviru ovog pregleda.
+        if page_id not in cache:
+            customer = {"id": page_id, "naziv": None}
+            try:
+                linked = await api.pages.retrieve(page_id=page_id)
+                name = u_latinicu(
+                    notion.rich_text(
+                        linked.get("properties", {}).get("Klijent", {}).get("title", [])
+                    )
+                ).strip()
+                customer["naziv"] = name or None
+                if not name:
+                    customer["napomena"] = "Vezani klijent nema popunjen naziv."
+            except (HTTPResponseError, RequestTimeoutError):
+                customer["napomena"] = "Vezani klijent nije dostupan; proveri pristup integracije."
+            cache[page_id] = customer
+        clients.append(cache[page_id])
+    if not clients:
+        notes.append("Notion nije vratio vezanog klijenta; proveri vezu i pristup KLIJENTI bazi.")
+    elif len(clients) > 1:
+        notes.append("Faktura ima više vezanih klijenata; ne biraj jednog proizvoljno.")
+    return {
+        "klijent": clients[0]["naziv"] if complete and len(clients) == 1 else None,
+        "klijenti": clients,
+        **({"napomena": " ".join(notes)} if notes else {}),
+    }
+
+
 async def list_invoices(status=None, limit=25) -> list[dict]:
     async with notion.client() as api:
         source_id = await notion.database_source(
             api, settings().notion_invoices_db_id, "NOTION_INVOICES_DB_ID"
         )
         filter_ = {"property": "Status", "select": {"equals": status}} if status else None
-        rows = []
+        rows, clients = [], {}
         async for page in notion.query_pages(
             api,
             source_id,
@@ -369,6 +426,7 @@ async def list_invoices(status=None, limit=25) -> list[dict]:
                         notion.rich_text(props.get("Stavke", {}).get("rich_text", []))
                     ),
                     "pdf": props.get("PDF", {}).get("url"),
+                    **await linked_clients(api, page, clients),
                 }
             )
         return rows

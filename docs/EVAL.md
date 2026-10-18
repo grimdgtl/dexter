@@ -881,3 +881,20 @@ Nema novog LLM poziva u PDF crtanju/arhiviranju; cena i latencija modela nisu me
 PDF u Telegramu sa tačnim podacima, Odbaci bez spoljnog upisa, pa zasebna izričita
 potvrda Sačuvaj i poređenje istog broja/iznosa/PDF-a u Drive-u i FAKTURE arhivi.
 Automatski poslovi ostaju off. Stvarno čuvanje se ne pokreće ovim koderskim testovima.
+
+### F1b.6 — imena klijenata u pregledu arhive (18.10.2026)
+
+Stvarni `/status` potvrđuje oba alata i pregled vraća fakture iz Notion-a.
+Korisnikov odgovor pokazao je da, kao v1, alat nije razrešavao vezu Klijent.
+Sada vraća `klijent` i `klijenti` (ID/naziv), čitajući samo povezane stranice.
+Keš važi za jedan poziv; više faktura iste firme zahteva samo jedan GET imena.
+Nema dodatnog LLM poziva, promene šeme, SYSTEM_PROMPT-a ni novih ENV promenljivih.
+
+Pre: 484 testa sa bazom. Posle: 493 testa sa izolovanom PostgreSQL + pgvector
+bazom (13,15 s), ruff prolazi. Devet novih mock provera obuhvata latinicu,
+rad bez `NOTION_CLIENTS_DB_ID`, ponovno korišćenje imena, praznu vezu/naziv,
+403/404 i timeout, više klijenata, paginaciju veze i neispravan cursor.
+Podaci fakture ostaju dostupni uz napomenu ako klijent ne može da se utvrdi.
+Paginacija prati [Notion čitanje svojstva stranice](https://developers.notion.com/reference/retrieve-a-page-property).
+Novi prikaz imena i PDF/odustanak/potvrđeno arhiviranje čekaju korisnikov redeploy
+i stvarnu proveru. Zakazani poslovi ostaju isključeni.

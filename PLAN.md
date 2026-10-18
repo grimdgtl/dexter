@@ -284,6 +284,9 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > uz izmišljene podatke; provere numeracije/grešaka/konkurentnosti su mock + DB.
   > Stvarni PDF u Telegramu, odbacivanje i potvrđeno čuvanje čekaju ručnu proveru
   > posle deploy-a. Podaci izdavaoca ostaju bez podrazumevanih vrednosti; scheduler off.
+  > `/status` i čitanje arhive potvrđeni su na stvarnom nalogu 18.10.2026.
+  > Dopuna posle te provere dodaje imena iz veze Klijent uz napomenu za nedostupan
+  > ili višestruki odnos; 493 testa sa bazom prolaze. Novi prikaz čeka redeploy/proveru.
 - [ ] **F1b.7 Rođendani, monitoring, izveštaji, memory_update** —
   `birthdays_today`, `birthdays_upcoming`, `birthday_mark_greeted` (tabela
   `birthday_greetings`), `monitor_check_sites`, `monitor_uptime` (tabela

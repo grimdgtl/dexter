@@ -243,6 +243,119 @@ async def test_invoice_list_works_without_issuer_or_google_and_sorts(invoice_not
         ListArgs(status="Platio")
 
 
+async def test_invoice_list_resolves_client_once_without_clients_database_setting(
+    invoice_notion, monkeypatch, respx_mock
+):
+    n = invoice_notion
+    for number in ("002-2026", "001-2026"):
+        page = n.add_invoice(number)
+        page["properties"]["Klijent"] = {"relation": [{"id": n.customer["id"]}]}
+    route = respx_mock.get(f"{n.base}/pages/{n.customer['id']}").respond(
+        200,
+        json={"properties": {"Klijent": {"title": [{"plain_text": "Пример Студио"}]}}},
+    )
+    monkeypatch.setattr(settings(), "notion_clients_db_id", None)
+    result = await registry.execute("invoice_list", {"limit": 2})
+    assert not result.is_error
+    rows = json.loads(result.text)
+    assert [row["broj"] for row in rows] == ["002-2026", "001-2026"]
+    assert all(row["klijent"] == "Primer Studio" for row in rows)
+    assert rows[0]["klijenti"] == [{"id": n.customer["id"], "naziv": "Primer Studio"}]
+    assert route.call_count == 1
+    assert rows[0]["iznos"] == 100 and rows[0]["status"] == "Nije plaćeno"
+    assert not n.create.called and not n.upload.called and not n.client_query.called
+
+
+@pytest.mark.parametrize("case", ["empty", "forbidden", "missing", "untitled", "timeout"])
+async def test_invoice_list_keeps_invoice_and_warns_when_client_unknown(
+    invoice_notion, respx_mock, case
+):
+    n = invoice_notion
+    page = n.add_invoice("001-2026")
+    relation = [] if case == "empty" else [{"id": n.customer["id"]}]
+    page["properties"]["Klijent"] = {"relation": relation}
+    if relation:
+        route = respx_mock.get(f"{n.base}/pages/{n.customer['id']}")
+        if case == "untitled":
+            route.respond(200, json={"properties": {"Klijent": {"title": []}}})
+        elif case == "timeout":
+            route.mock(side_effect=httpx.ReadTimeout("Nema odgovora"))
+        else:
+            route.respond(
+                403 if case == "forbidden" else 404,
+                json={"object": "error", "code": "object_not_found", "message": "Nema pristupa"},
+            )
+    rows = await invoices.list_invoices()
+    assert rows[0]["broj"] == "001-2026" and rows[0]["iznos"] == 100
+    assert rows[0]["klijent"] is None
+    if relation:
+        customer = rows[0]["klijenti"][0]
+        assert customer["id"] == n.customer["id"] and customer["naziv"] is None
+        assert customer["napomena"]
+    else:
+        assert rows[0]["klijenti"] == [] and "pristup" in rows[0]["napomena"]
+
+
+async def test_invoice_list_paginates_client_relation_without_choosing_one(
+    invoice_notion, respx_mock
+):
+    n = invoice_notion
+    page = n.add_invoice("001-2026")
+    page["properties"]["Klijent"] = {
+        "id": "client",
+        "relation": [{"id": n.customer["id"]}],
+        "has_more": True,
+    }
+    relation = respx_mock.get(f"{n.base}/pages/{page['id']}/properties/client").mock(
+        side_effect=[
+            httpx.Response(
+                200,
+                json={
+                    "results": [{"relation": {"id": n.customer["id"]}}],
+                    "has_more": True,
+                    "next_cursor": "jos",
+                },
+            ),
+            httpx.Response(
+                200, json={"results": [{"relation": {"id": "other"}}], "has_more": False}
+            ),
+        ]
+    )
+    for page_id, title in ((n.customer["id"], "Primer Studio"), ("other", "Drugi klijent")):
+        respx_mock.get(f"{n.base}/pages/{page_id}").respond(
+            200, json={"properties": {"Klijent": {"title": [{"plain_text": title}]}}}
+        )
+    rows = await invoices.list_invoices()
+    assert rows[0]["klijent"] is None
+    assert [client["naziv"] for client in rows[0]["klijenti"]] == ["Primer Studio", "Drugi klijent"]
+    assert "više" in rows[0]["napomena"]
+    assert relation.call_count == 2
+    assert relation.calls[1].request.url.params["start_cursor"] == "jos"
+
+
+@pytest.mark.parametrize("case", ["forbidden", "cursor"])
+async def test_invoice_list_warns_on_incomplete_client_relation(invoice_notion, respx_mock, case):
+    n = invoice_notion
+    page = n.add_invoice("001-2026")
+    page["properties"]["Klijent"] = {
+        "id": "client",
+        "relation": [{"id": n.customer["id"]}],
+        "has_more": True,
+    }
+    route = respx_mock.get(f"{n.base}/pages/{page['id']}/properties/client")
+    if case == "forbidden":
+        route.respond(403, json={"code": "restricted_resource", "message": "Nema pristupa"})
+    else:
+        route.respond(200, json={"results": [], "has_more": True, "next_cursor": "isti"})
+    respx_mock.get(f"{n.base}/pages/{n.customer['id']}").respond(
+        200, json={"properties": {"Klijent": {"title": [{"plain_text": "Primer Studio"}]}}}
+    )
+    rows = await invoices.list_invoices()
+    assert rows[0]["klijent"] is None
+    assert rows[0]["klijenti"][0]["naziv"] == "Primer Studio"
+    assert "nije potpuna" in rows[0]["napomena"]
+
+
 async def test_telegram_document_precedes_save_button_and_failure_cancels(
     invoice_notion, number_db, monkeypatch
 ):

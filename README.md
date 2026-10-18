@@ -192,6 +192,8 @@ se broj ponovo računa. Ako se promenio, PDF se ponovo crta sa istim pregledanim
 podacima, čuva i šalje sa konačnim brojem. Arhiva dobija `Nije plaćeno`, vezu
 klijenta i isti ukupan iznos kao PDF. `invoice_list` čita najnovije fakture,
 opciono po statusu, do 25 (najviše 100), bez potrebe za izdavaocem ili Google ključevima.
+Imena dobija iz veze `Klijent`, bez dodatnog ID-ja baze klijenata. Nedostupan naziv,
+više povezanih klijenata ili nepotpuna veza vraćaju se uz napomenu, bez nagađanja.
 
 Potvrda je jednokratna i važi 30 minuta. Bez uspešnog slanja PDF-a nema dugmeta
 za čuvanje. Odbacivanje/istek/restart gube samo nacrt u memoriji. Pri potvrđenom
