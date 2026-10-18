@@ -250,8 +250,9 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   statistika, ne ML (korelacija samo uz ≥3 dana sa obe strane).
 
   > Svih šest alata, delimični upisi i trajna zaštita od duplog dnevnog reda su
-  > implementirani. Mock i PostgreSQL provere prolaze; stvarni Notion (lične
-  > kolone, cilj 4, delimičan dnevnik i statistika) čeka ručnu proveru posle deploy-a.
+  > implementirani; 371 test sa bazom i CI prolaze. Korisnik je 18.10.2026.
+  > potvrdio 17 ličnih stavki, cilj 4, označavanje, delimičan pa dopunjen dnevnik,
+  > statistiku i ponovljen zahtev za postojeći dnevni red bez duplikata.
   > Automatsko jutarnje kreiranje/povezivanje i podsetnici ostaju F1b.8, scheduler off.
 - [ ] **F1b.5 Notion klijenti, zadaci, baza znanja** — `client_add` (sam
   prepoznaje postojeću firmu i kad je naziv drugačije napisan; vraća

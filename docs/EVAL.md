@@ -758,8 +758,17 @@ i neispravnih datuma, prazan period i opcioni dnevnik. Veza se pojavljuje tek
 uz 3+3 uparena dana sa poznatom ocenom; nedostajuće/nepoznate ocene ne ulaze u
 grupu i napomena ograničava tumačenje. Razlike prema v1 su u `docs/PARITY.md`.
 
-ČEKA RUČNU PROVERU posle deploy-a: `/status` sa šest novih alata; pregled
-ličnih naziva i nedeljnog cilja 4; izričito kreiranje istog dana dva puta bez
-duplikata; označavanje obične i „Bez…” stavke; delimičan pa dopunjen dnevnik;
-statistika stvarnih redova. Automatski jutarnji upis, povezivanje i podsetnici
-ostaju F1b.8, uz `SCHEDULER_ENABLED=off` tokom ovih provera.
+Ručna provera posle deploy-a završena je 18.10.2026. Korisnik je potvrdio
+`/status` sa šest novih aktivnih alata, svih 17 svojih naziva i cilj 4,
+označavanje obične stavke uz ostale netaknute i ponovljen zahtev za kreiranje
+postojećeg dana bez novog reda. Delimičan dnevnik sa samo ključnom reči ostavio
+je ostala polja prazna; naknadna dopuna raspoloženja i energije sačuvala je
+prethodni tekst. Statistika je vratila stvarni period od 30 dana, skorove,
+nizove i napomenu da nema dovoljno uparenih dnevnika za veze sa ocenama.
+
+Stvarno kreiranje dana koji nedostaje, prelaz „Bez…” stavke na true i zaseban
+poziv `dnevnik_get` nisu izdvojeno ručno provereni; njihove provere ostaju
+mock/DB testovi. Privatni ID-jevi i sadržaj ličnog dnevnika nisu preneti u repo.
+Ova dopuna menja samo dokumentaciju; izvršni kod je iz zelenog CI prolaza sa
+371 testom. Automatski jutarnji upis, povezivanje i podsetnici ostaju F1b.8,
+uz `SCHEDULER_ENABLED=off` tokom provera.

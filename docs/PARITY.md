@@ -9,7 +9,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
 | Čitanje TASK BOARD-a za uvid | F6.2: Name/Status, opciona nova Date kolona Rok; alati čekaju F1b.5 |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
-| Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto i mock/DB provereno; stvarni Notion čeka ručnu proveru. |
+| Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
@@ -87,4 +87,12 @@ iz prošlosti bude prikazan kao tekući. Veze zahtevaju najmanje 3 uparena dana
 po grupi sa poznatom ocenom, uz upozorenje da nisu dokaz uzročnosti. Dnevnik je
 opcion za statistiku. Interno kreiranje dnevnika podržava vezu `Checklista`
 kao v1; automatski zajednički upis i raspored čekaju F1b.8. U ovoj fazi nema
-novih zakazanih poruka. Ručna provera svih šest alata ostaje otvorena.
+novih zakazanih poruka.
+
+Korisnik je 18.10.2026. na stvarnom nalogu potvrdio 17 konfigurisanih stavki i
+nedeljni cilj 4, označavanje obične stavke uz ostale netaknute, upis samo ključne
+reči dnevnika pa dopunu raspoloženja i energije bez gubitka teksta, statistiku
+za 30 dana sa napomenom o nedovoljno uparenih dnevnika i ponovljeno kreiranje
+postojećeg dana bez duplikata. Stvarno kreiranje nedostajućeg reda, prelaz
+„Bez…” stavke na true i zaseban poziv `dnevnik_get` nisu izdvojeno ručno
+provereni; pokriveni su mock/DB testovima. Automatski poslovi ostaju off.
