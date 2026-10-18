@@ -5,6 +5,7 @@ from dexter.tools import (  # noqa: F401
     commitments,
     drive,
     knowledge,
+    mail,
     memory_tools,
     notion,
     proactive,

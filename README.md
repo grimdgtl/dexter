@@ -131,6 +131,14 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `IMAP_PORT` | `993` | TLS IMAP port |
 | `IMAP_USER` | prazno | Korisničko ime IMAP naloga |
 | `IMAP_PASSWORD` | prazno | IMAP lozinka ili app password provajdera |
+| `SMTP_HOST` | prazno | SMTP server za slanje kada nema RESEND_API_KEY |
+| `SMTP_PORT` | `465` | Port SMTP servera, 1–65535 |
+| `SMTP_SECURE` | `true` | `true` za TLS od povezivanja; `false` zahteva STARTTLS, obično port 587 |
+| `SMTP_USER` | prazno | SMTP nalog; rezervna From adresa kada MAIL_FROM_ADDRESS nije zadat |
+| `SMTP_PASSWORD` | prazno | SMTP lozinka ili app password |
+| `MAIL_FROM_NAME` | prazno | Ime pošiljaoca na mejlovima i draftovima |
+| `MAIL_FROM_ADDRESS` | prazno | Adresa pošiljaoca, za Resend sa verifikovanog domena |
+| `RESEND_API_KEY` | prazno | Slanje preko Resend HTTPS API-ja; ako je postavljen, SMTP se ne poziva |
 | `MAIL_INDEX_MONTHS` | `12` | Broj kalendarskih meseci mejla za indeksiranje |
 | `MAIL_INDEX_EXCLUDE` | prazno | CSV spisak punih naziva foldera koji se izostavljaju |
 | `MAIL_INDEX_SENT_FOLDER` | automatski | Pun naziv Sent foldera kada ga server ne označava standardno |
@@ -163,6 +171,36 @@ Posle neizvesnog upisa (timeout/5xx) posao prvo ponovo traži zadatak u Notion-u
 ako ga ne nađe, prijavljuje problem kroz `/poslovi` umesto mogućeg duplikata.
 Tada proveri listu i po potrebi dodaj nedostajući zadatak ručno. Nedeljni posao
 šalje obaveštenje samo nakon potvrđenog novog upisa; kasniji podsetnici čekaju F1b.8.
+
+Mejl alati koriste postojeći IMAP nalog: `mail_list_unread` vraća poslednjih 10
+nepročitanih poruka, a `mail_search` podrazumevano 20 poruka bez obzira na Seen
+oznaku. Limit je 1–100. Filteri `from`, `to`, `subject`, `text`, `unread`, `since`
+i `before` kombinuju se; `before` je isključiva granica datuma. Pre čitanja drugog
+foldera pozovi `mail_folders` i koristi dobijenu putanju. UID važi unutar foldera:
+`mail_read` zato dobija i isti `folder`. Čitanje koristi read-only izbor i PEEK,
+bez promene Seen oznaka. Pregled sadrži 500 znakova, celo čitanje do 20000 uz
+`skraceno`; HTML poruke imaju tekstualni prikaz. Prilozi se samo navode.
+
+`mail_save_draft` snima MIME nacrt sa oznakom Draft u folder koji server označava
+kao Drafts, ili poznati `[Gmail]/Drafts` / `Drafts` / `INBOX.Drafts`. Ako folder ne
+postoji, prijavljuje grešku. Draft ne šalje mejl. From se čita iz MAIL_FROM_ADDRESS,
+zatim SMTP_USER; samo za draft može i IMAP_USER. Naslov i telo odlaze latinicom.
+
+`mail_send` je zaseban alat sa potvrdom: vidiš From, To, CC, naslov, ceo tekst i
+opcionu referencu odgovora; šalje tek dugme **Pošalji**. Otkazivanje ili istek
+posle 30 minuta ne šalju ništa, a isti token potvrde može biti iskorišćen jednom.
+Pošiljalac se zamrzava iz konfiguracije pri pripremi; model ga ne zadaje. Resend
+radi i bez IMAP-a, uz RESEND_API_KEY i MAIL_FROM_ADDRESS (ili SMTP_USER kao rezervu).
+Bez Resend ključa potrebni su SMTP_HOST/USER/PASSWORD i port/TLS podešavanja.
+Greška Resend-a ne pokreće SMTP fallback niti automatsko ponavljanje slanja.
+Posle neizvesnog odgovora proveri provajdera pre nove pripreme. Delimično odbijeni
+SMTP primaoci su navedeni u rezultatu; ne ponavljaj ceo mejl.
+
+Za ručnu proveru posle deploy-a prvo zatraži poslednja tri nepročitana mejla i
+čitanje jednog od njih, pa proveri da Seen nije promenjen. Zatim proveri folder
+draftova. Potvrdno slanje proveri odvojeno na sopstvenu adresu, sa otkazivanjem
+prve pripreme i potvrdom druge. Automatska provera novog mejla ostaje F1b.8;
+SCHEDULER_ENABLED može ostati off za ove ručne alate.
 `knowledge_reindex` osvežava sve podešene izvore ili zadati `izvor`.
 Sa `RERANK=on`, brzi model preslaže do 20 hybrid odlomaka pre odabira `limit` rezultata.
 Vraćeni indeksi moraju biti potpuna permutacija; pri grešci, odsečenom odgovoru ili

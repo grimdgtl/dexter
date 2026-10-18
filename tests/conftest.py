@@ -9,6 +9,7 @@ from email.utils import parsedate_to_datetime
 from types import SimpleNamespace
 
 import pytest
+from imap_tools import MailMessage
 
 # Testovi ne smeju da zavise od pravog .env-a ni od mreže.
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test")
@@ -185,11 +186,13 @@ def imap_server(monkeypatch):
         selected = None
         fail_folder = None
         closed = False
+        fail_login = False
 
         def __init__(self):
             self.messages = {"INBOX": [], "Poslato": []}
             self.flags = {"INBOX": "\\Inbox", "Poslato": "\\Sent"}
             self.calls = []
+            self.appended = []
 
         def record(self, command, *args):
             assert threading.get_ident() != main_thread
@@ -201,6 +204,8 @@ def imap_server(monkeypatch):
         def _simple_command(self, command, *args):
             self.record(command, *args)
             assert command in {"LOGIN", "LIST"}
+            if command == "LOGIN" and self.fail_login:
+                raise RuntimeError("IMAP prijava nije uspela")
             return "OK", []
 
         def _untagged_response(self, typ, data, command):
@@ -223,21 +228,51 @@ def imap_server(monkeypatch):
             if command.upper() == "SEARCH":
                 criteria = args[-1].decode()
                 match = re.search(r"SINCE (\d{1,2}-[A-Za-z]{3}-\d{4})", criteria)
-                assert match or "UNSEEN" in criteria
+                before_match = re.search(r"BEFORE (\d{1,2}-[A-Za-z]{3}-\d{4})", criteria)
                 since = (
                     datetime.strptime(match[1], "%d-%b-%Y").date() if match else datetime.min.date()
                 )
+                before = (
+                    datetime.strptime(before_match[1], "%d-%b-%Y").date()
+                    if before_match
+                    else datetime.max.date()
+                )
+                terms = re.findall(r'(FROM|TO|SUBJECT|BODY) "([^\"]*)"', criteria)
+
+                def matches(raw):
+                    message = MailMessage.from_bytes(raw)
+                    values = {
+                        "FROM": message.from_,
+                        "TO": ", ".join(message.to),
+                        "SUBJECT": message.subject,
+                        "BODY": message.text,
+                    }
+                    return all(value.casefold() in values[key].casefold() for key, value in terms)
+
                 ids = [
                     str(i)
                     for i, raw in enumerate(messages, 1)
-                    if parsedate_to_datetime(message_from_bytes(raw)["Date"]).date() >= since
+                    if since
+                    <= parsedate_to_datetime(message_from_bytes(raw)["Date"]).date()
+                    < before
                     and ("UNSEEN" not in criteria or i % 2 == 0)
+                    and (not re.search(r"\bSEEN\b", criteria) or i % 2 == 1)
+                    and matches(raw)
                 ]
                 return "OK", [" ".join(ids).encode()]
             assert command.upper() == "FETCH" and "BODY.PEEK[]" in args[1]
             uid = int(args[0])
+            if uid > len(messages):
+                return "OK", [None]
             flags = "\\Seen" if uid % 2 else ""
             return "OK", [(f"1 (UID {uid} FLAGS ({flags}))".encode(), messages[uid - 1]), b")"]
+
+        def append(self, folder, flags, when, raw):
+            self.record("APPEND", folder, flags)
+            name = utf7_decode(folder).strip('"')
+            self.messages[name].append(raw)
+            self.appended.append((name, flags, raw))
+            return "OK", [b"append"]
 
         def logout(self):
             self.record("LOGOUT")

@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     imap_port: int = Field(993, ge=1, le=65535)
     imap_user: str | None = None
     imap_password: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = Field(465, ge=1, le=65535)
+    smtp_secure: bool = True
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    mail_from_name: str = ""
+    mail_from_address: str | None = None
+    resend_api_key: str | None = None
     mail_index_months: int = Field(12, ge=1)
     mail_index_exclude: str = ""
     mail_index_sent_folder: str | None = None

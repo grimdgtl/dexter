@@ -50,12 +50,21 @@ class Tool:
     preview: Callable[[Any], str] | None = None
     requires: tuple[str, ...] = ()
     prepare: Callable[[Any], Awaitable[Any]] | None = None
+    requires_any: tuple[tuple[str, ...], ...] = ()
+    confirm_label: str = "✅ Potvrdi"
+    max_result_chars: int = MAX_RESULT_CHARS
 
     def disabled_reason(self) -> str | None:
         cfg = settings()
         missing = [name for name in self.requires if not getattr(cfg, name.lower(), None)]
         if missing:
             return "Nedostaje: " + ", ".join(missing)
+        if self.requires_any and not any(
+            all(getattr(cfg, name.lower(), None) for name in group) for group in self.requires_any
+        ):
+            return "Potrebno jedno od: " + " ili ".join(
+                " + ".join(group) for group in self.requires_any
+            )
         if not self.enabled():
             return "Isključeno podešavanjima."
         return None
@@ -89,6 +98,9 @@ def tool(
     preview: Callable[[Any], str] | None = None,
     requires: list[str] | None = None,
     prepare: Callable[[Any], Awaitable[Any]] | None = None,
+    requires_any: list[list[str]] | None = None,
+    confirm_label: str = "✅ Potvrdi",
+    max_result_chars: int = MAX_RESULT_CHARS,
 ):
     """Dekorator koji registruje alat. Tip prvog argumenta je pydantic model ulaza."""
 
@@ -106,6 +118,9 @@ def tool(
             preview,
             tuple(requires or ()),
             prepare,
+            tuple(tuple(group) for group in (requires_any or [])),
+            confirm_label,
+            max_result_chars,
         )
         return fn
 
@@ -125,12 +140,12 @@ def schemas() -> list[dict]:
     return out
 
 
-def _serialize(result: Any) -> str:
+def _serialize(result: Any, limit: int = MAX_RESULT_CHARS) -> str:
     text = (
         result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str)
     )
-    if len(text) > MAX_RESULT_CHARS:
-        text = text[:MAX_RESULT_CHARS] + f"\n…(skraćeno, ukupno {len(text)} znakova)"
+    if len(text) > limit:
+        text = text[:limit] + f"\n…(skraćeno, ukupno {len(text)} znakova)"
     return text
 
 
@@ -171,7 +186,7 @@ async def execute(name: str, raw_input: dict) -> Outcome:
         return Outcome(text, pending=(token, opis))
 
     try:
-        return Outcome(_serialize(await t.fn(args)))
+        return Outcome(_serialize(await t.fn(args), t.max_result_chars))
     except Exception as e:
         log.exception("Alat %s pukao", name)
         return Outcome(f"Greška u alatu {name}: {e}", True)
@@ -180,6 +195,11 @@ async def execute(name: str, raw_input: dict) -> Outcome:
 def pending_preview(token: str) -> str | None:
     p = _PENDING.get(token)
     return p.tool.preview(p.args) if p and p.tool.preview else None
+
+
+def pending_confirm_label(token: str) -> str:
+    pending = _PENDING.get(token)
+    return pending.tool.confirm_label if pending else "✅ Potvrdi"
 
 
 async def confirm(token: str) -> str:

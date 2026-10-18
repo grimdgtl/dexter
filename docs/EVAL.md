@@ -641,3 +641,41 @@ Ruff i svih 290 testova sa bazom prolaze. Novi testovi koriste mock HTTP;
 pravi Notion nije pozivan. SYSTEM_PROMPT je nepromenjen. Ručna provera posle
 deploy-a: pregled lične liste, dodavanje probnog zadatka sa rokom, promena na
 Done; automatski nedeljni posao proveriti tek kada se uključi scheduler.
+
+Ručna provera F1b.2: korisnik je 18.10.2026. potvrdio pregled lične liste,
+dodavanje probnog zadatka i promenu na Done na pravom Notion-u. Scheduler
+ostaje off, pa automatski nedeljni posao još nije proveren na pravom nalogu.
+
+## F1b.3 — Mejl alati (18.10.2026)
+
+Pre prenosa pročitani su v1 `src/services/mail.js`, svih šest definicija i
+registracija alata, config i README mail/SMTP/Resend odeljak. Preneti su
+nepročitane poruke, kombinovana pretraga, puna poruka do 20000 znakova,
+folderi, MIME draft i slanje isključivo potvrdom. Razlike su u `docs/PARITY.md`.
+
+Pravi `imap-tools` i MIME parser rade nad lažnim IMAP protokolom; testovi
+proveravaju read-only izbor, BODY.PEEK, Seen i Unseen filtere, sve filtere
+zajedno, UTF-8 upit, isključivi before datum, najnovije UID-eve, limit, naziv
+foldera, tela preko 12000 znakova, HTML fallback, priložene fajlove, skraćivanje
+na 20000, nepostojeći UID i nestandardno From zaglavlje/izostavljen datum.
+Veza se zatvara i pri grešci prijave; ne izvršava se STORE/EXPUNGE.
+
+Draft provere proveravaju APPEND sa Draft oznakom, special-use folder i dva
+poznata naziva, UTF-8 MIME zaglavlja/telo, CC i grešku bez Drafts foldera.
+Resend koristi respx prema [zvaničnom send API-ju](https://resend.com/docs/api-reference/emails/send-email).
+Provereni su payload, više primalaca, reference odgovora, greška 403, timeout,
+neispravan JSON i nedostajući ID bez SMTP fallback-a. Lažni SMTP proverava TLS,
+STARTTLS pre prijave, izvršavanje van event loop-a, MIME/envelope primaoce,
+delimično odbijanje, zatvaranje i grešku autentikacije bez ponavljanja.
+
+Potvrdni testovi proveravaju da pre dugmeta nema slanja, dve paralelne potvrde
+šalju jednom, otkazivanje i istek posle 30 minuta ne šalju, ceo pregled prolazi
+kroz Telegram poruke sa dugmetom Pošalji tek na kraju. Model ne vidi From/sender
+polje; pošiljalac se uzima iz konfiguracije. CRLF/kontrolni znakovi u zaglavljima,
+neispravni primaoci i neispravni datumi odbijaju se pre upisa ili slanja. /status
+prepoznaje alternativne Resend/SMTP uslove nezavisno od IMAP podešavanja.
+
+Ruff i svih 325 testova sa izolovanom PostgreSQL bazom prolaze. SYSTEM_PROMPT
+nije menjan. Pravi servisi nisu pozivani iz testova. Ručno posle deploy-a:
+nepročitana pošta i jedna puna poruka bez promene Seen, draft u stvarnom folderu,
+otkazivanje pripreme i zatim potvrđeno slanje na sopstvenu adresu.

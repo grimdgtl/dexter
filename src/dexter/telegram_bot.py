@@ -136,7 +136,9 @@ async def _answer(
                 kb = InlineKeyboardMarkup(
                     [
                         [
-                            InlineKeyboardButton("✅ Potvrdi", callback_data=f"ok:{token}"),
+                            InlineKeyboardButton(
+                                registry.pending_confirm_label(token), callback_data=f"ok:{token}"
+                            ),
                             InlineKeyboardButton("❌ Otkaži", callback_data=f"no:{token}"),
                         ]
                     ]

@@ -6,9 +6,9 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Deo | Python stanje |
 |---|---|
 | Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
-| Lična To-do lista i nedeljni zadatak | F1b.2: tri alata, iste kolone/enum vrednosti, cron i rok; pravi Notion čeka proveru posle deploy-a. |
+| Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
 | Čitanje TASK BOARD-a za uvid | F6.2: Name/Status, opciona nova Date kolona Rok; alati čekaju F1b.5 |
-| Čitanje nepročitanog INBOX-a za uvid | F6.2: read-only/PEEK; ostali mejl alati čekaju F1b.3 |
+| Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: svih šest alata preneto, PEEK i potvrda slanja; pravi nalog čeka ručnu proveru. |
 | Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
@@ -38,3 +38,27 @@ Obaveštenje se šalje samo pri novom potvrđenom upisu, kao u v1; greška slanj
 ne ponavlja upis zadatka. Tekst ne obećava kasnije podsetnike, jer checklista
 i večernji podsetnici još čekaju F1b.4/F1b.8. Raspored radi samo kada je globalni
 scheduler uključen; `FLOWERS_TASK_CRON` zadržava standardni ponedeljak = 1.
+
+F1b.3 zadržava argumente i podrazumevane limite v1 (10 nepročitanih, 20 u pretrazi,
+500 znakova pregleda, 20000 za čitanje), kombinovane filtere, Seen stanje, UID i
+folder, CC, Message-ID i reference odgovora. Limit je sada validiran na 1–100;
+datum i UID se proveravaju pre IMAP poziva. Nazivi/putanje foldera ostaju tačni,
+a prikaz i sadržaj odgovora su latinicom. HTML ima tekstualni prikaz, a telo
+priloženog dokumenta nije telo mejla. mail_read ima veći rezultat u registru da
+standardni limit od 12000 znakova ne bi odsekao telo od 20000 znakova.
+
+Draft koristi MIME umesto ručnog spajanja zaglavlja; prvenstvo ima serverov
+special-use Drafts folder, zatim poznati nazivi iz v1 i INBOX.Drafts/INBOX/Drafts.
+Kada ga nema, prijavljuje grešku bez upisa drugde. From za draft može pasti na
+IMAP_USER kada MAIL_FROM_ADDRESS i SMTP_USER nisu podešeni. Novi redovi/kontrolni
+znakovi u zaglavljima sada se odbijaju umesto tihog uklanjanja. Primaoci se parsiraju
+kao pojedinačne adrese, pa lista više primalaca radi i preko Resend-a.
+
+Slanje koristi Resend kada ima ključ, bez SMTP fallback-a nakon greške; bez
+ključa koristi SMTP sa TLS ili obaveznim STARTTLS. Plaintext SMTP nije podržan.
+Resend slanje je dostupno bez IMAP-a kada postoji From adresa. Alternativna
+konfiguracija je objašnjena kroz `requires_any` u /status. Potvrda traje 30 minuta,
+jednokratna je i vezana za prikazani pošiljalac/primaoce/tekst; model ne može da
+prosledi From adresu. SMTP rezultat sadrži prihvaćene i odbijene primaoce da se
+delimično poslat mejl ne bi ponavljao svima. Kopiranje u Sent nije dodato:
+kao v1, uspeh znači da je transport prihvatio poruku, ne potvrdu dostave.

@@ -227,14 +227,18 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
 - [x] **F1b.2 To-do** — `todo_list`, `todo_add`, `todo_set_status` + nedeljni
   zadatak ponedeljkom (`WEEKLY_TASK_TITLE`, `FLOWERS_TASK_CRON`).
 
-  > Implementacija, mock i PostgreSQL provere završene. Pravi Notion: ručno
-  > proveriti pregled, dodavanje i status posle deploy-a; scheduler ostaje off
-  > tokom ručnih testova. Nedeljni automatski upis čeka proveru po uključivanju.
-- [ ] **F1b.3 Mejl** — `mail_list_unread`, `mail_search`, `mail_read`,
+  > Implementacija, mock i PostgreSQL provere završene. Korisnik je 18.10.2026.
+  > potvrdio pregled, dodavanje i promenu statusa na pravom Notion-u. Scheduler
+  > ostaje off; nedeljni automatski upis čeka proveru po uključivanju.
+- [x] **F1b.3 Mejl** — `mail_list_unread`, `mail_search`, `mail_read`,
   `mail_folders`, `mail_save_draft`, `mail_send`. Čitanje NIKAD ne menja `\Seen`
   (PEEK; npr. `imap-tools` sa `mark_seen=False` u `to_thread`). `mail_send` je
   `confirm=True`; slanje preko Resend HTTP API-ja, SMTP samo kad nema
   `RESEND_API_KEY`. Isteklo posle 30 min (već u registru).
+
+  > Svih šest alata i mock provere su završeni; 325 testova sa bazom prolazi.
+  > Pravi IMAP, draft i potvrđeno slanje na sopstvenu adresu čekaju ručnu proveru
+  > nakon deploy-a. Automatski poslovi ostaju isključeni.
 - [ ] **F1b.4 Checklista, dnevnik, insights** — `checklist_get`,
   `checklist_mark`, `checklist_create_day`, `dnevnik_get`, `dnevnik_write`,
   `insights_get`. Stavke iz `CHECKLIST_POZITIVNE` / `CHECKLIST_IZBEGAVANJA`;
