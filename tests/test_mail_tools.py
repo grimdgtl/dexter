@@ -384,3 +384,31 @@ async def test_telegram_shows_complete_preview_then_send_button(sending, monkeyp
     assert buttons[0].text == "📨 Pošalji" and buttons[0].callback_data.startswith("ok:")
     assert all("reply_markup" not in c.kwargs for c in calls[:-1])
     registry.cancel(out.pending[0])
+
+
+async def test_notification_snapshot_keeps_all_unread_uids_but_only_fifteen_headers(
+    imap_server, make_mail
+):
+    imap_server.messages["INBOX"] = [make_mail(subject=f"Poruka {i}") for i in range(40)]
+    result = await mail.notification_snapshot()
+    assert result["uidvalidity"] == "1"
+    assert result["uids"] == [str(i) for i in range(2, 41, 2)]
+    assert [m["uid"] for m in result["messages"]] == list(range(40, 10, -2))
+    assert all("telo" not in m for m in result["messages"])
+    fetches = [c for c in imap_server.calls if c[0] == "FETCH"]
+    assert len(fetches) == 15 and all("BODY.PEEK[HEADER]" in c[2] for c in fetches)
+    assert not any(c[0] in {"STORE", "EXPUNGE", "APPEND"} for c in imap_server.calls)
+    assert imap_server.closed
+
+
+async def test_empty_notification_snapshot_does_not_fetch_all_messages(imap_server, make_mail):
+    imap_server.messages["INBOX"] = [make_mail()]
+    assert await mail.notification_snapshot() == {"uidvalidity": "1", "uids": [], "messages": []}
+    assert not any(c[0] == "FETCH" for c in imap_server.calls)
+
+
+async def test_notification_snapshot_requires_mailbox_uidvalidity(imap_server):
+    imap_server.uidvalidity = 0
+    with pytest.raises(ValueError, match="UIDVALIDITY"):
+        await mail.notification_snapshot()
+    assert imap_server.closed

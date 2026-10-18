@@ -149,6 +149,20 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `WEEKLY_TASK_TITLE` | `Nedeljni zadatak` | Naslov ličnog zadatka koji se ponavlja svake nedelje |
 | `FLOWERS_TASK_CRON` | `0 5 * * 1` | Nedeljni lični zadatak ponedeljkom u 05:00 po TIMEZONE; rok nedelja |
 | `SEMANTIC_INDEX_CRON` | `0 4 * * *` | Dnevno osvežavanje znanja po `TIMEZONE` |
+| `CHECKLIST_CREATE_CRON` | `0 5 * * *` | Tiho kreiranje/povezivanje dana checkliste i dnevnika |
+| `MORNING_GREETING_CRON` | `0 6 * * *` | Jutarnji pozdrav, motivacija i prognoza; ponedeljkom nedeljni rođendani |
+| `MORNING_BRIEFING_CRON` | `30 9 * * *` | Poslovni kalendar, otvoreni zadaci i nepročitani mejlovi, bez prognoze |
+| `MAIL_CHECK_CRON` | `0 8-22 * * *` | Novi nepročitani mejlovi, najviše 15 zaglavlja po proveri |
+| `SITE_CHECK_SILENT_CRON` | `0 10 * * *` | Provera sajtova; poruka samo za problem ili nepotpunu istoriju |
+| `BIRTHDAY_MORNING_CRON` | `0 11 * * *` | Današnji rođendani; tiho kad ih nema |
+| `SITE_CHECK_REPORT_CRON` | `0 18 * * *` | Pun izveštaj provere sajtova |
+| `BIRTHDAY_EVENING_CRON` | `0 19 * * *` | Današnji rođendani bez evidentirane čestitke |
+| `CHECKLIST_REMINDER_CRON` | `30 21 * * *` | Checklista, nedeljni cilj, dnevnik i otvoren nedeljni zadatak |
+| `CHECKLIST_PRAISE_CRON` | `0 23 * * *` | Pohvala pri dostignutom pragu skora |
+| `CHECKLIST_PRAISE_THRESHOLD` | `70` | Prag pohvale u procentima, 0–100, uključujući jednaku vrednost |
+| `WEEKLY_SUMMARY_CRON` | `0 22 * * 0` | Nedeljna pohvala navika |
+| `TAX_REMINDER_CRON` | `0 10 14 * *` | Lični podsetnik za porez i doprinose |
+| `MOTIVATION_HISTORY` | `30` | Poslednjih 1–365 jutarnjih poruka za izbegavanje ponavljanja |
 | `GOOGLE_CLIENT_ID` | prazno | OAuth klijent iz Google Cloud projekta |
 | `GOOGLE_CLIENT_SECRET` | prazno | Tajna istog OAuth klijenta |
 | `GOOGLE_REFRESH_TOKEN` | prazno | Trajno odobrenje sa Calendar i Drive scope-ovima |
@@ -481,9 +495,53 @@ automatski. Alat koristi brzi model, čiji poziv ulazi u `/troskovi`.
 `memory_list`. Zadržava ID i izvor, čuva nenavedena polja i pri promeni teksta
 obnavlja embedding. Greška embedding servisa ostavlja prethodnu činjenicu.
 
-F1b.7 ne dodaje rasporede. Rođendanski podsetnici i automatske provere sajtova
-dolaze kroz F1b.8; `SCHEDULER_ENABLED=off` ostaje za ručne provere. Migracija
-`013_birthdays_monitor.sql` primenjuje se pri pokretanju, uz postojeći volume baze.
+Migracija `013_birthdays_monitor.sql` primenjuje se pri pokretanju, uz postojeći volume baze.
+
+## Zakazani poslovi (F1b.8)
+
+Svih 14 starih poslova koristi istoimene cron promenljive iz gornje tabele,
+pet polja i `TIMEZONE`. Za dan u nedelji 0/7 znači nedelja, 1 ponedeljak.
+Neispravan izraz se odbija pri učitavanju konfiguracije. Svaki posao prolazi
+kroz `run_job`: do tri pokušaja sa razmacima 30/60 s, evidencija u `job_runs`
+i jedno završno obaveštenje o neuspehu. Jedan raspored ne pokreće dve svoje
+instance u istom procesu; propuštena pokretanja spajaju se u jedno, do 5 minuta
+zakašnjenja. Ovo ne garantuje jedno izvršavanje ako namerno pokreneš dva bota.
+
+Ukupno je do 18 rasporeda: 14 iz v1 i četiri postojeća za sažetke razgovora
+(03:30), podsetnike na obećanja (09:00), dnevni F6 uvid (08:30) i nedeljni F6
+pregled (nedelja 20:00). Poslovi integracija se registruju samo kad su podešene.
+`QUIET_HOURS` i F6 ograničenja ostaju za proaktivne poruke; eksplicitni stari
+rasporedi, uključujući pozdrav u 06:00 i pohvalu u 23:00, poštuju svoj cron.
+Rasporedi se podešavaju kroz ENV; menjanje rasporeda razgovorom nije deo F1b.8.
+Za sada zadrži `SCHEDULER_ENABLED=off` i isključen Auto Deploy u Coolify-u.
+
+Tekst piše `MODEL_FAST`, uz merenje troška kao `scheduler`. `MOTIVATION_MODEL`
+iz v1 nije potreban. Prognoza se šalje samo u pozdravu; nedostupan sporedni izvor
+dobija napomenu ili se izostavlja, bez izmišljanja. Pohvala koristi stvaran broj
+podešenih navika i zaokružen procenat ≥ pragu; neupisani dan nije dokaz neuspeha.
+Jutarnje kreiranje ne prepisuje dnevnik: dopunjava samo praznu vezu sa checklistom,
+a postojeću drugačiju vezu prijavljuje. Čitanje i večernji podsetnik ne prave redove.
+
+Migracija `014_motivation.sql` uvodi `motivation_messages`. Poslednjih
+`MOTIVATION_HISTORY` poruka se čita iz baze, uz rotaciju 12 uglova i proveru
+sličnosti pre slanja. Identičan ili gotovo isti tekst dobija još jedan pokušaj
+generisanja; ponovljen tekst se ne šalje. Posle uspešnog slanja istorija se skraćuje
+na zadati broj; pripremljen/neizvestan tekst takođe sprečava ponavljanje.
+
+Satna IMAP provera i poslovni pregled dele `kv_state` po nalogu, INBOX-u i
+UIDVALIDITY vrednosti. Čitaju ceo spisak nepročitanih UID-jeva i do 15 najnovijih
+zaglavlja, bez oznake Seen. Stariji nepročitani ostaju prijavljeni i van tih 15;
+pročitani se uklanjaju iz evidencije. Više od 15 novih poruka znači da starije
+čekaju da postanu deo najnovijih 15. Pregled prijavljuje samo prikazana zaglavlja.
+Promena UIDVALIDITY otvara novu evidenciju da ponovo upotrebljen UID ne bi sakrio mejl.
+
+Pre Telegram slanja čuva se pokušaj. Potvrđen uspeh se ne šalje ponovo tokom
+retry-ja; definitivno odbijen zahtev oslobađa pokušaj. Posle timeout-a ili prekida
+ishod ostaje neizvestan, pa se isto slanje ne ponavlja naslepo; upozorenje i trag
+ostaju za pregled kroz `/poslovi` i logove. IMAP rezervacija tada ostaje sačuvana.
+Tragovi slanja čuvaju se 30 dana, a ID-jevi nepročitanih mejlova do čitanja.
+Stara JSON istorija još nije uvezena; to je F1b.10. Uključivanje Dextera dok stari
+APU koristi iste rasporede može dati dve poruke ili upise iz dva različita bota.
 
 ## Uvoz lokalnih dokumenata
 

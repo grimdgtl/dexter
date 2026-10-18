@@ -1000,3 +1000,65 @@ očuvanje izvora i paralelne delimične promene ostaju DB provere.
 Glavni ručni tokovi F1b.7 su provereni. Ova dopuna menja samo dokumentaciju;
 izvršni kod je isti kao u zelenom CI prolazu sa 592 testa. Rasporedi i
 automatske poruke ostaju F1b.8, uz SCHEDULER_ENABLED=off do dogovorenog uključivanja.
+
+## F1b.8 — svih 14 zakazanih poslova (18.10.2026)
+
+Pročitani su stari services/scheduler.js, motivation.js, jobs.js, konfiguracija,
+README, definicije i servisi koje poslovi koriste. Preneti su isti cron ENV
+nazivi i podrazumevana vremena iz Dodatka B. Migracija 014 uvodi motivacionu
+istoriju; SYSTEM_PROMPT nije menjan. SCHEDULER_ENABLED ostaje off u uputstvu.
+
+Pre: 592 testa sa bazom. Posle: 656 testova sa izolovanom PostgreSQL 14 +
+pgvector bazom, 14,83 s. Ruff format/check prolaze za src/tests/evals/scripts.
+Dodate su 64 provere: 48 konfiguracionih/servisnih/SDK mock testova i 16 slučajeva
+sa stvarnom test bazom. Spoljni Notion, Google, IMAP, Anthropic i Telegram pozivi
+koriste mock; nisu pokrenuti poslovi na privatnim nalozima niti plaćeni modeli.
+Bez TEST_DATABASE_URL: 546 prolaza i 110 očekivano preskočenih DB slučajeva, 6,34 s.
+GitHub CI dodatno proverava PostgreSQL 17 i Docker pakovanje.
+
+Rasporedi: svih 14 registrovanih poslova plus četiri postojeća F2/F6 posla,
+TIMEZONE, standardni Node dani (0/7 nedelja), zasebna promena svakog cron ENV-a,
+wrapper run_job, uslovi dostupnosti integracija, coalesce/max_instances i
+neispravna konfiguracija. Globalno isključivanje ostaje pokriveno starim testom.
+Jutarnja priprema je tiha i povezuje dnevnik; DB/Notion testovi proveravaju
+idempotentnost, popunu prazne veze bez prepisivanja dnevnika i odbijanje konflikta.
+
+Poruke: tihi/puni monitoring, prazni i nečestitani rođendani, prag pohvale ispod,
+na i iznad granice, dan bez reda ili stavki, večernji skor/nedeljni cilj/dnevnik/
+zadatak, delimično nedostupan dodatak i nedeljni dinamičan zbir. Jutarnji pozdrav
+ima ponedeljne rođendane i podnosi nedostupnu prognozu. Poslovni pregled dobija
+kalendarski lokalni dan od 25 sati preko oktobarske promene sata, samo dva otvorena
+statusa, oznaku za više od 15 zadataka i napomenu pri grešci kalendara, bez poziva
+prognoze. Poreski prompt izričito izbegava tvrdnju o pravnom roku/iznosu.
+
+Stvarni Anthropic SDK/respx test proverava MODEL_FAST, purpose=scheduler,
+latinicu i fiksno uputstvo odvojeno od sirovog sadržaja. Prekinut/prazan ili
+predug izlaz ne pravi slanje. Motivacija čita prethodne tekstove i ugao,
+prepoznaje istu/skoro istu formulaciju (uključujući ćirilicu/interpunkciju),
+ponavlja generisanje i normalizuje navodnike. DB test proverava trajnost,
+rotaciju na N, status sent i zaštitu ponovljenog teksta pri rezervaciji.
+Semantička raznovrsnost, kvalitet pravih jutarnjih poruka, cena i latencija
+nisu izmereni; sličnost teksta nije dokaz različite poente.
+
+Pravi imap-tools kod radi preko lažnog IMAP protokola: UIDVALIDITY, svi
+nepročitani UID-jevi uz samo 15 BODY.PEEK[HEADER] učitavanja, readonly i bez
+Seen/STORE promene; prazan skup ne pokreće FETCH svih poruka. DB testovi
+proveravaju trajnost posle obnove konekcija, uklanjanje samo pročitanih UID-jeva,
+starije nepročitane van prikaza, novu UIDVALIDITY vrednost, paralelne provere,
+neuspešno generisanje bez rezervacije, poslovni pregled bez narednog duplog
+obaveštenja i neizvestan ishod koji zadržava prijavljene poruke. Ograničenje:
+starije nove poruke van najnovijih 15 čekaju da uđu u prikaz, kao u v1.
+
+Isporuka: potvrđen trag preskače ponovno pripremanje/slanje; paralelan claim
+šalje jednom. Telegram odbijanje oslobađa claim/motivaciju i vraća IMAP stanje.
+Timeout ostavlja unknown, tri run_job pokušaja dele isti ID i datum, nema drugog
+slanja originala, a završno upozorenje se šalje jednom. Cancel se propagira i
+ostavlja sending; ponovni poziv odbija slepi resend. Nema tvrdnje o exactly-once
+isporuci niti distribuisanom zaključavanju svih rasporeda između više botova.
+
+ČEKA RUČNU PROVERU: redeploy sa SCHEDULER_ENABLED=off; /status i odsustvo
+zakazanih poruka; pregled preuzetih cron vrednosti i sprečavanje preklapanja
+sa starim APU-om. Tek zatim kontrolisano uključivanje i stvarna provera tihe
+pripreme dana, jutarnjih poruka, novog mejla bez duplikata posle restarta,
+monitoringa i uslovnih večernjih/nedeljnih poruka. Stara JSON istorija nije
+uvezena (F1b.10); prvi mejl pregled može prijaviti postojeće nepročitane poruke.

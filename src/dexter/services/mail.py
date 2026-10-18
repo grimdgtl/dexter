@@ -425,6 +425,33 @@ async def read_message(uid: int, folder: str = "INBOX") -> dict:
     return await _in_thread(read)
 
 
+async def notification_snapshot(limit: int = 15) -> dict:
+    def read():
+        cfg = settings()
+        with _mailbox() as box:
+            box.login(cfg.imap_user, cfg.imap_password, initial_folder=None)
+            box.folder.set("INBOX", readonly=True)
+            validity = box.folder.status("INBOX", ["UIDVALIDITY"]).get("UIDVALIDITY")
+            if not validity:
+                raise ValueError(
+                    "IMAP nije potvrdio UIDVALIDITY; prijavljeni mejlovi nisu menjani."
+                )
+            uids = box.uids(AND(seen=False))
+            messages = (
+                [
+                    summary(message, "INBOX")
+                    for message in box.fetch(
+                        uid_list=uids, headers_only=True, mark_seen=False, reverse=True, limit=limit
+                    )
+                ]
+                if uids
+                else []
+            )
+            return {"uidvalidity": str(validity), "uids": list(uids), "messages": messages}
+
+    return await _in_thread(read)
+
+
 async def list_folders() -> list[dict]:
     def read():
         cfg = settings()

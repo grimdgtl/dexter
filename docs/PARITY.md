@@ -15,7 +15,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Monitoring i istorija dostupnosti | F1b.7: stvarna provera 22 sajta i odgovarajuća istorija potvrđeni; spori odgovori jasno odvojeni od nedostupnosti. |
 | Izveštaj u Google Doc | F1b.7: stvaran Doc link i pregled zadataka/kalendara vraćeni; opcioni izvori i greške SDK/HTTP mock provere. |
 | Izmena memorije | F1b.7: probni tekst Alfa → Beta uz isti ID i kategoriju potvrđen u Telegramu; vektor i konkurentnost DB provere. |
-| Nedeljna pohvala navika u 22:00 | Čeka checklistu i F1b.8; novi pregled u 20:00 je zaseban posao |
+| Zakazani poslovi i nedeljna pohvala navika u 22:00 | F1b.8: svih 14 starih rasporeda preneto; nedeljni F6 pregled u 20:00 ostaje zaseban posao. Scheduler off; stvarno zakazano izvršavanje čeka proveru. |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
 alata, 14 poslova i komandi ostaje zadatak F1b.11; ova tabela nije potvrda punog pariteta.
@@ -250,3 +250,58 @@ Alfa → Beta uz isti ID i kategoriju; naknadno učitana lista potvrđuje izmenu
 Prvi paralelni pregled pokazao je staru vrednost, pa za proveru treba čitati
 posle završenog upisa. Rubni datumi, reset/restart čestitki, HTTP greške,
 delimičan izveštaj i vektori ostaju mock/DB provere. Scheduler ostaje off.
+
+F1b.8 prenosi svih 14 rasporeda iz v1 services/scheduler.js, uz pročitane
+motivation.js, jobs.js, config i odgovarajuće servise/opise. Svaki stari cron
+ENV ostaje isti, sa TIMEZONE i standardnim Node brojevima dana u nedelji.
+Sve akcije idu kroz run_job (do tri pokušaja, 30/60 s, job_runs, završno upozorenje).
+Zadržana su i četiri postojeća F2/F6 rasporeda; ukupno do 18, zavisno od integracija.
+F6 tišina, povratne informacije i ograničenja nisu prošireni na eksplicitne stare
+rasporede u 06:00/23:00. Scheduler ostaje isključen u produkcionom uputstvu.
+
+Jutarnji pozdrav dobija prognozu i ponedeljkom poznate rođendane te nedelje.
+Poslovni pregled dobija lokalni dan iz kalendara (uključujući promenu sata),
+In progress i Not started zadatke (15 po statusu uz oznaku ograničenja) i do
+15 nepročitanih mejlova; nema prognoze. Nedostupnost jednog izvora ne postaje
+izmišljena prazna lista. Checklista i dnevnik nastaju tiho, bez duplih redova;
+ako dnevnik već postoji, dopunjava se samo prazna Checklista veza, a konflikt
+se odbija. Večernji podsetnik dobija skor, neoznačene stavke, nedeljni cilj,
+prazna polja dnevnika i nedeljni lični zadatak. Pohvala koristi zaokružen
+procenat ≥ CHECKLIST_PRAISE_THRESHOLD, prema planu (v1 je imao strogo >).
+Nedeljna pohvala koristi broj stvarno zabeleženih dana i dinamičan broj navika.
+Lični poreski podsetnik ne izmišlja pravni rok, iznos ili dug. Tihi monitoring
+šalje samo problem/napomenu; večernji pun izveštaj i prazno stanje. Rođendanski
+poslovi ćute bez današnjih/još nečestitanih osoba; ne čestitaju drugoj osobi.
+
+Sve nove generisane poruke koriste MODEL_FAST i zajedničko merenje purpose=scheduler,
+sa fiksnim uputstvom odvojenim od sirovih podataka. Motivacija više ne koristi
+v1 OpenAI MOTIVATION_MODEL/fallback; poseban ključ nije potreban. Migracija 014
+uvodi tabelu motivation_messages sa pripremljenim/poslatim/neizvesnim ishodom.
+Poslednjih MOTIVATION_HISTORY tekstova i rotacija 12 uglova ulaze u upit.
+Normalizovana sličnost ≥0,85 izaziva ponovni pokušaj generisanja, a ponovljen
+tekst se ne šalje. Provera se ponavlja pod DB lock-om pri rezervaciji; posle
+uspeha čuvaju se poslednjih N poruka. Neizvesni tekstovi ostaju do sledeće
+uspešne rotacije kako ih novi posao ne bi ponovio. Ovo proverava formulaciju,
+ne garantuje semantički potpuno novu poentu bez stvarne LLM evaluacije.
+
+Poslovni pregled i satna provera dele prijavljene IMAP UID-jeve u kv_state.
+Ključ uključuje nalog, INBOX i UIDVALIDITY, pa promena identiteta sandučeta ne
+skriva ponovo upotrebljene brojeve. Čitaju se svi nepročitani UID-jevi, ali
+samo 15 najnovijih zaglavlja bez Seen izmene. Evidencija se čisti samo prema
+celom nepročitanom skupu, umesto v1 zamene trenutnom listom od 15. Višak starijih
+novih poruka čeka da uđe u prikaz. Account advisory lock sprečava da pregled i
+satni posao istovremeno prijave iste poruke. Rezervacija nastaje tek uz gotov
+tekst, u istoj transakciji sa pokušajem Telegram slanja.
+
+Trajni ključ slanja vezan je za run_job ID; datum početka i ključ ostaju isti
+tokom retry-ja. Potvrđen uspeh preskače ponovno generisanje/slanje. Definitivan
+Telegram 400/403/429 oslobađa pokušaj i IMAP/motivacionu rezervaciju; mrežna
+greška, timeout ili cancel ostavljaju neizvestan pokušaj bez slepog resenda.
+To bira izostanak mogućeg duplikata uz potrebu ručne provere isporuke. Završno
+upozorenje je zasebna poruka. Novi redovni posao ima svoj ID; ovo nije globalno
+zaključavanje rasporeda između dva različita bota. Nedeljni lični zadatak
+zadržava raniju zaštitu upisa i obaveštenje samo pri novom redu: ponovni pokušaj
+ne pravi drugi red, ali posle greške obaveštenja ne šalje naknadnu potvrdu.
+Tragovi drugih slanja rotiraju se na 30 dana. Nema promene SYSTEM_PROMPT-a.
+Uvoz stare motivacione/mejl istorije i dalje čeka F1b.10; stvarno izvršavanje
+po satnici još nije potvrđeno. SCHEDULER_ENABLED ostaje off za prvi redeploy.

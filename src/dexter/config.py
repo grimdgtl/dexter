@@ -9,7 +9,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -76,6 +76,20 @@ class Settings(BaseSettings):
     flowers_task_cron: str = "0 5 * * 1"
     scheduler_enabled: Literal["on", "off"] = "on"
     semantic_index_cron: str = "0 4 * * *"
+    checklist_create_cron: str = "0 5 * * *"
+    checklist_reminder_cron: str = "30 21 * * *"
+    checklist_praise_cron: str = "0 23 * * *"
+    checklist_praise_threshold: int = Field(70, ge=0, le=100)
+    weekly_summary_cron: str = "0 22 * * 0"
+    morning_greeting_cron: str = "0 6 * * *"
+    morning_briefing_cron: str = "30 9 * * *"
+    mail_check_cron: str = "0 8-22 * * *"
+    site_check_silent_cron: str = "0 10 * * *"
+    site_check_report_cron: str = "0 18 * * *"
+    birthday_morning_cron: str = "0 11 * * *"
+    birthday_evening_cron: str = "0 19 * * *"
+    tax_reminder_cron: str = "0 10 14 * *"
+    motivation_history: int = Field(30, ge=1, le=365)
     google_client_id: str | None = None
     google_client_secret: str | None = None
     google_refresh_token: str | None = None
@@ -112,6 +126,32 @@ class Settings(BaseSettings):
 
     history_turns: int = Field(12, ge=1)
     log_level: str = "INFO"
+
+    @field_validator(
+        "semantic_index_cron",
+        "flowers_task_cron",
+        "checklist_create_cron",
+        "checklist_reminder_cron",
+        "checklist_praise_cron",
+        "weekly_summary_cron",
+        "morning_greeting_cron",
+        "morning_briefing_cron",
+        "mail_check_cron",
+        "site_check_silent_cron",
+        "site_check_report_cron",
+        "birthday_morning_cron",
+        "birthday_evening_cron",
+        "tax_reminder_cron",
+    )
+    @classmethod
+    def valid_cron(cls, value: str, info: ValidationInfo) -> str:
+        from dexter.cron import trigger
+
+        try:
+            trigger(value, "UTC")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"{info.field_name.upper()}: neispravan cron sa pet polja.") from exc
+        return value.strip()
 
     @model_validator(mode="after")
     def valid_chunking(self):

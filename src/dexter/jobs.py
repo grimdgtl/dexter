@@ -3,6 +3,8 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -13,6 +15,15 @@ from dexter.db import pool
 from dexter.pismo import u_latinicu
 
 log = logging.getLogger(__name__)
+current: ContextVar[tuple[int, datetime] | None] = ContextVar("scheduled_run", default=None)
+
+
+async def _invoke(fn, run_id: int, started: datetime):
+    token = current.set((run_id, started))
+    try:
+        return await fn()
+    finally:
+        current.reset(token)
 
 
 async def run_job(
@@ -30,11 +41,12 @@ async def run_job(
     error = None
     result = None
     ok = False
+    started = datetime.now(UTC)
     try:
         for attempt in range(1, attempts + 1):
             await pool().execute("UPDATE job_runs SET pokusaja = $2 WHERE id = $1", run_id, attempt)
             try:
-                result = await fn()
+                result = await _invoke(fn, run_id, started)
             except Exception as exc:
                 error = u_latinicu(str(exc))[:3000]
                 log.exception("Posao %s, pokušaj %s/%s", ime, attempt, attempts)

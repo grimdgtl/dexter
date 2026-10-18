@@ -55,6 +55,16 @@ async def create_day(datum: str | None = None, checklist_page_id: str | None = N
         page, existed = await days.ensure(
             api, await days.source(api, "NOTION_DNEVNIK_DB_ID"), datum, extra
         )
+        if checklist_page_id:
+            links = page.get("properties", {}).get("Checklista", {}).get("relation", [])
+            if links and {p["id"].replace("-", "") for p in links} != {
+                checklist_page_id.replace("-", "")
+            }:
+                raise ValueError(
+                    "Dnevnik je već povezan sa drugom checklistom; veza nije prepisana."
+                )
+            if not links:
+                page = await api.pages.update(page_id=page["id"], properties=extra)
         return {**row(page), "vecPostojao": existed}
 
 

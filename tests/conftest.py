@@ -443,6 +443,7 @@ def imap_server(monkeypatch):
         fail_folder = None
         closed = False
         fail_login = False
+        uidvalidity = 1
 
         def __init__(self):
             self.messages = {"INBOX": [], "Poslato": []}
@@ -459,12 +460,14 @@ def imap_server(monkeypatch):
 
         def _simple_command(self, command, *args):
             self.record(command, *args)
-            assert command in {"LOGIN", "LIST"}
+            assert command in {"LOGIN", "LIST", "STATUS"}
             if command == "LOGIN" and self.fail_login:
                 raise RuntimeError("IMAP prijava nije uspela")
             return "OK", []
 
         def _untagged_response(self, typ, data, command):
+            if command == "STATUS":
+                return "OK", [f'"INBOX" (UIDVALIDITY {self.uidvalidity})'.encode()]
             return "OK", [
                 f'({self.flags.get(name, "")}) "/" "'.encode() + utf7_encode(name) + b'"'
                 for name in self.messages
@@ -516,12 +519,15 @@ def imap_server(monkeypatch):
                     and matches(raw)
                 ]
                 return "OK", [" ".join(ids).encode()]
-            assert command.upper() == "FETCH" and "BODY.PEEK[]" in args[1]
+            assert command.upper() == "FETCH" and "BODY.PEEK[" in args[1]
             uid = int(args[0])
             if uid > len(messages):
                 return "OK", [None]
             flags = "\\Seen" if uid % 2 else ""
-            return "OK", [(f"1 (UID {uid} FLAGS ({flags}))".encode(), messages[uid - 1]), b")"]
+            raw = messages[uid - 1]
+            if "BODY.PEEK[HEADER]" in args[1]:
+                raw = raw.split(b"\n\n", 1)[0] + b"\n\n"
+            return "OK", [(f"1 (UID {uid} FLAGS ({flags}))".encode(), raw), b")"]
 
         def append(self, folder, flags, when, raw):
             self.record("APPEND", folder, flags)

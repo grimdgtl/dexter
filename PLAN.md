@@ -300,11 +300,17 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > posle deploy-a potvrdio pregled rođendana i probnu čestitku, proveru 22 sajta
   > i istu istoriju uzoraka, kreiran Google Doc sa pregledom zadataka/kalendara,
   > te izmenu probne činjenice Alfa → Beta uz isti ID i kategoriju. Scheduler ostaje off.
-- [ ] **F1b.8 Zakazani poslovi** — svih 14 iz Dodatka B, kroz `run_job` (F1.5),
+- [x] **F1b.8 Zakazani poslovi** — svih 14 iz Dodatka B, kroz `run_job` (F1.5),
   sa istim cron promenljivima kao stari. Poruke piše brzi model iz sirovih
   podataka (kao `generateText` u starom). Jutarnja motivacija pamti poslednjih
   `MOTIVATION_HISTORY` poruka (tabela) i ne ponavlja ih. Provera mejla javlja
   samo NOVE poruke (prijavljeni id-jevi u `kv_state`).
+  > Preneto svih 14 cron ENV rasporeda, uz četiri postojeća F2/F6 posla.
+  > Migracija 014 čuva motivacione poruke; brifing i satna provera dele trajnu
+  > IMAP evidenciju, a retry ne ponavlja neizvesno Telegram slanje. Ruff i
+  > testovi sa bazom prolaze; detalji u docs/EVAL.md i docs/PARITY.md.
+  > ČEKA RUČNU PROVERU: redeploy uz SCHEDULER_ENABLED=off, pregled podešavanja,
+  > pa kontrolisano uključivanje i provera stvarnih termina. Stara istorija je F1b.10.
 - [ ] **F1b.9 Komande** — `/status` (F1.4), `/poslovi` (F1.5), `/provera`:
   poređenje Notion baza sa očekivanim kolonama i tipovima (port `schema.js`),
   plus provera pri startu koja šalje poruku samo kad se nalaz promeni.

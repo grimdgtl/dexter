@@ -131,8 +131,8 @@ async def mark_greeted(name: str) -> dict:
     }
 
 
-async def ungreeted_today() -> list[dict]:
-    current = today()
+async def ungreeted_today(current: date | None = None) -> list[dict]:
+    current = current or today()
     greeted = {
         row["person_id"]
         for row in await db.pool().fetch(

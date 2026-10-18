@@ -169,3 +169,25 @@ async def create_weekly(day: date | None = None) -> dict:
             {"status": "kreiran", "task": task},
         )
         return {**task, "vecPostojao": False}
+
+
+async def find_weekly(day: date | None = None) -> dict | None:
+    start, end = week_window(day)
+    async with notion.client() as api:
+        async for page in notion.query_pages(
+            api,
+            await data_source(api),
+            {
+                "and": [
+                    {
+                        "property": "Zadatak",
+                        "title": {"contains": u_latinicu(settings().weekly_task_title.strip())},
+                    },
+                    {"property": "Rok", "date": {"on_or_after": start.isoformat()}},
+                    {"property": "Rok", "date": {"on_or_before": end.isoformat()}},
+                ]
+            },
+            limit=1,
+        ):
+            return task_data(page)
+    return None

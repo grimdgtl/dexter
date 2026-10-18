@@ -59,7 +59,7 @@ async def db(monkeypatch):
 
     pool = await dbmod.connect()
     await pool.execute(
-        "TRUNCATE birthday_greetings, monitor_checks, proactive_feedback, proactive_deliveries, proactive_runs, commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
+        "TRUNCATE motivation_messages, birthday_greetings, monitor_checks, proactive_feedback, proactive_deliveries, proactive_runs, commitments, expenses, conversation_context, kv_state, job_runs, messages, pending_notes, facts, documents, chunks, usage RESTART IDENTITY CASCADE"
     )
     yield pool
     await pool.close()
@@ -2990,3 +2990,319 @@ async def test_insight_rechecks_quiet_after_reserving_delivery(db, monkeypatch):
     assert not await proactive.daily(bot)
     bot.send_message.assert_not_awaited()
     assert await db.fetchval("SELECT status FROM proactive_runs") == "policy_blocked"
+
+
+@pytest.fixture
+async def scheduled(db, monkeypatch):
+    from datetime import UTC, datetime
+
+    from dexter import jobs, scheduled_delivery, scheduled_jobs, scheduled_mail
+    from dexter.config import settings
+
+    for name in ("imap_host", "imap_user", "imap_password"):
+        monkeypatch.setattr(settings(), name, "test")
+    monkeypatch.setattr(scheduled_jobs, "compose", AsyncMock(return_value="Probni pregled."))
+    monkeypatch.setattr(jobs.asyncio, "sleep", AsyncMock())
+    token = jobs.current.set((100, datetime(2026, 10, 19, 6, tzinfo=UTC)))
+    bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=1)))
+    yield SimpleNamespace(
+        delivery=scheduled_delivery, automatic=scheduled_jobs, mail=scheduled_mail, bot=bot
+    )
+    jobs.current.reset(token)
+
+
+async def test_scheduled_delivery_persists_sent_and_skips_before_preparing(db, scheduled):
+    d = scheduled.delivery
+    prepare = AsyncMock(return_value=d.Notice("Пробна порука."))
+    assert await d.dispatch("test", scheduled.bot, prepare)
+    assert not await d.dispatch("test", scheduled.bot, prepare)
+    prepare.assert_awaited_once()
+    scheduled.bot.send_message.assert_awaited_once_with(1, "Probna poruka.")
+    state = await db.fetchval("SELECT value FROM kv_state WHERE key=$1", d.key("test"))
+    assert state["status"] == "sent" and state["message_id"] == 1
+
+
+async def test_scheduled_parallel_claim_allows_only_one_telegram_send(db, scheduled):
+    d = scheduled.delivery
+    ready, release = asyncio.Event(), asyncio.Event()
+
+    async def send(*args):
+        ready.set()
+        await release.wait()
+        return SimpleNamespace(message_id=1)
+
+    scheduled.bot.send_message.side_effect = send
+    prepare = AsyncMock(return_value=d.Notice("Probna poruka."))
+    first = asyncio.create_task(d.dispatch("test", scheduled.bot, prepare))
+    await ready.wait()
+    with pytest.raises(RuntimeError, match="nije potvrđen"):
+        await d.dispatch("test", scheduled.bot, prepare)
+    release.set()
+    assert await first
+    scheduled.bot.send_message.assert_awaited_once()
+
+
+async def test_rejected_scheduled_delivery_releases_claim_and_mail_reservation(db, scheduled):
+    from telegram.error import BadRequest
+
+    d = scheduled.delivery
+    await d.put(db, "test:mail", ["old"])
+    prepare = AsyncMock(
+        return_value=d.Notice("Proba", "test:mail", ["old"], ["old", "new"], "Jutarnja poruka.")
+    )
+    scheduled.bot.send_message.side_effect = BadRequest("Odbijeno")
+    with pytest.raises(BadRequest):
+        await d.dispatch("test", scheduled.bot, prepare)
+    assert await db.fetchval("SELECT value FROM kv_state WHERE key='test:mail'") == ["old"]
+    assert not await db.fetchval("SELECT count(*) FROM motivation_messages")
+    assert not await db.fetchval("SELECT value FROM kv_state WHERE key=$1", d.key("test"))
+    scheduled.bot.send_message.side_effect = None
+    assert await d.dispatch("test", scheduled.bot, prepare)
+    assert await db.fetchval("SELECT value FROM kv_state WHERE key='test:mail'") == ["old", "new"]
+
+
+async def test_uncertain_telegram_delivery_does_not_resend_during_job_retries(db, scheduled):
+    from telegram.error import TimedOut
+
+    from dexter import jobs
+
+    d = scheduled.delivery
+    prepare = AsyncMock(return_value=d.Notice("Probna poruka."))
+    scheduled.bot.send_message.side_effect = [TimedOut(), SimpleNamespace(message_id=2)]
+    contexts = []
+
+    async def work():
+        contexts.append(jobs.current.get())
+        return await d.dispatch("test", scheduled.bot, prepare)
+
+    assert await jobs.run_job("test", work, bot=scheduled.bot) is None
+    row = await db.fetchrow("SELECT * FROM job_runs")
+    assert not row["ok"] and row["pokusaja"] == 3
+    assert contexts[0] == contexts[1] == contexts[2]
+    assert jobs.current.get()[0] == 100
+    state = await db.fetchval(
+        "SELECT value FROM kv_state WHERE key=$1", f"scheduled:delivery:test:{row['id']}"
+    )
+    assert state["status"] == "unknown"
+    prepare.assert_awaited_once()
+    assert scheduled.bot.send_message.await_count == 2
+    assert "⚠️ Posao" in scheduled.bot.send_message.call_args.args[1]
+
+
+async def test_cancelled_scheduled_delivery_keeps_claim_without_resending(db, scheduled):
+    d = scheduled.delivery
+    scheduled.bot.send_message.side_effect = asyncio.CancelledError()
+    prepare = AsyncMock(return_value=d.Notice("Proba"))
+    with pytest.raises(asyncio.CancelledError):
+        await d.dispatch("test", scheduled.bot, prepare)
+    with pytest.raises(RuntimeError, match="nije potvrđen"):
+        await d.dispatch("test", scheduled.bot, prepare)
+    scheduled.bot.send_message.assert_awaited_once()
+    assert (await db.fetchval("SELECT value FROM kv_state WHERE key=$1", d.key("test")))[
+        "status"
+    ] == "sending"
+
+
+@pytest.mark.parametrize("text", [" ", "😀" * 2000])
+async def test_empty_or_oversized_scheduled_notice_has_no_delivery_claim(db, scheduled, text):
+    d = scheduled.delivery
+    with pytest.raises(ValueError, match="prazna ili predugačka"):
+        await d.dispatch("test", scheduled.bot, AsyncMock(return_value=d.Notice(text)))
+    scheduled.bot.send_message.assert_not_awaited()
+    assert not await db.fetchval("SELECT count(*) FROM kv_state")
+
+
+def scheduled_snapshot(uids, validity="1", visible=None):
+    return {
+        "uidvalidity": validity,
+        "uids": [str(uid) for uid in uids],
+        "messages": [{"uid": uid, "subject": "Proba"} for uid in (visible or uids)],
+    }
+
+
+async def test_mail_notifications_survive_reconnect_and_prune_only_read_uids(
+    db, scheduled, monkeypatch
+):
+    from datetime import UTC, datetime
+
+    from dexter import jobs
+
+    reader = AsyncMock(return_value=scheduled_snapshot([1, 2, 3]))
+    monkeypatch.setattr(scheduled.mail.mail, "notification_snapshot", reader)
+    assert await scheduled.automatic.mail_check(scheduled.bot)
+    jobs.current.set((101, datetime.now(UTC)))
+    reader.return_value = scheduled_snapshot([1, 2, 3], visible=[3])
+    # Ponovno povezivanje čita trajno stanje; limit prikaza ne briše stare nepročitane.
+    await db.expire_connections()
+    assert not await scheduled.automatic.mail_check(scheduled.bot)
+    state_key = scheduled.mail.account_key() + ":1"
+    assert await db.fetchval("SELECT value FROM kv_state WHERE key=$1", state_key) == [
+        "1",
+        "2",
+        "3",
+    ]
+    reader.return_value = scheduled_snapshot([2, 3, 4])
+    assert await scheduled.automatic.mail_check(scheduled.bot)
+    assert await db.fetchval("SELECT value FROM kv_state WHERE key=$1", state_key) == [
+        "2",
+        "3",
+        "4",
+    ]
+    assert scheduled.bot.send_message.await_count == 2
+    assert scheduled.automatic.compose.call_args.args[1]["novi"] == [{"uid": 4, "subject": "Proba"}]
+
+
+async def test_mail_uidvalidity_change_does_not_hide_reused_uid(db, scheduled, monkeypatch):
+    from datetime import UTC, datetime
+
+    from dexter import jobs
+
+    reader = AsyncMock(return_value=scheduled_snapshot([1]))
+    monkeypatch.setattr(scheduled.mail.mail, "notification_snapshot", reader)
+    assert await scheduled.automatic.mail_check(scheduled.bot)
+    jobs.current.set((101, datetime.now(UTC)))
+    reader.return_value = scheduled_snapshot([1], "2")
+    assert await scheduled.automatic.mail_check(scheduled.bot)
+    assert scheduled.bot.send_message.await_count == 2
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'mail:notified:%'") == 2
+
+
+async def test_parallel_mail_runs_share_account_lock_and_notify_once(db, scheduled, monkeypatch):
+    from datetime import UTC, datetime
+
+    from dexter import jobs
+
+    monkeypatch.setattr(
+        scheduled.mail.mail,
+        "notification_snapshot",
+        AsyncMock(return_value=scheduled_snapshot([1])),
+    )
+
+    async def run(run_id):
+        token = jobs.current.set((run_id, datetime.now(UTC)))
+        try:
+            return await scheduled.automatic.mail_check(scheduled.bot)
+        finally:
+            jobs.current.reset(token)
+
+    assert sorted(await asyncio.gather(run(101), run(102))) == [False, True]
+    scheduled.bot.send_message.assert_awaited_once()
+
+
+async def test_failed_mail_composition_does_not_mark_new_messages_notified(
+    db, scheduled, monkeypatch
+):
+    monkeypatch.setattr(
+        scheduled.mail.mail,
+        "notification_snapshot",
+        AsyncMock(return_value=scheduled_snapshot([1])),
+    )
+    scheduled.automatic.compose.side_effect = ValueError("Nedovršen tekst")
+    with pytest.raises(ValueError):
+        await scheduled.automatic.mail_check(scheduled.bot)
+    state_key = scheduled.mail.account_key() + ":1"
+    assert await db.fetchval("SELECT value FROM kv_state WHERE key=$1", state_key) == []
+    scheduled.bot.send_message.assert_not_awaited()
+    scheduled.automatic.compose.side_effect = None
+    assert await scheduled.automatic.mail_check(scheduled.bot)
+
+
+async def test_morning_briefing_marks_only_visible_mail_and_hourly_check_stays_silent(
+    db, scheduled, monkeypatch
+):
+    monkeypatch.setattr(scheduled.automatic.google, "configured", lambda: False)
+    monkeypatch.setattr(scheduled.automatic, "available", lambda names: False)
+    monkeypatch.setattr(
+        scheduled.mail.mail,
+        "notification_snapshot",
+        AsyncMock(return_value=scheduled_snapshot(range(1, 21), visible=list(range(6, 21)))),
+    )
+    assert await scheduled.automatic.morning_briefing(scheduled.bot)
+    state_key = scheduled.mail.account_key() + ":1"
+    assert len(await db.fetchval("SELECT value FROM kv_state WHERE key=$1", state_key)) == 15
+    data = scheduled.automatic.compose.call_args.args[1]
+    assert data["mejlovi"]["ukupnoNeprocitanih"] == 20
+    assert data["mejlovi"]["prikazOgranicen"]
+    assert not await scheduled.automatic.mail_check(scheduled.bot)
+    scheduled.bot.send_message.assert_awaited_once()
+
+
+async def test_uncertain_mail_send_keeps_notified_uids_for_later_runs(db, scheduled, monkeypatch):
+    from datetime import UTC, datetime
+
+    from telegram.error import TimedOut
+
+    from dexter import jobs
+
+    monkeypatch.setattr(
+        scheduled.mail.mail,
+        "notification_snapshot",
+        AsyncMock(return_value=scheduled_snapshot([1])),
+    )
+    scheduled.bot.send_message.side_effect = TimedOut()
+    with pytest.raises(TimedOut):
+        await scheduled.automatic.mail_check(scheduled.bot)
+    jobs.current.set((101, datetime.now(UTC)))
+    assert not await scheduled.automatic.mail_check(scheduled.bot)
+    scheduled.bot.send_message.assert_awaited_once()
+
+
+async def test_motivation_history_is_persisted_pruned_and_protected_from_repetition(
+    db, scheduled, monkeypatch
+):
+    from datetime import UTC, datetime
+
+    from dexter import jobs
+    from dexter.config import settings
+
+    monkeypatch.setattr(settings(), "motivation_history", 2)
+    d = scheduled.delivery
+    texts = [
+        "Prvo očisti radni sto, pa izaberi jedan zadatak za jutro.",
+        "Kratka šetnja posle doručka daje telu prostor da se razbudi.",
+        "Zatvori društvene mreže dok završavaš prvi nacrt današnjeg posla.",
+    ]
+    for i, text in enumerate(texts):
+        jobs.current.set((100 + i, datetime.now(UTC)))
+        assert await d.dispatch(
+            "morning", scheduled.bot, AsyncMock(return_value=d.Notice(text, motivation=text))
+        )
+    rows = await db.fetch("SELECT text,status FROM motivation_messages ORDER BY id")
+    assert [r["text"] for r in rows] == texts[-2:]
+    assert all(r["status"] == "sent" for r in rows)
+    jobs.current.set((103, datetime.now(UTC)))
+    with pytest.raises(ValueError, match="već pripremljena"):
+        await d.dispatch(
+            "morning",
+            scheduled.bot,
+            AsyncMock(return_value=d.Notice(texts[-1], motivation=texts[-1])),
+        )
+    assert scheduled.bot.send_message.await_count == 3
+    assert not await db.fetchval("SELECT value FROM kv_state WHERE key=$1", d.key("morning"))
+
+
+async def test_prepare_day_backfills_missing_diary_relation_without_touching_text(
+    db, habits_notion
+):
+    from dexter.services import checklist, dnevnik
+
+    n = habits_notion
+    page = n.page(diary=True)
+    page["properties"]["Ključna reč"] = {"rich_text": [{"plain_text": "Moj zapis"}]}
+    check = await checklist.create_day("2026-10-18")
+    result = await dnevnik.create_day("2026-10-18", check["id"])
+    assert result["kljucnaRec"] == "Moj zapis" and result["vecPostojao"]
+    patch = json.loads(n.update.calls[-1].request.content)
+    assert patch == {"properties": {"Checklista": {"relation": [{"id": check["id"]}]}}}
+    await dnevnik.create_day("2026-10-18", check["id"])
+    assert n.update.call_count == 1
+
+
+async def test_prepare_day_refuses_conflicting_diary_relation(db, habits_notion):
+    from dexter.services import dnevnik
+
+    page = habits_notion.page(diary=True)
+    page["properties"]["Checklista"] = {"relation": [{"id": str(uuid4())}]}
+    with pytest.raises(ValueError, match="drugom checklistom"):
+        await dnevnik.create_day("2026-10-18", str(uuid4()))
+    assert not habits_notion.update.called
