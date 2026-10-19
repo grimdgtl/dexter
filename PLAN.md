@@ -487,6 +487,28 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 
 ---
 
+### Faza 7 — Lični pregled ugovora
+
+> IZMENA 19.10.2026: korisnik je izričito odobrio izradu posle razrade specifikacije.
+> F7.1 ima prioritet tokom probnog rada F1b.11. Telegram je interfejs; bez admin
+> panela, SaaS-a i novog API-ja. Probni dokumenti su jasno označeni kao izmišljeni.
+
+- [x] **F7.1 Ugovor → citati → potvrđeni zadaci.** PDF/fotografija uz `/ugovor`:
+  OCR sa brojevima stranica/pasusa, Pydantic struktura strana/datuma/obaveza,
+  deterministička provera citata i vrednosti, prikaz nepotvrđenih polja.
+  Predlozi i rokovi izvode se u kodu samo iz proverenih podataka; korisnik bira
+  svaki zadatak zasebnom potvrdom. Notion To-do sa rokom i lokalni Telegram
+  podsetnik, zaštita od duplikata/neizvesnog upisa. Izvorni OCR i pregled u bazi.
+  > PIB je ovde samo prepis izvora za pregled: kod ga izdvaja iz citiranog OCR
+  > pasusa. Ne prihvata se proizvoljna modelska vrednost, ne menja se Notion
+  > klijent i ne koristi se kao fiskalni podatak za izdavanje fakture.
+  > Provera citata nije garancija tačnosti OCR-a niti pravnog tumačenja.
+  > Implementirano uz trajne preglede u kv_state, dva potvrđena ID argumenta,
+  > pojedinačne Notion To-do upise i migraciju 015 za tačan dan podsetnika.
+  > Ruff i 853 testa sa bazom prolaze; kontrolni eval verifikatora je 5/5.
+  > Tri izmišljena skenirana PDF-a su vizuelno proverena. Stvarni Claude OCR,
+  > Telegram prikaz i privatni Notion upis čekaju redeploy i ručnu proveru.
+
 ## 5. Nove zavisnosti po fazama
 
 | Faza | Paket | Zašto |

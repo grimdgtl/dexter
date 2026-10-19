@@ -23,6 +23,7 @@ from telegram.ext import (
 from dexter import feedback, jobs, memory, receipts, status, tts, usage
 from dexter.agent import history, loop
 from dexter.config import settings
+from dexter.contracts import service as contract_service
 from dexter.pismo import u_latinicu
 from dexter.rag.ingest import ingest_file
 from dexter.services import schema
@@ -219,6 +220,9 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         file, mime = await msg.document.get_file(), msg.document.mime_type
     data = bytes(await file.download_as_bytearray())
+    if contract_requested(msg.caption):
+        await _contract_review(update, ctx, "ugovor.jpg", data, mime)
+        return
     blocks = [
         {"type": "image",
          "source": {"type": "base64", "media_type": mime, "data": base64.b64encode(data).decode()}},
@@ -232,6 +236,13 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _owner(update):
         return
     doc = update.message.document
+    if contract_requested(update.message.caption):
+        if (doc.file_size or 0) > contract_service.MAX_BYTES:
+            await update.message.reply_text("Ugovor mora biti manji od 10 MB.")
+            return
+        data = bytes(await (await doc.get_file()).download_as_bytearray())
+        await _contract_review(update, ctx, doc.file_name or "ugovor.pdf", data, doc.mime_type)
+        return
     data = bytes(await (await doc.get_file()).download_as_bytearray())
     try:
         n, poruka = await ingest_file(doc.file_name, data)
@@ -248,6 +259,93 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if n and update.message.caption:
         await _answer(update, ctx, f"(Upravo sam ti poslao fajl {doc.file_name}.) "
                                    f"{update.message.caption}")  # fmt: skip
+
+
+def contract_requested(caption: str | None) -> bool:
+    parts = (caption or "").split(maxsplit=1)
+    return bool(parts and parts[0].split("@")[0].lower() == "/ugovor")
+
+
+async def _show_contract(update, ctx, review):
+    for part in _split(contract_service.render(review)):
+        await ctx.bot.send_message(update.effective_chat.id, part)
+    if not registry._TOOLS["contract_task_create"].is_enabled():
+        await ctx.bot.send_message(
+            update.effective_chat.id,
+            "Za potvrdu zadataka podesi NOTION_API_KEY i NOTION_TODO_DB_ID. Pregled ugovora je sačuvan.",
+        )
+        return
+    for proposal in review.predlozi:
+        outcome = await registry.execute(
+            "contract_task_create", {"pregled_id": review.id, "predlog_id": proposal.id}
+        )
+        if outcome.pending is None:
+            for part in _split(u_latinicu(outcome.text)):
+                await ctx.bot.send_message(update.effective_chat.id, part)
+            continue
+        token, text = outcome.pending
+        try:
+            parts = _split(u_latinicu("Predlog — potvrdi samo ako želiš ovaj zadatak:\n" + text))
+            for i, part in enumerate(parts):
+                keyboard = InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton("✅ Sačuvaj zadatak", callback_data=f"ok:{token}"),
+                            InlineKeyboardButton("❌ Odbaci", callback_data=f"no:{token}"),
+                        ]
+                    ]
+                )
+                await ctx.bot.send_message(
+                    update.effective_chat.id,
+                    part,
+                    **({"reply_markup": keyboard} if i == len(parts) - 1 else {}),
+                )
+        except BaseException:
+            registry.cancel(token)
+            raise
+
+
+async def _contract_review(update, ctx, name, data, mime):
+    chat_id = update.effective_chat.id
+    stop = asyncio.Event()
+    typing = asyncio.create_task(_keep_typing(ctx.bot, chat_id, stop))
+    try:
+        async with _chat_locks.setdefault(chat_id, asyncio.Lock()):
+            await ctx.bot.send_message(
+                chat_id,
+                "Čitam ugovor i proveravam citate. Posle pregleda biraš zadatke; ništa se ne zakazuje automatski.",
+            )
+            review = await contract_service.analyze(name, data, mime)
+            await _show_contract(update, ctx, review)
+    except Exception as exc:
+        log.warning("Pregled ugovora nije uspeo (%s).", type(exc).__name__)
+        text = (
+            str(exc)
+            if isinstance(exc, ValueError)
+            else "Proveri fajl i log obrade. Pregled nije završen."
+        )
+        for part in _split(u_latinicu(f"⚠️ {text}")):
+            await ctx.bot.send_message(chat_id, part)
+    finally:
+        stop.set()
+        await typing
+
+
+async def cmd_contract(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _owner(update):
+        return
+    if not ctx.args:
+        await update.message.reply_text(
+            "Pošalji PDF ili fotografiju ugovora uz opis /ugovor. Za ponovni pregled: /ugovor ID. Predloge zadataka potvrđuješ pojedinačno."
+        )
+        return
+    try:
+        async with _chat_locks.setdefault(update.effective_chat.id, asyncio.Lock()):
+            await _show_contract(update, ctx, await contract_service.load(ctx.args[0]))
+    except ValueError:
+        await update.message.reply_text(
+            "Pregled nije pronađen. Koristi /ugovor ID ili pošalji dokument uz opis /ugovor."
+        )
 
 
 async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -382,6 +480,7 @@ def build(app: Application) -> None:
     app.add_handler(CommandHandler("troskovi", cmd_costs))
     app.add_handler(CommandHandler("rashodi", cmd_expenses))
     app.add_handler(CommandHandler("memorija", cmd_memory))
+    app.add_handler(CommandHandler("ugovor", cmd_contract))
     app.add_handler(CallbackQueryHandler(feedback.on_vote, pattern=r"^vote:"))
     app.add_handler(CallbackQueryHandler(on_button, pattern=r"^(ok|no):"))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))

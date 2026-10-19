@@ -30,6 +30,8 @@ def test_all_46_legacy_tools_have_one_registered_replacement():
     assert production - replacements == {
         "commitment_done",
         "commitments_list",
+        "contract_get",
+        "contract_task_create",
         "memory_search",
         "proactive_log",
         "receipt_extract",
@@ -46,7 +48,14 @@ def test_legacy_arguments_are_preserved_without_new_required_fields(contract):
 
 @pytest.mark.parametrize(
     "name",
-    ["mail_send", "invoice_create", "memory_forget", "calendar_create_event", "receipt_extract"],
+    [
+        "mail_send",
+        "invoice_create",
+        "memory_forget",
+        "calendar_create_event",
+        "receipt_extract",
+        "contract_task_create",
+    ],
 )
 def test_destructive_or_external_sensitive_actions_keep_confirmation(name):
     tool = registry._TOOLS[name]

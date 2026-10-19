@@ -30,7 +30,7 @@ def normalized(text):
     return " ".join(u_latinicu(text).casefold().split())
 
 
-async def save(item: Commitment, user_text: str) -> bool:
+async def save(item: Commitment, user_text: str, *, remind_on: date | None = None) -> bool:
     if normalized(item.dokaz) not in normalized(user_text):
         raise ValueError("Obaveza nema citat iz stvarne korisnikove poruke.")
     fingerprint = hashlib.sha256(
@@ -43,13 +43,14 @@ async def save(item: Commitment, user_text: str) -> bool:
         ).encode()
     ).hexdigest()
     result = await pool().fetchval(
-        """INSERT INTO commitments (tekst,osoba,rok,dokaz,fingerprint)
-           VALUES ($1,$2,$3,$4,$5) ON CONFLICT (fingerprint) DO NOTHING RETURNING id""",
+        """INSERT INTO commitments (tekst,osoba,rok,dokaz,fingerprint,remind_on)
+           VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (fingerprint) DO NOTHING RETURNING id""",
         item.tekst,
         item.osoba,
         item.rok,
         item.dokaz,
         fingerprint,
+        remind_on,
     )
     return result is not None
 
@@ -81,8 +82,8 @@ async def remind(bot, now: datetime | None = None) -> int:
     if quiet(now):
         return 0
     rows = await pool().fetch(
-        "SELECT id FROM commitments WHERE status='open' AND rok=$1 AND reminder_claimed_at IS NULL ORDER BY id",
-        now.date() + timedelta(days=1),
+        "SELECT id FROM commitments WHERE status='open' AND COALESCE(remind_on,rok-1)=$1 AND reminder_claimed_at IS NULL ORDER BY id",
+        now.date(),
     )
     sent = 0
     for row in rows:
@@ -98,8 +99,15 @@ async def remind(bot, now: datetime | None = None) -> int:
         )
         if not item:
             continue
+        label = (
+            "za sutra"
+            if item["rok"] == now.date() + timedelta(days=1)
+            else "za danas"
+            if item["rok"] == now.date()
+            else "za rok"
+        )
         text = u_latinicu(
-            f"Podsetnik za sutra ({item['rok']}): {item['tekst']}"
+            f"Podsetnik {label} ({item['rok']}): {item['tekst']}"
             + (f" — {item['osoba']}" if item["osoba"] else "")
         )
         try:

@@ -5,6 +5,7 @@ from dexter.tools import (  # noqa: F401
     calendar,
     checklist,
     commitments,
+    contracts,
     drive,
     invoices,
     knowledge,

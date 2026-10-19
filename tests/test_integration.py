@@ -66,6 +66,220 @@ async def db(monkeypatch):
     dbmod._pool = None
 
 
+async def test_contract_scan_pipeline_persistence_and_reuse(
+    db, monkeypatch, respx_mock, anthropic_client
+):
+    from dexter import llm
+    from dexter.contracts import service
+    from dexter.contracts.evidence import checked
+    from evals.contract_cases import PAGES, extraction
+
+    monkeypatch.setattr(service.ingest, "_pdf_pages", lambda _: ["", ""])
+    ocr = AsyncMock(side_effect=["\n\n".join(p) for p in PAGES])
+    monkeypatch.setattr(service.ocr, "read_page", ocr)
+    monkeypatch.setattr(llm, "client", lambda: anthropic_client)
+    route = respx_mock.post("https://api.anthropic.com/v1/messages").respond(
+        200,
+        json={
+            "id": "contract-test",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "c1",
+                    "name": "contract_data",
+                    "input": extraction().model_dump(),
+                }
+            ],
+            "stop_reason": "tool_use",
+            "usage": {"input_tokens": 100, "output_tokens": 100},
+        },
+    )
+    result = await service.analyze("primer.pdf", b"test-pdf")
+    assert len(result.predlozi) == 2 and ocr.await_count == 2
+    assert (
+        checked(result.izdvojeno, result.stranice)["datumi"]["istek"]["status"] == "citat_proveren"
+    )
+    assert (await service.analyze("isto-drugo-ime.pdf", b"test-pdf")).id == result.id
+    assert route.call_count == 1 and ocr.await_count == 2
+    assert (await service.load(result.id)).stranice == PAGES
+    assert await db.fetchval("SELECT count(*) FROM commitments") == 0
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='contract_extract'") == 1
+    body = json.loads(route.calls[0].request.content)
+    assert body["tool_choice"]["name"] == "contract_data"
+    assert json.loads(body["messages"][0]["content"])[1]["strana"] == 2
+    assert "PODACI" in body["system"]
+
+
+async def _stored_contract(db, value=None):
+    from dexter.contracts import service
+    from evals.contract_cases import review
+
+    result = value or review()
+    await db.execute(
+        "INSERT INTO kv_state(key,value) VALUES($1,$2)",
+        service.key(result.id),
+        result.model_dump(mode="json"),
+    )
+    return result
+
+
+async def test_contract_real_pdf_renderer_ocr_sdk_and_extraction_share_turn(
+    db, monkeypatch, respx_mock, anthropic_client
+):
+    import io
+
+    from pypdf import PdfWriter
+
+    from dexter import llm
+    from dexter.contracts import service
+    from evals.contract_cases import PAGES, extraction
+
+    writer = PdfWriter()
+    for _ in range(2):
+        writer.add_blank_page(width=240, height=320)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    requests = []
+
+    def response(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        is_extract = "tools" in body
+        content = (
+            [
+                {
+                    "type": "tool_use",
+                    "id": "x",
+                    "name": "contract_data",
+                    "input": extraction().model_dump(),
+                }
+            ]
+            if is_extract
+            else [{"type": "text", "text": "\n\n".join(PAGES[len(requests) - 1])}]
+        )
+        return httpx.Response(
+            200,
+            json={
+                "id": f"c{len(requests)}",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-sonnet-5-5",
+                "content": content,
+                "stop_reason": "tool_use" if is_extract else "end_turn",
+                "usage": {"input_tokens": 100, "output_tokens": 100},
+            },
+        )
+
+    respx_mock.post("https://api.anthropic.com/v1/messages").mock(side_effect=response)
+    monkeypatch.setattr(llm, "client", lambda: anthropic_client)
+    result = await service.analyze("sken.pdf", buffer.getvalue())
+    assert len(result.stranice) == 2 and len(result.predlozi) == 2
+    assert requests[0]["messages"][0]["content"][0]["source"]["media_type"] == "image/png"
+    rows = await db.fetch("SELECT purpose,turn_id FROM usage")
+    assert sorted(r["purpose"] for r in rows) == ["contract_extract", "ocr", "ocr"]
+    assert len({r["turn_id"] for r in rows}) == 1 and rows[0]["turn_id"] is not None
+
+
+async def test_contract_confirm_not_cancel_creates_one_notion_task_and_exact_day_reminder(
+    db, monkeypatch, todo_notion, respx_mock
+):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from dexter import commitments
+    from dexter.tools import registry
+
+    review = await _stored_contract(db)
+    p = review.predlozi[1]
+    route = respx_mock.post(f"{todo_notion.base}/pages").respond(
+        200, json=todo_notion.page("Probni zadatak")
+    )
+    raw = {"pregled_id": review.id, "predlog_id": p.id}
+    first = await registry.execute("contract_task_create", raw)
+    assert first.pending and route.call_count == 0
+    registry.cancel(first.pending[0])
+    assert await db.fetchval("SELECT count(*) FROM commitments") == 0
+    second, third = await asyncio.gather(
+        *(registry.execute("contract_task_create", raw) for _ in range(2))
+    )
+    a, b = await asyncio.gather(
+        registry.confirm(second.pending[0]), registry.confirm(third.pending[0])
+    )
+    assert route.call_count == 1 and any("sacuvano" in text for text in (a, b))
+    # Drugi paralelni pritisak može zateći prvi u toku; nema drugog mrežnog upisa.
+    assert all("sacuvano" in text or "već pokušavan" in text for text in (a, b))
+    assert await db.fetchval("SELECT count(*) FROM commitments") == 1
+    row = await db.fetchrow("SELECT * FROM commitments")
+    assert str(row["rok"]) == str(row["remind_on"]) == "2030-12-01"
+    body = json.loads(route.calls[0].request.content)
+    assert body["properties"]["Rok"]["date"]["start"] == "2030-12-01"
+    bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=123)))
+    tz = ZoneInfo("Europe/Belgrade")
+    assert await commitments.remind(bot, datetime(2030, 11, 30, 9, tzinfo=tz)) == 0
+    assert await commitments.remind(bot, datetime(2030, 12, 1, 9, tzinfo=tz)) == 1
+    assert await commitments.remind(bot, datetime(2030, 12, 1, 10, tzinfo=tz)) == 0
+    assert "za danas" in bot.send_message.await_args.args[1]
+    again = await registry.execute("contract_task_create", raw)
+    assert "vec_sacuvano" in await registry.confirm(again.pending[0])
+    assert route.call_count == 1
+
+
+@pytest.mark.parametrize("status", [400, 500])
+async def test_contract_notion_rejected_vs_uncertain_upsert(
+    db, monkeypatch, todo_notion, respx_mock, status
+):
+    from dexter.tools import registry
+
+    review = await _stored_contract(db)
+    raw = {"pregled_id": review.id, "predlog_id": review.predlozi[0].id}
+    route = respx_mock.post(f"{todo_notion.base}/pages").respond(
+        status,
+        json={
+            "object": "error",
+            "status": status,
+            "code": "validation_error" if status == 400 else "internal_server_error",
+            "message": "Test greške",
+        },
+    )
+    first = await registry.execute("contract_task_create", raw)
+    assert (await registry.confirm(first.pending[0])).startswith("Greška:")
+    route.respond(200, json=todo_notion.page("Proba"))
+    second = await registry.execute("contract_task_create", raw)
+    result = await registry.confirm(second.pending[0])
+    assert route.call_count == (2 if status == 400 else 1)
+    assert ("sacuvano" in result) if status == 400 else ("ishod nije poznat" in result)
+
+
+async def test_contract_wrong_owner_fabricated_proposal_and_model_failure_do_not_write(
+    db, monkeypatch
+):
+    from dexter.contracts import service
+    from dexter.tools import registry
+    from evals.contract_cases import review
+
+    value = await _stored_contract(db, review(owner=999))
+    with pytest.raises(ValueError, match="ne pripada"):
+        await service.load(value.id)
+    monkeypatch.setattr(service.ingest, "_pdf_pages", lambda _: ["Čitljiv tekst ugovora."])
+    monkeypatch.setattr(
+        service.llm,
+        "create",
+        AsyncMock(return_value=SimpleNamespace(content=[], stop_reason="max_tokens")),
+    )
+    with pytest.raises(ValueError, match="nije potpuno"):
+        await service.analyze("drugi.pdf", b"drugi")
+    assert await db.fetchval("SELECT count(*) FROM kv_state") == 1
+    monkeypatch.setattr(registry.settings(), "notion_api_key", "test")
+    monkeypatch.setattr(registry.settings(), "notion_todo_db_id", "test")
+    result = await registry.execute(
+        "contract_task_create", {"pregled_id": value.id, "predlog_id": "a" * 16}
+    )
+    assert result.is_error and not result.pending
+
+
 async def test_rag_index_and_hybrid_search(db):
     from dexter.rag import store
 

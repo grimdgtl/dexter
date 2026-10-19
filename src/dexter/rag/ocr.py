@@ -40,6 +40,10 @@ def render_page(data: bytes, index: int) -> bytes:
 
 async def read_page(data: bytes, index: int) -> str:
     image = await asyncio.to_thread(render_page, data, index)
+    return await read_image(image, "image/png", index + 1)
+
+
+async def read_image(image: bytes, mime: str, page_number: int = 1) -> str:
     response = await llm.create(
         purpose="ocr",
         model=settings().model_main,
@@ -53,16 +57,19 @@ async def read_page(data: bytes, index: int) -> str:
                         "type": "image",
                         "source": {
                             "type": "base64",
-                            "media_type": "image/png",
+                            "media_type": mime,
                             "data": base64.b64encode(image).decode(),
                         },
                     },
-                    {"type": "text", "text": f"Prepiši stranicu {index + 1}."},
+                    {
+                        "type": "text",
+                        "text": f"Prepiši stranicu {page_number}. Odvoji pasuse praznim redom.",
+                    },
                 ],
             }
         ],
     )
     text = u_latinicu(llm.text_of(response))
     if response.stop_reason != "end_turn":
-        raise ValueError(f"OCR stranice {index + 1} nije potpun. Ništa nije indeksirano.")
+        raise ValueError(f"OCR stranice {page_number} nije potpun. Ništa nije indeksirano.")
     return text

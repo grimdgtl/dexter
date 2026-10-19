@@ -146,6 +146,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
 | `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
 | `OCR_MAX_PAGES` | `20` | Najviše stranica bez tekstualnog sloja za OCR jednog PDF-a; prekoračenje odbija ceo uvoz |
+| `CONTRACT_MAX_PAGES` | `5` | Najviše ukupnih stranica ugovora, pre plaćenog OCR-a; opseg 1–20 |
 | `GLAS_ODGOVOR` | `off` | `on` dodaje glasovni odgovor na primljene glasovne/audio poruke; tekst se šalje uvek |
 | `TTS_MODEL` | `gpt-4o-mini-tts` | OpenAI model za sintezu glasa, uz `OPENAI_API_KEY` |
 | `TTS_VOICE` | `coral` | Glas podržan izabranim TTS modelom |
@@ -1057,3 +1058,66 @@ CI pri promeni `SYSTEM_PROMPT` zahteva stvarni izveštaj za prethodni i novi pro
 na istom skupu/rubrici; simulacija ne prolazi taj uslov. Nepromenjen prompt ne pravi
 API pozive u CI-ju. Brisanje memorije (`memory_forget`) sada takođe traži dugme
 potvrde; persona scenario proverava da se brisanje ne izvrši pre potvrde.
+
+### Lični pregled ugovora (F7.1)
+
+Pošalji PDF ili fotografiju uz **opis `/ugovor`**. Komanda `/ugovor` bez priloga
+prikazuje uputstvo; `/ugovor ID` ponovo učitava raniji pregled i priprema dugmad.
+Pregled radi samo za vlasnika bota. Telegram ostaje interfejs, bez admin panela.
+Novi ključevi nisu potrebni. `CONTRACT_MAX_PAGES=5` je podrazumevano ograničenje
+ukupnih stranica, uz najviše 10 MB i 40000 znakova prepisa; `OCR_MAX_PAGES` takođe važi.
+
+Stranice sa tekstualnim slojem čitaju se direktno, skenovi kroz postojeći Claude
+OCR. Dobijeni tekst ostaje razdvojen po stranici i numerisanim OCR pasusima.
+Pydantic struktura pokriva strane (naziv, uloga, PIB citat), datume i obaveze
+(ko, šta, do kada, iznos). Model ne vraća PIB broj; kod ga prepisuje iz jednoznačnog
+citiranog teksta uz oznaku PIB. Ovo nisu novi fiskalni podaci za fakture niti
+automatsko ažuriranje baze klijenata.
+
+Kod proverava da citat postoji u navedenom pasusu/stranici i da je doslovna vrednost
+u citatu, uz normalizaciju belina i latinice, bez fuzzy podudaranja. ISO datum
+mora biti stvaran kalendarski datum naveden u citatu kao ISO ili DD.MM.YYYY.
+Ishodi su **citat proveren**, **nepotvrđeno** i **nije pronađeno**. Provera ne
+dokazuje tačnost OCR-a, pripisivanje obaveze strani ili pravno tumačenje; izvori
+su prikazani radi ljudskog pregleda. OCR pasusi nisu pravna numeracija članova.
+
+Predlozi zadataka izvode se u kodu iz dovoljno proverenih polja. Jasno naveden
+istek može dati predlog za pregled 30 kalendarskih dana ranije. Automatsko
+produženje, neodređeno trajanje i uslovni tekst blokiraju taj automatski predlog;
+ovo je konzervativno pravilo, ne pravni parser svih mogućih formulacija.
+Relativni/nepoznati rokovi se ne računaju nagađanjem. Prošli rokovi ne daju predlog.
+
+Svaki predlog ima svoja dugmad **Sačuvaj zadatak / Odbaci** i postojeće isticanje
+potvrde posle 30 minuta. Tek potvrda stvara red u ličnoj **Notion To-do** bazi
+(`NOTION_TODO_DB_ID`, polje Rok) i, ako je rok poznat, trajni Telegram podsetnik.
+Kod obaveze je podsetnik prethodnog dana; kod predloga pregleda ugovora tačno
+30 dana pre isteka. Postojeći posao `commitment_reminders` proverava izabrani dan, obično
+u 09:00 u TIMEZONE, uz tihe sate. SCHEDULER_ENABLED mora biti on; propušten dan
+se ne nadoknađuje automatski. Zadatak bez roka nema podsetnik.
+Završavanje Notion zadatka ne zatvara lokalni podsetnik: za lokalnu obavezu
+postoji `commitment_done`. Nema automatskog usklađivanja ta dva statusa.
+
+Pregled i OCR čuvaju se u PostgreSQL kv_state, pod nepromenljivim ID-jem vezanim
+za vlasnika, SHA-256 originalnih bajtova i verziju pipeline-a. Isti fajl ponovo
+koristi pregled, bez novog OCR/LLM troška; drugačije skeniran fajl ima drugi ID.
+PDF bajtovi se ne čuvaju u aplikaciji i poseban ugovorni tok ne ulazi automatski
+u RAG indeks. `/reset` ne briše preglede. Confirm args sadrži samo ID pregleda i
+predloga; model ne može da prosledi nov tekst ili rok kroz taj alat.
+
+Notion upis ima trajni claim pre mreže. Ponovni pritisak ne pravi duplikat istog
+predloga. Poznato 4xx odbijanje dopušta novi pokušaj; timeout/5xx ostavlja neizvestan
+ishod i ne šalje ponovo. Proveri Notion ručno. Ako je Notion upis potvrđen, a
+lokalni podsetnik nije sačuvan, ponovljen predlog dovršava samo lokalni deo.
+Migracija 015 dodaje opcioni commitments.remind_on; stare obaveze zadržavaju
+podsetnik dan pre roka. SYSTEM_PROMPT nije menjan.
+
+Trošak ide u `usage` kao `ocr` i `contract_extract`, u jednoj razmeni. Za čitanje
+je podrazumevano MODEL_MAIN, uz postojeći meki dnevni budžet. Ovo nisu besplatni
+pozivi; neindeksiranje istog fajla čuva već napravljeni pregled.
+
+U lokalnom klonu `python -m scripts.make_contract_examples` generiše tri javna, izmišljena skenirana
+PDF-a u `output/pdf/`: uredan, nepotpun i sa uslovnim produženjem. Ne sadrže pravne
+savete ni stvarne poslovne podatke. Pošalji primer kao fajl sa opisom `/ugovor`,
+prvo proveri citate i odbaci predloge. Za proveru upisa potvrdi samo jedan probni
+zadatak. `python -m evals.contract_eval` bez API-ja proverava pet kontrolnih slučajeva
+verifikatora; ne meri kvalitet stvarnog OCR-a ili tumačenja modela.

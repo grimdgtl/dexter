@@ -1308,3 +1308,60 @@ svi u istom turn_id, bez router API poziva, uz očuvanu istoriju i pregled statu
 Stvarni kvalitet sa Haiku-om i stvarna cena čekaju redeploy uz economy i korisnikovu
 proveru nekoliko rutinskih/složenih zahteva. `/troskovi 1` uključuje i pozive pre
 promene tog dana; za čisto poređenje treba izdvojiti periode od deploy-a.
+
+## F7.1 — pregled ugovora kroz Telegram (19.10.2026)
+
+Pre: opšti PDF uvoz gubi granice stranica i ne daje strukturisane citate ili
+potvrđene ugovorne zadatke. Posle: poseban `/ugovor` caption za PDF/fotografiju,
+OCR/native tekst po stranici i pasusu, Pydantic izdvajanje, deterministička
+provera, pregled izvora i pojedinačne potvrde zadataka. Bez admin panela/API-ja.
+
+Izvorni OCR i izdvojena struktura su u kv_state. Isti bajtovi/vlasnik/verzija
+ponovo koriste pregled; tu nema novih plaćenih poziva. Druga kompresija/sken ima
+drugi otisak. Nova komanda `/ugovor ID` preživljava restart, dok privremena dugmad
+treba ponovo pripremiti. Potvrdni alat prima samo dva ID-ja, bez sadržaja radnje.
+Ne menjaju se SYSTEM_PROMPT, klijenti ili fiskalni izvori za izdavanje faktura.
+
+Verifikator proverava lokaciju i doslovan citat, doslovnu vrednost ili eksplicitan
+kalendarski datum. PIB izvodi kod iz citata uz oznaku PIB. Nema fuzzy poređenja
+ili modelskog sudije. Provera ne potvrđuje tačnost OCR-a ili značenje uloge/datuma.
+Model koji pogrešno pripiše postojeći citat i dalje zahteva ljudski pregled;
+upravo zato status glasi „citat proveren”, a ne „ugovor validiran”.
+
+`python -m evals.contract_eval` koristi zamrznute, izmišljene izvore i kontrolne
+izlaze modela, bez API-ja, sa referentnim datumom 19.10.2026:
+
+| Primer | Proverenih polja | Nepotvrđenih | Predloga | Očekivano |
+|---|---|---|---|---|
+| Uredan | 14 | 0 | 2 | 2 |
+| Izmišljen citat roka | 13 | 1 | 1 | 1 |
+| Pogrešna vrednost datuma | 13 | 1 | 1 | 1 |
+| Uslovno produženje | 14 | 0 | 1 | 1 |
+| Bez podataka | 0 | 0 (4 nedostajuća datuma) | 0 | 0 |
+
+Kontrolni ishod je 5/5, bez plaćenih poziva. To je regresija verifikatora i
+pravila predlaganja, nije procena generalizacije, OCR tačnosti ili LLM kvaliteta.
+Pogrešan citat/rok sprečava predlog te obaveze; nevezan, ispravan predlog ostaje.
+Datum 31.12.2030. daje podsetnik 01.12.2030. računanjem u kodu.
+
+SDK/respx test prolazi kroz stvarno renderovanje dve PDF stranice u PNG,
+mock OCR odgovore, pravi Anthropic SDK, strukturisani odgovor i PostgreSQL:
+dva ocr + jedan contract_extract red dele isti turn_id. Nijedan stvarni API
+nije pozvan. Dodatne provere obuhvataju latinicu, pogrešnu stranicu/pasus, nepostojeći
+datum, višeznačni PIB, propuštene vrednosti, granice pre plaćenih poziva,
+vlasništvo pregleda, privatne argumente potvrde, otkazivanje, paralelne potvrde,
+ponavljanje istog fajla, Notion 400 naspram neizvesnog 500, i tačan dan podsetnika.
+Migracija 015 ostavlja prethodni podsetnik dan pre roka za stare obaveze.
+
+Tri skenirana PDF primera u output/pdf imaju 2/1/1 stranicu, bez tekstualnog sloja.
+Svaka stranica je renderovana i vizuelno pregledana posle izrade. Primeri su jasno
+označeni kao izmišljeni i nisu pravni obrasci. Reprodukcija je scripts/make_contract_examples.py.
+
+Stvarno Claude OCR/izdvajanje, čitljivost Telegram pregleda, potvrda u privatnu
+Notion listu i buduća Telegram isporuka čekaju redeploy i ručnu proveru.
+Pravi ugovori/PIB-ovi korisnika nisu korišćeni, niti su mereni stvarni trošak,
+preciznost na privatnim dokumentima ili pravna tačnost. Dva nezavisna statusa
+Notion zadatka i lokalne obaveze nisu automatski sinhronizovana.
+Ruff prolazi; 853 testa sa PostgreSQL/pgvector bazom prolaze. Bez baze prolazi
+721 test, a 132 integraciona se preskaču. Provereno je i da deo većeg broja
+iza decimalnog/separatora hiljada ne bude prihvaćen kao ceo iznos.
