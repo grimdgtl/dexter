@@ -638,8 +638,8 @@ integracije. Instalacija servera i kupovina resursa nisu deo ove procedure.
    URL-kodiraj. Bota i bazu poveži u istoj Docker mreži. API ključevi se unose pri
    pokretanju, bez build argumenata i bez `.env` fajla u image-u.
 6. Koristi **drugi Telegram bot token dok stari APU radi**. Pokreni jednu repliku
-   novog bota. Dva procesa na istom tokenu izazivaju `409 Conflict`, a Faza 1b još
-   prenosi ostale stare funkcije. Glavni token preuzima se tek prema F1b.11.
+   novog bota. Dva procesa na istom tokenu izazivaju `409 Conflict`.
+   Audit prenosa je u docs/PARITY.md; prelazak čeka probni period iz F1b.11.
    Za prvi test postavi **`SCHEDULER_ENABLED=off`**; to zaustavlja sve automatske
    poslove, uključujući indeksiranje i proaktivne poruke, dok razgovor i ručni alati
    ostaju dostupni. Promena na `on` zahteva restart/redeploy. Tajne i ovu zastavicu
@@ -659,8 +659,56 @@ posebnu bazu. Pre izmene šeme napravi backup. Za lokalni Compose named volume-i
 `dexter-pg` i `dexter-data`; `docker compose down` ih zadržava, dok `down -v` briše njihove podatke.
 Zadržavanje samo app volume-a ne čuva razgovore ni indeks — potreban je i PostgreSQL volume.
 
-U ovoj fazi kreirani su kod i uputstvo. Ručna provera pravog Telegram-a, Google naloga,
-GitHub CI izvršavanja i server deploy-a zavisi od tvojih naloga i okruženja.
+Korisnik je 18/19.10.2026. potvrdio deploy, integracije i glavne ručne tokove;
+detalji i preostale operativne provere su u docs/PARITY.md i docs/EVAL.md.
+
+## Probni period i prelazak (F1b.11)
+
+Audit u [docs/PARITY.md](docs/PARITY.md) razlikuje preneti kod/testove od potvrde
+na stvarnom nalogu. Svih 46 starih alata, 14 rasporeda i pet komandi imaju zamenu.
+F1b.10 je izostavljena po dogovoru posle potvrde da stari bot nema trajnih
+činjenica. Skripta za uvoz nije implementirana; istorija sajtova/motivacija/
+čestitki/mejl obaveštenja nije preneta niti proglašena praznom. Stari volume ostaje.
+
+Pre završnog prelaska prvo popuni indeks: pošalji Dexteru „Osveži indeks samo
+za Notion.”, zatim /status. Broj dokumenata/delova treba da poraste; traži sadržaj
+poznate probne beleške preko knowledge_search uz izvor. Potom proveri i ostale
+izabrane izvore (Drive/mejl), uz iste OAuth/IMAP naloge. Pretraga praznog indeksa
+nije dokaz pariteta RAG-a. Ovo čita izvore i troši embeddinze; ne upisuje sadržaj
+u originalni Notion/Drive/mejl i ne šalje poruke drugim osobama.
+
+Oba bota ostaju na različitim tokenima. Paralelan rad i Dexter scheduler on su
+odobreni i potvrđeni 19.10.2026. Za probnu nedelju računaj sedam punih dana:
+prvi završni pregled je najranije 26.10.2026, ako nema nerešenih grešaka.
+Svaki dan pregledaj /poslovi 24 i uporedi očekivane termine iz cron tabele.
+Prati pripremu dana/vezu dnevnika i nedeljni zadatak bez duplih redova,
+jutarnji pozdrav i poslovni pregled, tihi i puni monitoring, rođendane i
+večernje/nedeljne uslovne poruke. Uspešan tihi posao ne mora poslati poruku.
+Poreski termin 14. u mesecu nije deo ove probne nedelje; ostaje mock/DB provera
+ili posebno dogovorena proba. Greške i ispravke zabeleži pre završne odluke.
+
+Oba bota dele spoljne servise, a ne svoje lock-ove i evidencije. Za istu stvarnu
+fakturu ili mejl koristi izabrani bot, a u drugom probu završi sa Odbaci/Otkaži.
+Paralelan rad može dati duple podsetnike i upise dva nezavisna bota. Ocenjivanje
+jednog bota ne potvrđuje zaštitu drugog. Auto Deploy ostaje isključen tokom probe.
+
+Po završenoj nedelji prvo sačuvaj proverenu kopiju Dexter PostgreSQL baze i
+app volume-a; sačuvaj i stari APU volume za povratak. Pregledaj /status,
+/provera i /poslovi 168, broj dokumenata i preostale stavke iz matrice. Poznat
+neispravan tok se prvo rešava; zeleni automatski testovi ne zamenjuju ovaj pregled.
+Korisnik zatim potvrđuje završni prelazak i glavni Telegram identitet. Ako se
+preuzima stari token, zaustavi stari APU pre unošenja tog tokena u Dexter Runtime
+ENV, sačuvaj i redeploy. Ako se zadržava sadašnji Dexter bot kao glavni, njegov
+token ostaje, a stari APU se zaustavlja posle potvrde. Nikada ne pokreći dva
+polling procesa na istom tokenu. Odluka i stvarna promena još nisu izvršene.
+
+Posle prelaska proveri pozdrav, /status, /provera, očuvane činjenice/dokumente i
+sledeće zakazano izvršavanje. Za povratak prvo zaustavi Dexter, tek onda pokreni
+stari APU sa sačuvanim podešavanjima/volume-om. Sačuvaj novu bazu: ne vraćaj staru
+kopiju preko novih podataka naslepo i ne ponavljaj potvrđene fakture/mejlove.
+PostgreSQL i spoljne Notion/Drive upise ne poništava samo vraćanje tokena.
+Celokupan PLAN zahteva još najmanje dve nedelje stabilnog rada na glavnom botu
+i zasebna eval merenja koja su ranije ostala za korisnikove podatke/snimke.
 
 ## Plan razvoja
 

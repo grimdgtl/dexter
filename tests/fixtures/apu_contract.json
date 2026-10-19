@@ -1,0 +1,520 @@
+{
+  "source": "https://github.com/grimdgtl/apu",
+  "commit": "2426415e0000d70244be99216125d42c367eefd6",
+  "tools": [
+    {
+      "v1": "client_add",
+      "dexter": "client_add",
+      "arguments": [
+        "naziv",
+        "nazivZaFakturu",
+        "domen",
+        "email",
+        "telefon",
+        "pib",
+        "mb",
+        "adresa",
+        "grad",
+        "opis",
+        "aktivan",
+        "tip",
+        "status",
+        "faktura",
+        "ponuda",
+        "trajanje",
+        "odrzavanjeCena",
+        "elementor",
+        "mojHosting"
+      ],
+      "required": [
+        "naziv"
+      ]
+    },
+    {
+      "v1": "client_update",
+      "dexter": "client_update",
+      "arguments": [
+        "klijent",
+        "naziv",
+        "nazivZaFakturu",
+        "domen",
+        "email",
+        "telefon",
+        "pib",
+        "mb",
+        "adresa",
+        "grad",
+        "opis",
+        "aktivan",
+        "tip",
+        "status",
+        "faktura",
+        "ponuda",
+        "trajanje",
+        "odrzavanjeCena",
+        "elementor",
+        "mojHosting"
+      ],
+      "required": [
+        "klijent"
+      ]
+    },
+    {
+      "v1": "client_list",
+      "dexter": "client_list",
+      "arguments": [
+        "aktivan",
+        "limit"
+      ],
+      "required": []
+    },
+    {
+      "v1": "client_find",
+      "dexter": "client_find",
+      "arguments": [
+        "query"
+      ],
+      "required": [
+        "query"
+      ]
+    },
+    {
+      "v1": "notion_add_task",
+      "dexter": "notion_add_task",
+      "arguments": [
+        "title",
+        "status"
+      ],
+      "required": [
+        "title"
+      ]
+    },
+    {
+      "v1": "notion_list_tasks",
+      "dexter": "notion_list_tasks",
+      "arguments": [
+        "status",
+        "limit"
+      ],
+      "required": []
+    },
+    {
+      "v1": "notion_update_task_status",
+      "dexter": "notion_update_task_status",
+      "arguments": [
+        "taskId",
+        "status"
+      ],
+      "required": [
+        "taskId",
+        "status"
+      ]
+    },
+    {
+      "v1": "notion_add_knowledge",
+      "dexter": "notion_add_knowledge",
+      "arguments": [
+        "title",
+        "content"
+      ],
+      "required": [
+        "title"
+      ]
+    },
+    {
+      "v1": "notion_read_page",
+      "dexter": "notion_read_page",
+      "arguments": [
+        "pageId"
+      ],
+      "required": [
+        "pageId"
+      ]
+    },
+    {
+      "v1": "notion_search",
+      "dexter": "notion_search",
+      "arguments": [
+        "query",
+        "limit"
+      ],
+      "required": [
+        "query"
+      ]
+    },
+    {
+      "v1": "memory_save",
+      "dexter": "memory_save",
+      "arguments": [
+        "tekst",
+        "kategorija"
+      ],
+      "required": [
+        "tekst"
+      ]
+    },
+    {
+      "v1": "memory_list",
+      "dexter": "memory_list",
+      "arguments": [
+        "kategorija"
+      ],
+      "required": []
+    },
+    {
+      "v1": "memory_update",
+      "dexter": "memory_update",
+      "arguments": [
+        "id",
+        "tekst",
+        "kategorija"
+      ],
+      "required": [
+        "id"
+      ]
+    },
+    {
+      "v1": "memory_forget",
+      "dexter": "memory_forget",
+      "arguments": [
+        "id"
+      ],
+      "required": [
+        "id"
+      ]
+    },
+    {
+      "v1": "semantic_search",
+      "dexter": "knowledge_search",
+      "arguments": [
+        "upit",
+        "limit"
+      ],
+      "required": [
+        "upit"
+      ]
+    },
+    {
+      "v1": "semantic_reindex",
+      "dexter": "knowledge_reindex",
+      "arguments": [],
+      "required": []
+    },
+    {
+      "v1": "monitor_uptime",
+      "dexter": "monitor_uptime",
+      "arguments": [
+        "dana",
+        "sajt"
+      ],
+      "required": []
+    },
+    {
+      "v1": "insights_get",
+      "dexter": "insights_get",
+      "arguments": [
+        "dana"
+      ],
+      "required": []
+    },
+    {
+      "v1": "checklist_get",
+      "dexter": "checklist_get",
+      "arguments": [
+        "datum"
+      ],
+      "required": []
+    },
+    {
+      "v1": "checklist_mark",
+      "dexter": "checklist_mark",
+      "arguments": [
+        "stavke",
+        "datum"
+      ],
+      "required": [
+        "stavke"
+      ]
+    },
+    {
+      "v1": "checklist_create_day",
+      "dexter": "checklist_create_day",
+      "arguments": [
+        "datum"
+      ],
+      "required": []
+    },
+    {
+      "v1": "dnevnik_get",
+      "dexter": "dnevnik_get",
+      "arguments": [
+        "datum"
+      ],
+      "required": []
+    },
+    {
+      "v1": "dnevnik_write",
+      "dexter": "dnevnik_write",
+      "arguments": [
+        "raspolozenje",
+        "energija",
+        "kljucnaRec",
+        "datum"
+      ],
+      "required": []
+    },
+    {
+      "v1": "todo_list",
+      "dexter": "todo_list",
+      "arguments": [
+        "status",
+        "limit"
+      ],
+      "required": []
+    },
+    {
+      "v1": "todo_add",
+      "dexter": "todo_add",
+      "arguments": [
+        "zadatak",
+        "oblast",
+        "prioritet",
+        "rok"
+      ],
+      "required": [
+        "zadatak"
+      ]
+    },
+    {
+      "v1": "todo_set_status",
+      "dexter": "todo_set_status",
+      "arguments": [
+        "zadatakId",
+        "status"
+      ],
+      "required": [
+        "zadatakId",
+        "status"
+      ]
+    },
+    {
+      "v1": "drive_search",
+      "dexter": "drive_search",
+      "arguments": [
+        "query",
+        "limit"
+      ],
+      "required": [
+        "query"
+      ]
+    },
+    {
+      "v1": "drive_read",
+      "dexter": "drive_read",
+      "arguments": [
+        "fileId"
+      ],
+      "required": [
+        "fileId"
+      ]
+    },
+    {
+      "v1": "drive_create",
+      "dexter": "drive_create",
+      "arguments": [
+        "name",
+        "content"
+      ],
+      "required": [
+        "name",
+        "content"
+      ]
+    },
+    {
+      "v1": "calendar_list_events",
+      "dexter": "calendar_list_events",
+      "arguments": [
+        "timeMin",
+        "timeMax"
+      ],
+      "required": []
+    },
+    {
+      "v1": "calendar_find_free_slots",
+      "dexter": "calendar_find_free_slots",
+      "arguments": [
+        "timeMin",
+        "timeMax",
+        "durationMinutes",
+        "workdayStart",
+        "workdayEnd"
+      ],
+      "required": []
+    },
+    {
+      "v1": "calendar_create_event",
+      "dexter": "calendar_create_event",
+      "arguments": [
+        "summary",
+        "start",
+        "end",
+        "location",
+        "description",
+        "attendees",
+        "ponavljanje"
+      ],
+      "required": [
+        "summary",
+        "start",
+        "end"
+      ]
+    },
+    {
+      "v1": "mail_list_unread",
+      "dexter": "mail_list_unread",
+      "arguments": [
+        "limit"
+      ],
+      "required": []
+    },
+    {
+      "v1": "mail_search",
+      "dexter": "mail_search",
+      "arguments": [
+        "folder",
+        "from",
+        "to",
+        "subject",
+        "text",
+        "unread",
+        "since",
+        "before",
+        "limit"
+      ],
+      "required": []
+    },
+    {
+      "v1": "mail_read",
+      "dexter": "mail_read",
+      "arguments": [
+        "uid",
+        "folder"
+      ],
+      "required": [
+        "uid"
+      ]
+    },
+    {
+      "v1": "mail_folders",
+      "dexter": "mail_folders",
+      "arguments": [],
+      "required": []
+    },
+    {
+      "v1": "mail_save_draft",
+      "dexter": "mail_save_draft",
+      "arguments": [
+        "to",
+        "subject",
+        "body",
+        "cc"
+      ],
+      "required": [
+        "to",
+        "subject",
+        "body"
+      ]
+    },
+    {
+      "v1": "mail_send",
+      "dexter": "mail_send",
+      "arguments": [
+        "to",
+        "subject",
+        "body",
+        "cc",
+        "inReplyTo"
+      ],
+      "required": [
+        "to",
+        "subject",
+        "body"
+      ]
+    },
+    {
+      "v1": "monitor_check_sites",
+      "dexter": "monitor_check_sites",
+      "arguments": [],
+      "required": []
+    },
+    {
+      "v1": "weather_get",
+      "dexter": "weather_get",
+      "arguments": [],
+      "required": []
+    },
+    {
+      "v1": "invoice_create",
+      "dexter": "invoice_create",
+      "arguments": [
+        "klijent",
+        "stavke",
+        "datumIzdavanja",
+        "datumPrometa",
+        "mesto"
+      ],
+      "required": [
+        "klijent",
+        "stavke"
+      ]
+    },
+    {
+      "v1": "invoice_list",
+      "dexter": "invoice_list",
+      "arguments": [
+        "status",
+        "limit"
+      ],
+      "required": []
+    },
+    {
+      "v1": "birthdays_today",
+      "dexter": "birthdays_today",
+      "arguments": [],
+      "required": []
+    },
+    {
+      "v1": "birthdays_upcoming",
+      "dexter": "birthdays_upcoming",
+      "arguments": [
+        "days"
+      ],
+      "required": []
+    },
+    {
+      "v1": "birthday_mark_greeted",
+      "dexter": "birthday_mark_greeted",
+      "arguments": [
+        "name"
+      ],
+      "required": [
+        "name"
+      ]
+    },
+    {
+      "v1": "generate_report",
+      "dexter": "generate_report",
+      "arguments": [
+        "title",
+        "instructions",
+        "from",
+        "to",
+        "includeTasks",
+        "includeCalendar",
+        "includeSites",
+        "saveToDoc"
+      ],
+      "required": []
+    }
+  ]
+}

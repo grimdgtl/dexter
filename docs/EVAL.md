@@ -1165,3 +1165,71 @@ ostaju pokriveni SDK/mock/DB testovima, bez menjanja stvarnih kolona za probu.
 Glavni ručni tok F1b.9 je potvrđen. SCHEDULER_ENABLED i redovni MAIL_CHECK_CRON
 ostaju po prethodnom dogovoru, bez nove konfiguracije. Ova dopuna menja samo
 dokumentaciju; izvršni kod odgovara zelenom CI prolazu sa 695 testova.
+
+## F1b.11 — završni audit i priprema operativnog prelaska (19.10.2026)
+
+Pre audita: 695 testova sa bazom. Posle: 759 prolaza sa izolovanom PostgreSQL
+14 + pgvector bazom, 15,67 s. Dodate su 64 provere: 63 čiste/mock provere i
+jedan DB slučaj za stvarno ponašanje /reset. Ruff format/check prolaze za
+src/tests/evals/scripts. Bez baze: 636 prolaza i 123 očekivano preskočena DB
+slučaja, 6,88 s. HTTP prognoze je respx mock; nijedan privatni API,
+pravi mejl, faktura ili brisanje razgovora korisnika nije izvršeno. Izvršni
+kod aplikacije nije menjan, već samo testovi i dokumentacija. CI ponavlja
+ceo skup na PostgreSQL 17 i obe Docker slike.
+
+Referenca je aktuelni grimdgtl/apu main commit
+2426415e0000d70244be99216125d42c367eefd6, potvrđen preko git ls-remote.
+Pročitani su definitions.js, odgovarajući scheduler/config, telegram komande
+i README. Iz javnih definicija izvučen je zamrznut katalog sa 46 naziva,
+argumentima prvog nivoa i obaveznim poljima u tests/fixtures/apu_contract.json.
+Katalog ne sadrži podatke korisnika ili tajne, i testovi ne zahtevaju stari
+repo, Node, mrežu ili njegove pakete pri kasnijem pokretanju.
+
+Poklapanje je 46/46 naziva sa dva namerna preimenovanja:
+semantic_search → knowledge_search, semantic_reindex → knowledge_reindex.
+Svih 46 zamena je registrovano; nijedan stari argument prvog nivoa nije
+nestao niti je dodat novi obavezan argument. Pet novih alata objašnjava
+ukupnih 51. Test nije dokaz jednakosti svih tipova/limita/rezultata; numerički
+ID-jevi memorije, stroža validacija, potvrde i ostale svesne razlike ostaju
+dokumentovane u PARITY.md i pokrivene servisnim testovima.
+
+Proverene su potvrde za mail_send, invoice_create, memory_forget,
+calendar_create_event i receipt_extract, PDF prepare/pregled i Sačuvaj/Odbaci
+nazivi. Svih pet starih komandi ima handler; svi stari cron nazivi i default
+izrazi daju 14 registrovanih poslova kroz safe/run_job. Postojeći testovi
+proveravaju same retry pozive i trajnost, umesto tvrdnje da samo ime omotača
+znači bezbednu isporuku. Nova provera ugovora dopunjuje već postojeće testove.
+
+Audit je našao prazninu u funkcionalnim testovima primer-alata weather_get.
+Dodati su respx uspeh za 1/7 dana, lokacija, koordinate, zona, poznat/nepoznat
+WMO kod, temperaturne/vetrovne vrednosti i HTTP 503 kroz registar bez lažne
+prognoze. Komande sada dodatno proveravaju /start vlasnika i /poslovi
+podrazumevani sat/opseg/loše argumente. DB provera /reset pokazuje da ne-vlasnik
+ne briše poruke, da se brišu samo svoje poruke/napomene i da činjenice i drugi
+razgovor ostaju. Nije bilo potrebe za izmenom produkcionog ponašanja.
+
+U docs/PARITY.md dodata je potpuna matrica 46 alata, 14 rasporeda i pet komandi,
+sa odvojenim kolonom za stvarnu ručnu potvrdu. Raniji korisnikovi rezultati
+su preneti bez privatnih adresa, klijentskih podataka i sadržaja dokumenata.
+Neizdvojeni/posredni ručni tokovi ostaju tako označeni. Registrovanih 18 poslova
+nije predstavljeno kao 18 stvarno izvršenih poslova. Poslednji status imao
+je nula dokumenata/delova; prvo stvarno indeksiranje i pretraga sa izvorom
+ostaju konkretna sledeća provera, iako indeksiranje ima SDK/mock/DB pokriće.
+
+F1b.10 je izostavljena po dogovoru: korisnik je prosledio odgovor starog bota
+da nema trajnih činjenica i prihvatio prelazak na F1b.11. Nije napravljena
+migraciona skripta ni uvoz. Ostala stara lokalna istorija nije nezavisno
+pregledana niti proglašena praznom; ne prenosi se, a stari volume se čuva.
+Ovo ne menja postojeće Notion/Google/mejl podatke niti nove Dexter činjenice.
+
+F1b.11 još nije završena u operativnom smislu. README opisuje probnu nedelju,
+/poslovi 24/168, prvu proveru RAG-a, pregled uslovnih rasporeda, backup,
+izbor glavnog Telegram identiteta, stop-starog-pre-preuzimanja-tokena i povratak.
+Scheduler on potvrđen je 19.10; sedam punih dana ističe najranije 26.10.2026,
+uz uslov da nema nerešenih grešaka i da probe prođu. Mesečni poreski termin
+nije tokom te nedelje, pa se ne proglašava ručno potvrđenim. Promena tokena,
+zaustavljanje starog bota i backup/restore nisu izvršeni niti potvrđeni.
+Projekat dodatno traži dve nedelje stabilnog rada na glavnom botu i ranije
+odložena stvarna eval merenja. F1b.11 ostaje neštiklirana do sedmodnevne probe
+i stvarnog prelaska; dvonedeljni rad ostaje zaseban uslov celog projekta.
+Spreman audit nije potvrda da je probni period već završen.

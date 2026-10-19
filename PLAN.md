@@ -327,13 +327,26 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > prosledio /provera sa sedam ispravnih baza i nakon uputstva za restart
   > potvrdio da nije stiglo obaveštenje za nepromenjen zdrav nalaz.
   > Promena neispravne šeme i oporavak ostaju SDK/mock/DB provere; detalji u docs/EVAL.md.
-- [ ] **F1b.10 Migracija podataka iz v1.** `scripts/migrate_from_v1.py <stari
+- [x] **F1b.10 Migracija podataka iz v1 — izostavljeno po dogovoru.** `scripts/migrate_from_v1.py <stari
   DATA_DIR>`: `facts.json` → `facts` (sa vektorima), `birthdays.json`,
   istorija monitoringa, `motivacije.json`, prijavljeni mejlovi. Istorija
   razgovora se NE prenosi.
+  > IZMENA 19.10.2026: korisnik je prosledio potvrdu starog APU-a da je trajna
+  > memorija prazna, pa prihvatio predlog da se migracija izostavi prelaskom na
+  > F1b.11. Skripta nije implementirana niti je uvoz izvršen. Ostala lokalna
+  > istorija nije nezavisno pregledana i ne prenosi se; novi bot je beleži od nule.
+  > Notion/Google/mejl ostaju isti povezani servisi; stari volume se ne briše.
 - [ ] **F1b.11 Paritet i prelazak.** `docs/PARITY.md`: tabela svih 46 alata, 14
   poslova i 5 komandi sa statusom. Kad je sve ✅: nedelju dana oba bota
   paralelno, pa novi preuzima glavni token.
+  > Audit 19.10.2026: aktuelni v1 commit 2426415 odgovara remote main-u.
+  > Svih 46 alata ima zamenu (ukupno 51 u Dexteru); tabela svih 14 rasporeda
+  > i pet komandi sa kod/test i zasebnim ručnim statusom je u docs/PARITY.md.
+  > Ugovori argumenata i potvrda imaju test iz zamrznutog javnog v1 kataloga.
+  > F1b.11 ostaje otvorena: stvarno indeksiranje/pretraga, posmatranje ostalih
+  > rasporeda i sedam punih dana paralelnog rada nisu završeni. Prvi pregled
+  > je najranije 26.10.2026, računajući uključenu automatiku od 19.10; tokeni
+  > se sada ne menjaju. Postupak prelaska i povratka opisan je u README-u.
 
 ### Faza 2 — Kvalitet pretrage (3.11–9.11)
 

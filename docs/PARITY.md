@@ -1,25 +1,165 @@
 # Paritet sa starim APU-om
 
-F1b je i dalje nezavršena. Korisnik je izričito tražio Faze 2–6 pre njenog završetka;
-novi zadaci ne označavaju stare alate i poslove kao prenete.
+## Završni audit F1b.11 — 19.10.2026.
 
-| Deo | Python stanje |
-|---|---|
-| Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
-| Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; scheduler uključen 19.10, automatski nedeljni upis još čeka stvarni termin. |
-| Klijenti, TASK BOARD i upis Knowledge Base beleške | F1b.5: osam alata preneto; pregled, pretraga, dodavanje/dopuna/izmena klijenta, poslovni zadatak i KB podstranica potvrđeni na pravom nalogu. |
-| Fakture: priprema PDF-a, potvrda, Drive i arhiva | F1b.6: oba alata, mock/DB i vizuelne provere; korisnik potvrdio pregled, PDF, odbacivanje i čuvanje na stvarnom nalogu. |
-| Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
-| Checklista, dnevnik i statistika navika | F1b.4: šest alata preneto; korisnik potvrdio pregled, upis, dnevnik, statistiku i postojeći red bez duplikata na pravom Notion-u. |
-| Rođendani i evidencija čestitki | F1b.7: pregled danas/uskoro i probna čestitka potvrđeni na pravom nalogu; rubni datumi i trajnost mock/DB provere. |
-| Monitoring i istorija dostupnosti | F1b.7: stvarna provera 22 sajta i odgovarajuća istorija potvrđeni; spori odgovori jasno odvojeni od nedostupnosti. |
-| Izveštaj u Google Doc | F1b.7: stvaran Doc link i pregled zadataka/kalendara vraćeni; opcioni izvori i greške SDK/HTTP mock provere. |
-| Izmena memorije | F1b.7: probni tekst Alfa → Beta uz isti ID i kategoriju potvrđen u Telegramu; vektor i konkurentnost DB provere. |
-| Zakazani poslovi i nedeljna pohvala navika u 22:00 | F1b.8: svih 14 starih i četiri F2/F6 rasporeda registrovani; scheduler on. Stvarni mail_check i odsustvo duplikata posle restarta potvrđeni 19.10; ostali termini još čekaju posmatranje. |
-| Komande i provera Notion šema | F1b.9: postojeće /status i /poslovi ostaju; /provera je na stvarnom nalogu potvrdila sedam baza, a posle restarta nema obaveštenja za isti zdrav nalaz. Promena problema i oporavak ostaju SDK/mock/DB provere. |
+Referenca je [grimdgtl/apu, commit 2426415](https://github.com/grimdgtl/apu/tree/2426415e0000d70244be99216125d42c367eefd6).
+HEAD remote main je pročitan i odgovara tom commitu. Upoređeni su
+src/tools/definitions.js, services/scheduler.js, config.js, telegram.js i README.
+Katalog ima 46 alata, 14 rasporeda i pet komandi. Dexter ima 51 alat: svih 46
+zamena i pet novih (memory_search, commitments_list, commitment_done, proactive_log,
+receipt_extract). Preimenovani su samo semantic_search → knowledge_search i
+semantic_reindex → knowledge_reindex.
 
-Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
-alata, 14 poslova i komandi ostaje zadatak F1b.11; ova tabela nije potvrda punog pariteta.
+**Kod i testovi su odvojeni od stvarne operativne potvrde.** ✅ u koloni kod/test
+znači da je funkcija preneta i automatski proverena; ne znači da je svaki poziv
+izvršen na privatnom nalogu. ✓ znači prosleđen stvarni rezultat ili potvrdu
+korisnika, △ posrednu proveru istog servisa, — preostalu ručnu proveru. Rubne
+greške, konkurentnost i backend varijante imaju mock/DB testove iz navedenih fajlova.
+`tests/fixtures/apu_contract.json` čuva 46 javnih v1 naziva i argumenata iz tog
+commita; `tests/test_parity.py` proverava zamene, sve argumente, potvrde, komande
+simbolički i registraciju svih rasporeda. Test ne zove prave API-jeve.
+
+### Svih 46 starih alata
+
+| Stari alat | Dexter | Kod/test | Ručna provera |
+|---|---|---|---|
+| `client_add` | `client_add` | ✅ test_notion_business.py | ✓ 18.10: novi red i dopuna bez duplikata |
+| `client_update` | `client_update` | ✅ test_notion_business.py | ✓ 18.10: delimična izmena |
+| `client_list` | `client_list` | ✅ test_notion_business.py | ✓ 18.10 |
+| `client_find` | `client_find` | ✅ test_notion_business.py | ✓ 18.10 |
+| `notion_add_task` | `notion_add_task` | ✅ test_notion_business.py | ✓ 18.10 |
+| `notion_list_tasks` | `notion_list_tasks` | ✅ test_notion_business.py | ✓ 18.10 |
+| `notion_update_task_status` | `notion_update_task_status` | ✅ test_notion_business.py | ✓ 18.10 |
+| `notion_add_knowledge` | `notion_add_knowledge` | ✅ test_notion_business.py | ✓ 18.10 |
+| `notion_read_page` | `notion_read_page` | ✅ test_notion.py | ✓ 18.10: čitanje Life stranice |
+| `notion_search` | `notion_search` | ✅ test_notion.py | ✓ 18.10 |
+| `memory_save` | `memory_save` | ✅ test_memory_update.py, test_integration.py | ✓ 18.10 |
+| `memory_list` | `memory_list` | ✅ test_memory_update.py, test_integration.py | ✓ 18.10 |
+| `memory_update` | `memory_update` | ✅ test_memory_update.py, test_integration.py | ✓ 18.10: isti ID |
+| `memory_forget` | `memory_forget` | ✅ test_memory_update.py, test_integration.py | — zaseban ručni test brisanja nije potvrđen |
+| `semantic_search` | `knowledge_search` | ✅ test_integration.py, test_notion.py, test_mail.py | — poslednji indeks prazan; potrebna stvarna pretraga |
+| `semantic_reindex` | `knowledge_reindex` | ✅ test_integration.py, test_notion.py, test_mail.py | — potrebno prvo stvarno indeksiranje |
+| `monitor_uptime` | `monitor_uptime` | ✅ test_monitor.py | ✓ 18.10: 22 sačuvana uzorka |
+| `insights_get` | `insights_get` | ✅ test_checklist.py, test_integration.py | ✓ 18.10 |
+| `checklist_get` | `checklist_get` | ✅ test_checklist.py, test_integration.py | ✓ 18.10 |
+| `checklist_mark` | `checklist_mark` | ✅ test_checklist.py, test_integration.py | ✓ 18.10 |
+| `checklist_create_day` | `checklist_create_day` | ✅ test_checklist.py, test_integration.py | ✓ 18.10: postojeći red bez duplikata; novi red još nije potvrđen |
+| `dnevnik_get` | `dnevnik_get` | ✅ test_checklist.py, test_integration.py | — čitanje nije izdvojeno; podaci potvrđeni kroz upis/insights |
+| `dnevnik_write` | `dnevnik_write` | ✅ test_checklist.py, test_integration.py | ✓ 18.10: delimičan pa dopunjen zapis |
+| `todo_list` | `todo_list` | ✅ test_todo.py, test_integration.py | ✓ 18.10 |
+| `todo_add` | `todo_add` | ✅ test_todo.py, test_integration.py | ✓ 18.10 |
+| `todo_set_status` | `todo_set_status` | ✅ test_todo.py, test_integration.py | ✓ 18.10 |
+| `drive_search` | `drive_search` | ✅ test_google.py | ✓ 18.10 |
+| `drive_read` | `drive_read` | ✅ test_google.py | — zaseban ručni poziv nije dostavljen |
+| `drive_create` | `drive_create` | ✅ test_google.py | △ isti servis potvrđen kroz generate_report; alat nije izdvojen |
+| `calendar_list_events` | `calendar_list_events` | ✅ test_calendar.py | ✓ 18.10 |
+| `calendar_find_free_slots` | `calendar_find_free_slots` | ✅ test_calendar.py | ✓ 18.10 |
+| `calendar_create_event` | `calendar_create_event` | ✅ test_calendar.py | ✓ 18.10: potvrđen ponavljajući događaj |
+| `mail_list_unread` | `mail_list_unread` | ✅ test_mail_tools.py | ✓ 18.10 |
+| `mail_search` | `mail_search` | ✅ test_mail_tools.py | ✓ 18.10 |
+| `mail_read` | `mail_read` | ✅ test_mail_tools.py | ✓ 18.10: ceo mejl |
+| `mail_folders` | `mail_folders` | ✅ test_mail_tools.py | △ pronalaženje Drafts kroz nacrt; direktan poziv nije izdvojen |
+| `mail_save_draft` | `mail_save_draft` | ✅ test_mail_tools.py | ✓ 18.10: nacrt bez slanja |
+| `mail_send` | `mail_send` | ✅ test_mail_tools.py | ✓ 18.10: potvrda i prijem u inbox (Resend); SMTP mock |
+| `monitor_check_sites` | `monitor_check_sites` | ✅ test_monitor.py | ✓ 18.10: 22 sajta |
+| `weather_get` | `weather_get` | ✅ test_weather.py | — čeka stvarnu prognozu |
+| `invoice_create` | `invoice_create` | ✅ test_invoices.py, test_integration.py | ✓ 18.10: PDF, Odbaci i potvrđeno Sačuvaj |
+| `invoice_list` | `invoice_list` | ✅ test_invoices.py, test_integration.py | ✓ 18.10 |
+| `birthdays_today` | `birthdays_today` | ✅ test_birthdays.py | ✓ 18.10 |
+| `birthdays_upcoming` | `birthdays_upcoming` | ✅ test_birthdays.py | ✓ 18.10 |
+| `birthday_mark_greeted` | `birthday_mark_greeted` | ✅ test_birthdays.py | ✓ 18.10: probna osoba |
+| `generate_report` | `generate_report` | ✅ test_reports.py | ✓ 18.10: Doc link; sadržaj dokumenta nije nezavisno pregledan |
+
+Dodatni test ugovora proverava da nijedan stari argument nije nestao i da nisu
+uvedena nova obavezna polja. To ne dokazuje jednakost svih rezultata: validacija,
+limiti, numerički ID memorije i zaštite potvrde namerno se razlikuju, kao što je
+objašnjeno u beleškama ispod. knowledge_search ima v2 default limit 6 naspram v1 5,
+uz opcion izvor i vremenski opseg; weather_get dodaje opcionih 1–7 dana. Stari
+pozivi bez tih dodataka ostaju dozvoljeni. Fiskalna polja nisu dodata invoice ulazu.
+
+### Svih 14 starih rasporeda
+
+Vremena su podrazumevana za TIMEZONE=Europe/Belgrade; podešen ENV ima prednost.
+Svi koriste run_job, a test_scheduled_jobs.py i test_parity.py proveravaju cron
+nazive, podrazumevane vrednosti, registraciju i omotač. Test_integration.py proverava
+trajnost, retry i neizvesne ishode. Registracija svih 18 ukupnih poslova potvrđena
+je logom 19.10; to nije potvrda da su svi već stigli na red.
+
+| Cron ENV | Podrazumevano | Dexter posao | Kod/test | Stvarno zakazano izvršavanje |
+|---|---|---|---|---|
+| SEMANTIC_INDEX_CRON | `0 4 * * *` | knowledge_index | ✅ | — indeks još čeka potvrdu |
+| CHECKLIST_CREATE_CRON | `0 5 * * *` | prepare_day | ✅ | — novi dan i veza sa dnevnikom |
+| FLOWERS_TASK_CRON | `0 5 * * 1` | weekly_task | ✅ | — nedeljni upis |
+| MORNING_GREETING_CRON | `0 6 * * *` | morning | ✅ | — motivacija, prognoza, ponedeljni rođendani |
+| MORNING_BRIEFING_CRON | `30 9 * * *` | morning_briefing | ✅ | — poslovni pregled |
+| MAIL_CHECK_CRON | `0 8-22 * * *` | mail_check | ✅ | ✓ 19.10: job_runs, novi mejl, bez duplikata posle restarta |
+| SITE_CHECK_SILENT_CRON | `0 10 * * *` | site_check_silent | ✅ | — tihi režim |
+| BIRTHDAY_MORNING_CRON | `0 11 * * *` | birthday_morning | ✅ | — današnji rođendani po satnici |
+| SITE_CHECK_REPORT_CRON | `0 18 * * *` | site_check_report | ✅ | — pun izveštaj |
+| BIRTHDAY_EVENING_CRON | `0 19 * * *` | birthday_evening | ✅ | — samo nečestitani |
+| CHECKLIST_REMINDER_CRON | `30 21 * * *` | checklist_reminder | ✅ | — večernji podsetnik |
+| CHECKLIST_PRAISE_CRON | `0 23 * * *` | checklist_praise | ✅ | — uslovna pohvala |
+| WEEKLY_SUMMARY_CRON | `0 22 * * 0` | weekly_summary | ✅ | — nedeljna pohvala |
+| TAX_REMINDER_CRON | `0 10 14 * *` | tax_reminder | ✅ | — mesečni termin; neće se desiti u probnoj nedelji |
+
+Četiri nova rasporeda ostaju zasebna: conversation_summaries (03:30),
+commitment_reminders (09:00), daily_insight (08:30), weekly_review (nedelja 20:00).
+F6 poštuje svoju tišinu i ograničenja; eksplicitni v1 rasporedi poštuju cron.
+Uslovni posao može uspešno završiti bez poruke; proverava se /poslovi, ne samo inbox.
+
+### Svih pet starih komandi
+
+| Komanda | Dexter handler | Kod/test | Ručno |
+|---|---|---|---|
+| `/start` | cmd_start | ✅ test_parity.py | ✓ 18.10: pozdrav |
+| `/reset` | cmd_reset | ✅ test_integration.py: samo svoj razgovor, činjenice ostaju | — ne brisati stvarni razgovor samo za probu |
+| `/status` | cmd_status | ✅ test_status.py, test_integration.py | ✓ 18/19.10: alati, baza, scheduler |
+| `/poslovi [sati]` | cmd_jobs | ✅ test_parity.py, test_integration.py | ✓ 19.10: uspešan mail_check |
+| `/provera` | cmd_schema | ✅ test_schema.py, test_integration.py | ✓ 19.10: sedam baza, tih restart |
+
+Nove komande `/troskovi`, `/memorija`, `/duboko`, `/rashodi` ne zamenjuju ove komande.
+Sve komande su ograničene na vlasnika; dodatni argumenti /poslovi imaju kontrolu opsega.
+
+### F1b.10 — dogovoreno izostavljanje migracije
+
+Korisnik je naveo da nema bitnu memoriju u starom APU-u. Na traženu proveru
+prosleđen je odgovor starog bota da nema nijednu trajnu činjenicu. Korisnik je
+zatim prihvatio predlog izostavljanja F1b.10 zahtevom da krenemo na F1b.11.
+Skripta migrate_from_v1.py nije napravljena niti je uvoz izvršen. Nije potvrđeno
+nezavisnim čitanjem da su ostali lokalni JSON fajlovi prazni: istorija sajtova,
+motivacije, čestitke i prijavljeni mejlovi se svesno ne prenose. Dexter ih beleži
+od početka svog rada. Notion/Google/IMAP podaci ostaju na povezanim servisima.
+Stari volume se ne briše; ostaje dostupan ako odluka o istoriji kasnije bude promenjena.
+
+### Operativni prelazak — još nije završen
+
+- [x] Katalog svih 46 alata, 14 rasporeda i pet komandi, uz dokaze i razlike.
+- [x] Dogovor o izostavljanju starog lokalnog stanja; bez brisanja starog volume-a.
+- [x] Integracije dostupne u /status; /provera vraća sedam ispravnih baza.
+- [x] Scheduler on i 18 registracija; stvarni mail_check i restart proba.
+- [ ] Stvarno indeksiranje i uspešna knowledge_search sa izvorom; poslednji status je imao nula dokumenata.
+- [ ] Posmatranje jutarnjih, večernjih, nedeljnih i uslovnih poslova tokom paralelnog rada.
+- [ ] Sedam punih dana paralelnog rada i završni pregled grešaka; ne proglašavati završenim unapred.
+- [ ] Potvrda izbora glavnog Telegram identiteta/tokena, pa jedna aktivna polling instanca na tom tokenu.
+- [ ] Najmanje dve nedelje stabilnog rada na glavnom botu (uslov celog projekta iz PLAN.md).
+
+Oba bota već rade uz odobrenje korisnika; uključivanje Dexter automatike je
+potvrđeno 19.10.2026. Planirani prvi pregled posle sedam punih dana je najranije
+26.10.2026, ako probe prođu i nema nerešenih grešaka. To nije dokaz da je period
+već protekao. Posle bitne ispravke ponovo proceniti dužinu probe. Mesečni poreski
+termin i uslovi koji se nisu javili ostaju mock/DB provere ili posebno dogovorene
+ručne probe; ne izmišljati njihovo stvarno izvršavanje.
+
+Postupak posmatranja i prelaska je u README-u. Sledeći konkretan korak je prvo
+indeksiranje Notion-a i provera poznate probne KB beleške, uz navođenje izvora.
+Tokene, ENV, bazu, račune i poslovne zapise ovaj audit nije menjao. F1b.11 ostaje
+otvorena do operativne potvrde; kod/test status svih funkcija nije isto što i
+završen prelazak.
+
+## Beleške nastale tokom prenosa F1b.1–F1b.9
+
+Ovo su istorijske beleške razvoja; aktuelna matrica i preostale provere su iznad.
+Navodi da neka faza ili uključivanje „čeka” odnose se na trenutak te beleške.
 
 F1b.1 zadržava argumente, RRULE i `sendUpdates` ponašanje iz v1. Pregled više nije
 ograničen na prvih 50 događaja: prolazi sve stranice. Slobodni intervali se ograničavaju

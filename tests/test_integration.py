@@ -3495,3 +3495,25 @@ async def test_manual_schema_command_does_not_consume_startup_notification(db, s
     assert update.message.reply_text.await_count == 1
     await s.schema.startup(s.bot)
     s.bot.send_message.assert_awaited_once()
+
+
+async def test_legacy_reset_is_owner_only_and_preserves_facts_and_other_chat(db):
+    from dexter import memory, telegram_bot
+    from dexter.agent import history
+
+    await history.append(1, [{"role": "user", "content": "Prva poruka"}])
+    await history.append(999, [{"role": "user", "content": "Drugi razgovor"}])
+    await history.add_note(1, "Potvrđena proba")
+    fact = await memory.save("Probna dugoročna preferencija", "preferencija")
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id=888), message=SimpleNamespace(reply_text=AsyncMock())
+    )
+    await telegram_bot.cmd_reset(update, None)
+    assert await db.fetchval("SELECT count(*) FROM messages WHERE chat_id=1") == 1
+    update.effective_chat.id = 1
+    await telegram_bot.cmd_reset(update, None)
+    assert not await db.fetchval("SELECT count(*) FROM messages WHERE chat_id=1")
+    assert not await db.fetchval("SELECT count(*) FROM pending_notes WHERE chat_id=1")
+    assert await db.fetchval("SELECT count(*) FROM messages WHERE chat_id=999") == 1
+    assert (await memory.list_all())[0]["id"] == fact["id"]
+    assert "Dugoročna memorija ostaje" in update.message.reply_text.call_args.args[0]
