@@ -1233,3 +1233,32 @@ Projekat dodatno traži dve nedelje stabilnog rada na glavnom botu i ranije
 odložena stvarna eval merenja. F1b.11 ostaje neštiklirana do sedmodnevne probe
 i stvarnog prelaska; dvonedeljni rad ostaje zaseban uslov celog projekta.
 Spreman audit nije potvrda da je probni period već završen.
+
+## F3.6 — Perplexity Search API (19.10.2026)
+
+Pre: nema javne internet pretrage; lični Notion/Drive indeks nije internet.
+Posle: `web_search` preko `POST https://api.perplexity.ai/search`, do pet izvora,
+2000 tokena ukupno / 500 po stranici, lokalni odlomci do 1000 znakova.
+SYSTEM_PROMPT nije menjan. Ključ je opcioni Runtime ENV; bez njega alat nije aktivan.
+U javni upit ne šalje se cela istorija razgovora. Opis alata zabranjuje slanje
+privatnih podataka i izvršavanje naredbi iz rezultata; to nije automatska DLP provera.
+
+Provereni zvanični izvori: [Fast Search](https://docs.perplexity.ai/docs/search/fast-search),
+[API uputstvo](https://docs.perplexity.ai/docs/search/quickstart) i
+[cenovnik](https://docs.perplexity.ai/docs/getting-started/pricing).
+Fast Search je $0.001 po uspešnom zahtevu, standardni web $0.005; prazan uspešan
+odgovor se računa. Za 1000 uspešnih pretraga to je $1 / $5, plus postojeći
+Claude pozivi koji koriste izvore. To je račun prema cenovniku, nije produkciono merenje.
+
+`usage` evidentira fiksnu cenu sa nulom tokena i vezom `turn_id`, bez migracije.
+Dnevni zbir uključuje pretragu. Dostignut budžet / nedostupna provera blokiraju
+novu pretragu; već započeti paralelni zahtevi nisu rezervisani unapred.
+HTTP greške nisu naplaćene prema dokumentaciji; timeout može sakriti naplaćen
+uspeh, pa nema retry-ja i nepoznat iznos se ne uključuje u procenu `/troskovi`.
+Konačan račun proverava se kod Perplexity-ja.
+
+Ruff prolazi; 782 testa sa pravom lokalnom PostgreSQL/pgvector bazom prolaze
+(17.16 s). Novi respx/DB testovi proveravaju oba režima/cene, konfiguraciju,
+argumente, latinicu, linkove i ograničenja, HTTP 401/429/500 bez retry-ja, timeout,
+prazan/neispravan uspeh i evidenciju troška/budžeta. Pravi API i kvalitet rezultata
+nisu mereni: čeka ključ u Coolify-u, redeploy, `/status` i jedan javni upit sa linkovima.

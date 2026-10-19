@@ -60,16 +60,21 @@ class Usage:
     output_tokens: int
     cache_read_tokens: int = 0
     cache_write_tokens: int = 0
+    request_cost_usd: float = 0.0
 
     @property
     def cost_usd(self) -> float:
         inp, out, read_factor = PRICES.get(self.model, (0.0, 0.0, 0.1))
         return (
-            self.input_tokens * inp
-            + self.cache_write_tokens * inp * CACHE_WRITE_FACTOR
-            + self.cache_read_tokens * inp * read_factor
-            + self.output_tokens * out
-        ) / 1_000_000
+            self.request_cost_usd
+            + (
+                self.input_tokens * inp
+                + self.cache_write_tokens * inp * CACHE_WRITE_FACTOR
+                + self.cache_read_tokens * inp * read_factor
+                + self.output_tokens * out
+            )
+            / 1_000_000
+        )
 
 
 def from_response(model: str, u) -> Usage:

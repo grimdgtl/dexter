@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     rerank: Literal["on", "off"] = "off"
     rag_min_similarity: float = Field(0.3, ge=0, le=1)
     openai_api_key: str | None = None
+    perplexity_api_key: str | None = None
+    perplexity_search_type: Literal["fast", "web"] = "fast"
     notion_api_key: str | None = None
     notion_tasks_db_id: str | None = None
     notion_clients_db_id: str | None = None

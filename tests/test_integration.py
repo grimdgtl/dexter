@@ -1623,6 +1623,36 @@ async def test_cost_benchmark_cache_comparison_and_isolation(db, monkeypatch):
     print("F3.1 test eval:", reports)
 
 
+@pytest.mark.parametrize("mode,cost", [("fast", 0.001), ("web", 0.005)])
+async def test_web_search_records_cost_turn_and_budget(db, monkeypatch, respx_mock, mode, cost):
+    from decimal import Decimal
+
+    from dexter import budget, usage
+    from dexter.config import settings
+    from dexter.services import web
+    from dexter.tools import registry
+
+    cfg = settings()
+    monkeypatch.setattr(cfg, "perplexity_api_key", "test")
+    monkeypatch.setattr(cfg, "perplexity_search_type", mode)
+    monkeypatch.setattr(cfg, "daily_budget_usd", Decimal(str(cost)))
+    monkeypatch.setattr(budget, "_bot", None)
+    route = respx_mock.post(web.URL).respond(200, json={"results": []})
+    with usage.turn(1):
+        result = await registry.execute("web_search", {"upit": "javno pitanje"})
+        assert not result.is_error
+        row = await db.fetchrow("SELECT * FROM usage WHERE purpose='web_search'")
+        assert row["turn_id"] == usage.turn_id()
+    assert row["model"] == f"perplexity-search-{mode}"
+    assert float(row["cost_usd"]) == cost
+    assert row["input_tokens"] == row["output_tokens"] == 0
+    assert f"Ukupno: ${cost:.3f}" in await usage.report(1)
+    assert (await budget.snapshot())[1] == Decimal(str(cost))
+    assert await budget.model_for(cfg.model_main) == cfg.model_fast
+    assert (await registry.execute("web_search", {"upit": "novo pitanje"})).is_error
+    assert route.call_count == 1
+
+
 async def test_router_evaluation_tracks_accuracy_cost_and_confusion(db):
     from evals.router_eval import evaluate
 

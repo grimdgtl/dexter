@@ -347,6 +347,9 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > rasporeda i sedam punih dana paralelnog rada nisu završeni. Prvi pregled
   > je najranije 26.10.2026, računajući uključenu automatiku od 19.10; tokeni
   > se sada ne menjaju. Postupak prelaska i povratka opisan je u README-u.
+  > IZMENA 19.10.2026: na izričit zahtev korisnika tokom paralelnog rada prvo
+  > radimo F3.6 (Perplexity) i F3.7 (niži troškovi). Operativne provere i datum
+  > prelaska ostaju otvoreni; nove funkcije ne predstavljaju završetak F1b.11.
 
 ### Faza 2 — Kvalitet pretrage (3.11–9.11)
 
@@ -393,6 +396,22 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > Ispravka 18.10.2026: produkcioni log tokom F1b.3 ručne provere pokazao je da
   > neispravan sažetak blokira novu poruku. Jedan veći retry i rezervni kontekst
   > omogućavaju nastavak razgovora bez pomeranja granice ili brisanja istorije.
+
+- [x] **F3.6 Perplexity pretraga interneta.** `web_search` preko Search API-ja,
+  podrazumevano Fast Search, kratki rezultati sa linkovima, konfiguracija i
+  evidencija cene u `/troskovi`. Bez dodatnog modela za generisanje odgovora.
+  > IZMENA 19.10.2026: novo, izričito traženo proširenje; radi se pre nastavka
+  > F1b.11. Stvarni API poziv čeka korisnikov ključ u Coolify-u.
+  > Implementirano uz fiksnu cenu zahteva u usage (bez promene šeme), ograničene
+  > odlomke i proveru dnevnog budžeta. Ruff i 782 testa sa bazom prolaze;
+  > uspeh/prazan odgovor, HTTP greške, nepoznata naplata pri timeout-u i veze
+  > sa evidencijom razmene imaju mock/DB testove. Detalji u docs/EVAL.md.
+- [ ] **F3.7 Štedljiv izbor modela.** Opcion `ROUTER_MODE=economy`: rutinske
+  poruke i jednostavni alati koriste brzi model, nejasni/složeni glavni, a jaki
+  samo uz izričit `/duboko`. Bez plaćene klasifikacije; merenje pre/posle u EVAL-u.
+  > IZMENA 19.10.2026: korisnik je prijavio $3.202 tokom testiranja, od toga
+  > $3.076 za Sonnet. Ušteda se proverava odvojeno od kvaliteta odgovora;
+  > postojeći režimi i potvrde rizičnih radnji ostaju dostupni.
 
 ### Faza 4 — Lokalni modeli sa Hugging Face-a (17.11–23.11)
 

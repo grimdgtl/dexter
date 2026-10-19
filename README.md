@@ -141,6 +141,8 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `RERANK` | `off` | `on` uključuje brzi model za preslaganje do 20 hybrid kandidata |
 | `RAG_MIN_SIMILARITY` | `0.3` | Najmanji kosinus za odlomak bez full-text pogotka; opseg 0–1 |
 | `OPENAI_API_KEY` | prazno | Potreban za OpenAI embeddinze, transkripciju i glasovni odgovor |
+| `PERPLEXITY_API_KEY` | prazno | Uključuje javnu internet pretragu `web_search`; poseban Perplexity API ključ |
+| `PERPLEXITY_SEARCH_TYPE` | `fast` | `fast`: $0.001 po uspešnom zahtevu; `web`: $0.005 (cenovnik proveriti) |
 | `TRANSCRIBE_PROVIDER` | `openai` | `openai` ili `local` |
 | `WHISPER_LOCAL_MODEL` | `small` | Lokalni Whisper model uz dodatne `local` zavisnosti |
 | `OCR_MAX_PAGES` | `20` | Najviše stranica bez tekstualnog sloja za OCR jednog PDF-a; prekoračenje odbija ceo uvoz |
@@ -761,8 +763,29 @@ modela ponovo radi uobičajeno. Neuspešno slanje upozorenja se ponavlja pri sle
 Ako stanje budžeta ne može da se pročita, koristi se brzi model. Ovo je meko
 ograničenje: poziv koji prelazi prag i već započeti paralelni pozivi mogu prekoračiti
 iznos; dalji rad brzim modelom i dalje košta. Budžet obuhvata evidentirane modelske
-pozive, a ne IMAP/Google/Telegram, embeddinge ili transkripciju koji nisu u `usage`.
+pozive i Perplexity pretragu, a ne IMAP/Google/Telegram, embeddinge ili transkripciju
+koji nisu u `usage`. Perplexity ne pokreće nove zahteve kada je budžet dostignut
+ili provera budžeta nije dostupna; već započeti zahtevi mogu prekoračiti prag.
 Cene u `usage.PRICES` treba proveriti za konkretne modele. Bez promenljive je isključen.
+
+Internet pretraga: u Coolify dodaj `PERPLEXITY_API_KEY` kao Runtime promenljivu
+(Build Time isključen), pa redeploy. Preview promenljive nisu potrebne. `/status`
+prikazuje `web_search`; primer: „Pretraži internet: šta je novo u Python-u? Navedi
+zvanične izvore i linkove.” Alat šalje javni upit na `POST /search`, bez cele istorije,
+zatim postojeći Claude model sastavlja odgovor iz do pet odlomaka sa URL-ovima.
+To nije čitanje punog teksta stranica. Rezultati su podaci, nikad instrukcije.
+`PERPLEXITY_SEARCH_TYPE=fast` je podrazumevan; `web` bira skuplju standardnu pretragu.
+Ograničenje 2000 tokena ukupno / 500 po stranici i lokalno skraćivanje odlomaka
+ograničavaju potrošnju konteksta pri sastavljanju odgovora.
+
+Po [Perplexity cenovniku](https://docs.perplexity.ai/docs/getting-started/pricing)
+proverenom 19.10.2026, uspešan Fast Search zahtev košta $0.001, standardni $0.005,
+uključujući prazne rezultate. Nema dodatne Perplexity naknade za generisanje tokena;
+Claude obrada odlomaka se naplaćuje zasebno. Procena pretrage je u `/troskovi` kao
+`perplexity-search-fast` / `perplexity-search-web`, sa nulom tokena i fiksnom cenom
+zahteva. HTTP greške se ne računaju. Kod prekida veze ne znamo da li je servis
+naplatio zahtev; automatski retry je isključen i taj nepoznat iznos nije u zbiru.
+Izveštaj je procena po ugrađenim cenama, račun provajdera je konačan.
 
 Kontekst starog razgovora: agent zadržava poslednjih `HISTORY_TURNS` celih razmena,
 a stariji prefiks sažima brzim modelom u tabelu `conversation_context` (migracija 006).

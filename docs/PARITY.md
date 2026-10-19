@@ -5,9 +5,11 @@
 Referenca je [grimdgtl/apu, commit 2426415](https://github.com/grimdgtl/apu/tree/2426415e0000d70244be99216125d42c367eefd6).
 HEAD remote main je pročitan i odgovara tom commitu. Upoređeni su
 src/tools/definitions.js, services/scheduler.js, config.js, telegram.js i README.
-Katalog ima 46 alata, 14 rasporeda i pet komandi. Dexter ima 51 alat: svih 46
-zamena i pet novih (memory_search, commitments_list, commitment_done, proactive_log,
-receipt_extract). Preimenovani su samo semantic_search → knowledge_search i
+Katalog ima 46 alata, 14 rasporeda i pet komandi. Dexter ima 52 alata: svih 46
+zamena i šest novih (memory_search, commitments_list, commitment_done, proactive_log,
+receipt_extract, web_search). Perplexity pretraga je dodata 19.10.2026. u F3.6;
+HTTP/DB testovi prolaze, stvarni ključ i izvori čekaju ručnu proveru.
+Preimenovani su samo semantic_search → knowledge_search i
 semantic_reindex → knowledge_reindex.
 
 **Kod i testovi su odvojeni od stvarne operativne potvrde.** ✅ u koloni kod/test

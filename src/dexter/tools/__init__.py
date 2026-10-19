@@ -18,4 +18,5 @@ from dexter.tools import (  # noqa: F401
     reports,
     todo,
     weather,
+    web,
 )

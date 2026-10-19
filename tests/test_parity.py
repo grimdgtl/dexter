@@ -33,6 +33,7 @@ def test_all_46_legacy_tools_have_one_registered_replacement():
         "memory_search",
         "proactive_log",
         "receipt_extract",
+        "web_search",
     }
 
 
