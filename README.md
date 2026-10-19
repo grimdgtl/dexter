@@ -311,8 +311,8 @@ Prosek koristi postojeće pouzdane redove; dan bez reda prekida niz, a tekući n
 mora dopirati do kraja perioda. Uspešan dan ima najmanje 70% čekiranih navika.
 Veze sa dnevnikom su razlike prosečnih ocena uz najmanje 3 dana po grupi, nikada
 dokaz uzročnosti. Bez podešenog dnevnika ostaje statistika navika sa napomenom.
-Automatsko jutarnje kreiranje/povezivanje, podsetnici i pohvale čekaju F1b.8;
-za trenutnu ručnu proveru ostavi `SCHEDULER_ENABLED=off`.
+Automatsko jutarnje kreiranje/povezivanje, podsetnici i pohvale koriste rasporede
+iz F1b.8; za prvu ručnu proveru ostavi `SCHEDULER_ENABLED=off`.
 
 Lična To-do lista koristi `NOTION_TODO_DB_ID` iz stare instalacije i istu Notion
 integraciju. Baza mora imati jedan data source i sledeće kolone:
@@ -339,7 +339,8 @@ PostgreSQL `kv_state` sprečava ponovni upis i kada Notion još ne prikazuje nov
 Posle neizvesnog upisa (timeout/5xx) posao prvo ponovo traži zadatak u Notion-u;
 ako ga ne nađe, prijavljuje problem kroz `/poslovi` umesto mogućeg duplikata.
 Tada proveri listu i po potrebi dodaj nedostajući zadatak ručno. Nedeljni posao
-šalje obaveštenje samo nakon potvrđenog novog upisa; kasniji podsetnici čekaju F1b.8.
+šalje obaveštenje samo nakon potvrđenog novog upisa; večernji podsetnik koristi
+`CHECKLIST_REMINDER_CRON` iz F1b.8.
 
 Mejl alati koriste postojeći IMAP nalog: `mail_list_unread` vraća poslednjih 10
 nepročitanih poruka, a `mail_search` podrazumevano 20 poruka bez obzira na Seen
@@ -368,7 +369,7 @@ SMTP primaoci su navedeni u rezultatu; ne ponavljaj ceo mejl.
 Za ručnu proveru posle deploy-a prvo zatraži poslednja tri nepročitana mejla i
 čitanje jednog od njih, pa proveri da Seen nije promenjen. Zatim proveri folder
 draftova. Potvrdno slanje proveri odvojeno na sopstvenu adresu, sa otkazivanjem
-prve pripreme i potvrdom druge. Automatska provera novog mejla ostaje F1b.8;
+prve pripreme i potvrdom druge. Automatska provera novog mejla koristi `MAIL_CHECK_CRON`;
 SCHEDULER_ENABLED može ostati off za ove ručne alate.
 `knowledge_reindex` osvežava sve podešene izvore ili zadati `izvor`.
 Sa `RERANK=on`, brzi model preslaže do 20 hybrid odlomaka pre odabira `limit` rezultata.
@@ -513,7 +514,10 @@ pregled (nedelja 20:00). Poslovi integracija se registruju samo kad su podešene
 `QUIET_HOURS` i F6 ograničenja ostaju za proaktivne poruke; eksplicitni stari
 rasporedi, uključujući pozdrav u 06:00 i pohvalu u 23:00, poštuju svoj cron.
 Rasporedi se podešavaju kroz ENV; menjanje rasporeda razgovorom nije deo F1b.8.
-Za sada zadrži `SCHEDULER_ENABLED=off` i isključen Auto Deploy u Coolify-u.
+Za prvi test zadrži `SCHEDULER_ENABLED=off` i isključen Auto Deploy u Coolify-u.
+Posle provere integracija uključi `on`, uradi redeploy i proveri broj rasporeda
+u startnom logu i stvarna izvršavanja kroz `/poslovi`. Privremeni minutni cron
+za probu vrati na prethodni raspored; podrazumevani MAIL_CHECK_CRON je `0 8-22 * * *`.
 
 Tekst piše `MODEL_FAST`, uz merenje troška kao `scheduler`. `MOTIVATION_MODEL`
 iz v1 nije potreban. Prognoza se šalje samo u pozdravu; nedostupan sporedni izvor
@@ -906,8 +910,8 @@ Predlozi asistenta ne predstavljaju završene poslove. Notion `Done` bez datuma
 završetka nije dokaz da je zadatak završen baš ove nedelje. Model vraća odvojene
 liste urađenog/kašnjenja i jedno polje predloga, koje kod pretvara u jednu poruku.
 
-Stara nedeljna pohvala navika u 22:00 nije zamenjena ovim pregledom. U Python verziji
-njen prenos i dalje čeka F1b.8; novi posao ne označava taj deo pariteta kao završen.
+Stara nedeljna pohvala navika u 22:00 nije zamenjena ovim pregledom. Preneta je
+u F1b.8 kroz `WEEKLY_SUMMARY_CRON`; njen prvi stvarni termin još čeka posmatranje.
 
 Ocene proaktivnih poruka (F6.4): dnevni uvid, nedeljni pregled i podsetnik za obavezu
 imaju 👍/👎 dugmad. Ocena se vezuje za isporučenu poruku i njen Telegram ID, prihvata

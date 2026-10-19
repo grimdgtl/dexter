@@ -6,7 +6,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Deo | Python stanje |
 |---|---|
 | Kalendar: pregled, slobodni termini, zakazivanje | F1b.1: sva tri alata preneta; F6 uvid koristi isti servis. Stvarni nalog čeka proveru posle deploy-a. |
-| Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; automatski nedeljni posao čeka uključivanje. |
+| Lična To-do lista i nedeljni zadatak | F1b.2: tri alata proverena na pravom Notion-u; scheduler uključen 19.10, automatski nedeljni upis još čeka stvarni termin. |
 | Klijenti, TASK BOARD i upis Knowledge Base beleške | F1b.5: osam alata preneto; pregled, pretraga, dodavanje/dopuna/izmena klijenta, poslovni zadatak i KB podstranica potvrđeni na pravom nalogu. |
 | Fakture: priprema PDF-a, potvrda, Drive i arhiva | F1b.6: oba alata, mock/DB i vizuelne provere; korisnik potvrdio pregled, PDF, odbacivanje i čuvanje na stvarnom nalogu. |
 | Mejl: pregled, pretraga, čitanje, folderi, draft i slanje | F1b.3: preneto; IMAP čitanje i draft, očuvan Seen, otkazivanje i potvrđeno Resend slanje provereni na pravom nalogu. SMTP ostaje mock provera. |
@@ -15,7 +15,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Monitoring i istorija dostupnosti | F1b.7: stvarna provera 22 sajta i odgovarajuća istorija potvrđeni; spori odgovori jasno odvojeni od nedostupnosti. |
 | Izveštaj u Google Doc | F1b.7: stvaran Doc link i pregled zadataka/kalendara vraćeni; opcioni izvori i greške SDK/HTTP mock provere. |
 | Izmena memorije | F1b.7: probni tekst Alfa → Beta uz isti ID i kategoriju potvrđen u Telegramu; vektor i konkurentnost DB provere. |
-| Zakazani poslovi i nedeljna pohvala navika u 22:00 | F1b.8: svih 14 starih rasporeda preneto; nedeljni F6 pregled u 20:00 ostaje zaseban posao. Scheduler off; stvarno zakazano izvršavanje čeka proveru. |
+| Zakazani poslovi i nedeljna pohvala navika u 22:00 | F1b.8: svih 14 starih i četiri F2/F6 rasporeda registrovani; scheduler on. Stvarni mail_check i odsustvo duplikata posle restarta potvrđeni 19.10; ostali termini još čekaju posmatranje. |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
 alata, 14 poslova i komandi ostaje zadatak F1b.11; ova tabela nije potvrda punog pariteta.
@@ -257,7 +257,8 @@ ENV ostaje isti, sa TIMEZONE i standardnim Node brojevima dana u nedelji.
 Sve akcije idu kroz run_job (do tri pokušaja, 30/60 s, job_runs, završno upozorenje).
 Zadržana su i četiri postojeća F2/F6 rasporeda; ukupno do 18, zavisno od integracija.
 F6 tišina, povratne informacije i ograničenja nisu prošireni na eksplicitne stare
-rasporede u 06:00/23:00. Scheduler ostaje isključen u produkcionom uputstvu.
+rasporede u 06:00/23:00. Prvi test deploy koristi isključenu automatiku;
+posle provere korisnik je 19.10.2026. uključio scheduler.
 
 Jutarnji pozdrav dobija prognozu i ponedeljkom poznate rođendane te nedelje.
 Poslovni pregled dobija lokalni dan iz kalendara (uključujući promenu sata),
@@ -303,5 +304,13 @@ zaključavanje rasporeda između dva različita bota. Nedeljni lični zadatak
 zadržava raniju zaštitu upisa i obaveštenje samo pri novom redu: ponovni pokušaj
 ne pravi drugi red, ali posle greške obaveštenja ne šalje naknadnu potvrdu.
 Tragovi drugih slanja rotiraju se na 30 dana. Nema promene SYSTEM_PROMPT-a.
-Uvoz stare motivacione/mejl istorije i dalje čeka F1b.10; stvarno izvršavanje
-po satnici još nije potvrđeno. SCHEDULER_ENABLED ostaje off za prvi redeploy.
+Uvoz stare motivacione/mejl istorije i dalje čeka F1b.10. Prvi redeploy je
+proveren sa SCHEDULER_ENABLED=off, zatim je korisnik uključio on i izričito
+prihvatio paralelan rad sa starim APU-om. Produkcioni log 19.10.2026. potvrđuje
+18 registrovanih poslova, a /poslovi uspešan zakazani mail_check. Uz privremeni
+minutni raspored novi probni mejl je prijavljen; korisnik je ostavio mejl
+nepročitan, restartovao Dexter po uputstvu i potvrdio da nema novog obaveštenja.
+Zatim je potvrdio vraćanje redovnog MAIL_CHECK_CRON=0 8-22 * * *. Nije nezavisno
+očitana udaljena ENV vrednost posle vraćanja. Ostali poslovi i nedeljna pohvala
+nisu još pojedinačno potvrđeni na pravim terminima; to nije potvrda kompletnog
+operativnog pariteta niti zaštite od upisa drugog bota.

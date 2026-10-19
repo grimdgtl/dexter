@@ -1056,9 +1056,41 @@ slanja originala, a završno upozorenje se šalje jednom. Cancel se propagira i
 ostavlja sending; ponovni poziv odbija slepi resend. Nema tvrdnje o exactly-once
 isporuci niti distribuisanom zaključavanju svih rasporeda između više botova.
 
-ČEKA RUČNU PROVERU: redeploy sa SCHEDULER_ENABLED=off; /status i odsustvo
-zakazanih poruka; pregled preuzetih cron vrednosti i sprečavanje preklapanja
-sa starim APU-om. Tek zatim kontrolisano uključivanje i stvarna provera tihe
-pripreme dana, jutarnjih poruka, novog mejla bez duplikata posle restarta,
-monitoringa i uslovnih večernjih/nedeljnih poruka. Stara JSON istorija nije
-uvezena (F1b.10); prvi mejl pregled može prijaviti postojeće nepročitane poruke.
+Pri implementaciji su redeploy, uključivanje i izvršavanje na pravom nalogu
+čekali ručnu proveru. Rezultati naknadne provere slede ispod. Stara JSON
+istorija nije uvezena (F1b.10); prvi pregled može prijaviti postojeće nepročitane poruke.
+
+### F1b.8 — rezultati ručne provere (19.10.2026)
+
+Posle redeploy-a korisnik je prosledio /status sa svim aktivnim alatima,
+dostupnom bazom i automatskim poslovima prvo off. Izričito je prihvatio da
+stari APU nastavi paralelno da radi, uz objašnjenje mogućih duplih podsetnika
+i upisa dva bota. Zatim je postavio SCHEDULER_ENABLED=on i prosledio novi
+/status koji potvrđuje uključenost. Ova saglasnost ne znači da dva bota dele
+zaštitu od duplikata; svaka instalacija i dalje ima svoje stanje.
+
+Prvobitno /poslovi nije imao pokretanja, očekivano pre prvog termina.
+Produkcioni log potom je potvrdio „Scheduler pokrenut (18 poslova).”, dostupnu
+bazu i start aplikacije bez prikazane greške. Sa privremenim
+MAIL_CHECK_CRON=* * * * * korisnik je prosledio /poslovi 1: mail_check 1/1
+uspeha, bez neuspeha ili pokretanja u toku, 19.10.2026. u 11:27 po prikazu bota.
+To potvrđuje stvarni prolazak scheduler-a kroz evidenciju job_runs.
+
+Na uputstvo za novi probni mejl korisnik je prosledio jedno Telegram obaveštenje
+sa pošiljaocem i naslovom. Potom je, na uputstvo da mejl ostane nepročitan,
+restartuje Dexter i sačeka dva minuta, odgovorio „Nema” na pitanje o ponovljenom
+obaveštenju. Time je za taj slučaj potvrđeno da prijavljeni mejl nije ponovljen
+posle restarta. Nije rađena nezavisna IMAP/DB provera, niti je prikazan novi
+/poslovi posle restarta. Adresa i sadržaj probnog mejla nisu preneti u repo.
+
+Na kraju je korisnik potvrdio vraćanje MAIL_CHECK_CRON=0 8-22 * * * po uputstvu
+za čuvanje i redeploy. Udaljeni ENV i log posle tog koraka nisu nezavisno očitani.
+SCHEDULER_ENABLED ostaje on; Auto Deploy nije tražen da se uključi. Probni
+minutni raspored više nije dogovorena konfiguracija.
+
+Ostaju za stvarno posmatranje: automatska priprema dana, nedeljni lični upis,
+jutarnji pozdrav/motivacija i poslovni pregled, monitoring po satnici,
+rođendanski i večernji uslovni podsetnici/pohvale, nedeljni pregled i porez.
+Ovi tokovi imaju postojeće mock/DB provere; nisu svi ručno potvrđeni samo zato
+što je mail_check uspeo. Uvoz istorije je i dalje F1b.10. Ova dopuna menja samo
+dokumentaciju; izvršni kod je isti kao u zelenom CI prolazu sa 656 testova.

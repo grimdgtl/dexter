@@ -309,8 +309,12 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > Migracija 014 čuva motivacione poruke; brifing i satna provera dele trajnu
   > IMAP evidenciju, a retry ne ponavlja neizvesno Telegram slanje. Ruff i
   > testovi sa bazom prolaze; detalji u docs/EVAL.md i docs/PARITY.md.
-  > ČEKA RUČNU PROVERU: redeploy uz SCHEDULER_ENABLED=off, pregled podešavanja,
-  > pa kontrolisano uključivanje i provera stvarnih termina. Stara istorija je F1b.10.
+  > Ručno 19.10.2026: redeploy i /status prvo off, zatim on uz izričito odobren
+  > paralelan rad sa starim APU-om; log potvrđuje 18 poslova. Privremeni minutni
+  > mail_check ima 1/1 uspeha, novi probni mejl je prijavljen, a posle restarta
+  > nije prijavljen ponovo. Korisnik je potvrdio vraćanje MAIL_CHECK_CRON na
+  > `0 8-22 * * *`; scheduler ostaje on. Ostali stvarni termini još čekaju
+  > posmatranje. Stara istorija je F1b.10; detalji ručne provere su u docs/EVAL.md.
 - [ ] **F1b.9 Komande** — `/status` (F1.4), `/poslovi` (F1.5), `/provera`:
   poređenje Notion baza sa očekivanim kolonama i tipovima (port `schema.js`),
   plus provera pri startu koja šalje poruku samo kad se nalaz promeni.
