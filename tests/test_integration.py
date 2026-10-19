@@ -3306,3 +3306,192 @@ async def test_prepare_day_refuses_conflicting_diary_relation(db, habits_notion)
     with pytest.raises(ValueError, match="drugom checklistom"):
         await dnevnik.create_day("2026-10-18", str(uuid4()))
     assert not habits_notion.update.called
+
+
+@pytest.fixture
+async def schema_state(db, monkeypatch):
+    from dexter.services import schema
+
+    healthy = {"provereno": 1, "nalazi": [], "ok": True}
+    finding = {
+        "baza": "Probna baza",
+        "fale": [{"ime": "Датум", "uFilteru": False}],
+        "pogresanTip": [],
+        "nepracene": [],
+        "podesavanja": [],
+    }
+    broken = {"provereno": 1, "nalazi": [finding], "ok": False}
+    checker = AsyncMock(return_value=healthy)
+    monkeypatch.setattr(schema, "check", checker)
+    monkeypatch.setattr(schema, "expected", lambda: [object()])
+    return SimpleNamespace(
+        schema=schema,
+        check=checker,
+        healthy=healthy,
+        broken=broken,
+        bot=SimpleNamespace(send_message=AsyncMock()),
+    )
+
+
+async def test_first_healthy_schema_start_is_silent_and_persistent(db, schema_state):
+    s = schema_state
+    assert await s.schema.startup(s.bot) == s.healthy
+    await db.expire_connections()
+    assert await s.schema.startup(s.bot) == s.healthy
+    s.bot.send_message.assert_not_awaited()
+    state = await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY)
+    assert state == {
+        "fingerprint": s.schema.fingerprint(s.healthy),
+        "ok": True,
+        "delivery": "silent",
+    }
+
+
+async def test_schema_change_and_recovery_notify_once_across_reconnections(db, schema_state):
+    s = schema_state
+    s.check.return_value = s.broken
+    await s.schema.startup(s.bot)
+    await db.expire_connections()
+    await s.schema.startup(s.bot)
+    assert s.bot.send_message.await_count == 1
+    assert "Datum" in s.bot.send_message.call_args.args[1]
+    assert "Датум" not in s.bot.send_message.call_args.args[1]
+    s.check.return_value = {
+        **s.broken,
+        "nalazi": [{**s.broken["nalazi"][0], "nepracene": ["Nova navika"]}],
+    }
+    await s.schema.startup(s.bot)
+    assert s.bot.send_message.await_count == 2
+    s.check.return_value = s.healthy
+    await s.schema.startup(s.bot)
+    assert s.bot.send_message.call_args.args == (1, "✅ Notion šeme su ponovo usklađene.")
+    await s.schema.startup(s.bot)
+    assert s.bot.send_message.await_count == 3
+
+
+async def test_healthy_baseline_then_new_schema_problem_notifies(db, schema_state):
+    s = schema_state
+    await s.schema.startup(s.bot)
+    s.check.return_value = s.broken
+    await s.schema.startup(s.bot)
+    s.bot.send_message.assert_awaited_once()
+
+
+async def test_parallel_startup_schema_checks_notify_once(db, schema_state):
+    s = schema_state
+    s.check.return_value = s.broken
+    await asyncio.gather(*(s.schema.startup(s.bot) for _ in range(3)))
+    s.bot.send_message.assert_awaited_once()
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key=$1", s.schema.STATE_KEY) == 1
+
+
+async def test_unconfigured_schema_does_not_overwrite_previous_finding(
+    db, schema_state, monkeypatch
+):
+    s = schema_state
+    s.check.return_value = s.broken
+    await s.schema.startup(s.bot)
+    before = await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY)
+    monkeypatch.setattr(s.schema, "expected", lambda: [])
+    await s.schema.startup(s.bot)
+    assert s.check.await_count == 1
+    assert (
+        await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY) == before
+    )
+    s.bot.send_message.assert_awaited_once()
+
+
+async def test_incomplete_schema_check_preserves_last_known_state(db, schema_state):
+    s = schema_state
+    await s.schema.startup(s.bot)
+    before = await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY)
+    s.check.side_effect = RuntimeError("Neispravan odgovor")
+    assert await s.schema.startup(s.bot) is None
+    assert (
+        await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY) == before
+    )
+    s.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.parametrize("with_previous", [False, True])
+async def test_definitive_schema_notification_rejection_allows_next_start_retry(
+    db, schema_state, with_previous
+):
+    from telegram.error import BadRequest
+
+    s = schema_state
+    if with_previous:
+        await s.schema.startup(s.bot)
+    before = await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY)
+    s.check.return_value = s.broken
+    s.bot.send_message.side_effect = BadRequest("Odbijeno")
+    assert await s.schema.startup(s.bot) is None
+    assert (
+        await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY) == before
+    )
+    s.bot.send_message.side_effect = None
+    assert await s.schema.startup(s.bot) == s.broken
+    assert s.bot.send_message.await_count == 2
+
+
+async def test_uncertain_schema_notification_is_not_resent_on_restart(db, schema_state):
+    from telegram.error import TimedOut
+
+    s = schema_state
+    s.check.return_value = s.broken
+    s.bot.send_message.side_effect = TimedOut()
+    assert await s.schema.startup(s.bot) is None
+    await db.expire_connections()
+    assert await s.schema.startup(s.bot) == s.broken
+    s.bot.send_message.assert_awaited_once()
+    assert (await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY))[
+        "delivery"
+    ] == "unknown"
+
+
+async def test_cancelled_schema_notification_keeps_claim_and_releases_lock(db, schema_state):
+    s = schema_state
+    s.check.return_value = s.broken
+    s.bot.send_message.side_effect = asyncio.CancelledError()
+    with pytest.raises(asyncio.CancelledError):
+        await s.schema.startup(s.bot)
+    async with asyncio.timeout(2):
+        assert await s.schema.startup(s.bot) == s.broken
+    s.bot.send_message.assert_awaited_once()
+    assert (await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY))[
+        "delivery"
+    ] == "attempted"
+
+
+async def test_partially_sent_schema_report_is_not_repeated(db, schema_state):
+    from telegram.error import BadRequest
+
+    s = schema_state
+    finding = {**s.broken["nalazi"][0], "nepracene": ["Dodatna navika 🧠"] * 1000}
+    s.check.return_value = {**s.broken, "nalazi": [finding]}
+    s.bot.send_message.side_effect = [SimpleNamespace(), BadRequest("Drugi deo odbijen")]
+    assert await s.schema.startup(s.bot) is None
+    assert await s.schema.startup(s.bot) == s.check.return_value
+    assert s.bot.send_message.await_count == 2
+    assert all(
+        len(call.args[1].encode("utf-16-le")) // 2 <= 3900
+        for call in s.bot.send_message.call_args_list
+    )
+    assert (await db.fetchval("SELECT value FROM kv_state WHERE key=$1", s.schema.STATE_KEY))[
+        "delivery"
+    ] == "unknown"
+
+
+async def test_manual_schema_command_does_not_consume_startup_notification(db, schema_state):
+    from dexter import telegram_bot
+
+    s = schema_state
+    s.check.return_value = s.broken
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id=1), message=SimpleNamespace(reply_text=AsyncMock())
+    )
+    await telegram_bot.cmd_schema(update, None)
+    assert not await db.fetchval("SELECT count(*) FROM kv_state")
+    assert update.message.reply_text.await_count == 1
+    await s.schema.startup(s.bot)
+    s.bot.send_message.assert_awaited_once()

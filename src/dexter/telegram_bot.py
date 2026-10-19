@@ -25,6 +25,7 @@ from dexter.agent import history, loop
 from dexter.config import settings
 from dexter.pismo import u_latinicu
 from dexter.rag.ingest import ingest_file
+from dexter.services import schema
 from dexter.tools import registry
 from dexter.transcribe import transcribe
 
@@ -348,6 +349,18 @@ async def cmd_jobs(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(part)
 
 
+async def cmd_schema(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _owner(update):
+        return
+    try:
+        text = schema.format_report(await schema.check())
+    except Exception as exc:
+        log.warning("Ručna provera šema nije uspela (%s).", type(exc).__name__)
+        text = "Nisam uspeo da proverim Notion šeme. Pokušaj ponovo za koji trenutak."
+    for part in schema.parts(text):
+        await update.message.reply_text(part)
+
+
 async def cmd_memory(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _owner(update):
         return
@@ -364,6 +377,7 @@ def build(app: Application) -> None:
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("poslovi", cmd_jobs))
+    app.add_handler(CommandHandler("provera", cmd_schema))
     app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(CommandHandler("troskovi", cmd_costs))
     app.add_handler(CommandHandler("rashodi", cmd_expenses))

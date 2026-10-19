@@ -13,9 +13,12 @@ async def test_disabled_scheduler_keeps_startup_and_status_available(monkeypatch
     monkeypatch.setattr(main.db, "connect", connect)
     monkeypatch.setattr(main.budget, "configure", configure)
     monkeypatch.setattr(scheduler, "AsyncIOScheduler", constructor)
-    app = SimpleNamespace(bot=SimpleNamespace())
+    monkeypatch.setattr(main.schema, "startup", AsyncMock())
+    app = SimpleNamespace(bot=SimpleNamespace(), bot_data={})
 
     await main._post_init(app)
+    await app.bot_data["schema_check_task"]
+    main.schema.startup.assert_awaited_once_with(app.bot)
 
     connect.assert_awaited_once()
     configure.assert_called_once_with(app.bot)

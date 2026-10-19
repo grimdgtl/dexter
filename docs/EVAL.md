@@ -1094,3 +1094,58 @@ rođendanski i večernji uslovni podsetnici/pohvale, nedeljni pregled i porez.
 Ovi tokovi imaju postojeće mock/DB provere; nisu svi ručno potvrđeni samo zato
 što je mail_check uspeo. Uvoz istorije je i dalje F1b.10. Ova dopuna menja samo
 dokumentaciju; izvršni kod je isti kao u zelenom CI prolazu sa 656 testova.
+
+## F1b.9 — komande i provera Notion šema (19.10.2026)
+
+Pročitani su v1 services/schema.js, /provera iz services/telegram.js, startup
+poziv iz index.js, README i odgovarajući opisi Notion alata. Postojeće
+/status i /poslovi ostaju, dodata je /provera i pozadinska provera pri startu.
+Nema novih ENV promenljivih, šeme PostgreSQL-a ili promene SYSTEM_PROMPT-a.
+kv_state čuva otisak nalaza i ishod pokušaja obaveštenja.
+
+Pre: 656 testova sa bazom. Posle: 695 testova sa izolovanom PostgreSQL 14 +
+pgvector bazom, 16,23 s. Bez baze: 573 prolaza i 122 očekivano preskočena DB
+slučaja, 7,56 s. Ruff format/check prolaze za src/tests/evals/scripts. Dodato
+je 39 provera, od toga 27 servisnih/SDK/Telegram mock i 12 DB slučajeva.
+Spoljni Notion i Telegram pozivi su mock; nisu pozivani privatni nalozi,
+plaćeni modeli niti menjane stvarne kolone. CI proverava i PostgreSQL 17 i Docker.
+
+Šema: sedam minimalnih v1 ugovora, tačna razlika status/select, FAKTURE nezavisno
+od Google-a, dinamična checklista i obavezna veza Dnevnik → Checklista samo
+kada su obe baze podešene. Izdvojeno se prijavljuju prazne/ponovljene navike,
+cilj van spiska i nepraćene checkbox kolone, bez proglašavanja opcionih
+fiskalnih/kontakt podataka obaveznim. Nepodešene baze ne prave HTTP zahteve.
+Respx test koristi pravi Notion SDK: GET baze pa njenog data_source-a, verzija
+2025-09-03, bez query/create/update poziva. Prazan/višestruk izbor izvora se
+odbija; nedostajuće properties nisu zdrav rezultat. Provereni su odsutna
+kolona, pogrešan tip, timeout, HTTP 400/401/403/404 bez reflektovanja serverovih
+tajni i jedna nedostupna baza uz očuvane nalaze druge. Cancel se propagira.
+
+Komanda je registrovana i ograničena na vlasnika; veliki izveštaj je latinicom,
+bez gubitka teksta i ispod 3900 UTF-16 jedinica po poruci. Neočekivana greška
+ima bezbednu poruku. Start ne čeka mrežnu proveru; zaseban test potvrđuje
+nedovršen zadatak posle post_init, njegovo otkazivanje i idempotentno čišćenje
+pri gašenju. Postojeći scheduler-off test potvrđuje da se pomoćna provera
+ipak pokrene. Ne dodaje se novi cron niti se menjaju postojeći rasporedi.
+
+DB: prvi zdrav nalaz je tih i ostaje preko novih konekcija. Prvi problem,
+nov problem posle zdravog nalaza, izmenjen problem i oporavak javljaju se jednom;
+ponovljen isti nalaz i tri paralelna starta ne prave ponovljene poruke. Otisak
+ignoriše redosled nalaza/kolona, ali razlikuje stvarnu promenu. Bez podešenih
+baza i pri neočekivanom prekidu provere prethodno stanje se ne briše. Ručna
+komanda ne piše startup stanje i ne potiskuje sledeće startno obaveštenje.
+
+Definitivno odbijeno prvo Telegram slanje vraća prethodni otisak ili briše
+prvi pokušaj, pa sledeći start može ponovo. Timeout čuva unknown i posle
+obnove konekcija ne šalje ponovo isti nalaz. Cancel ostavlja attempted i
+oslobađa advisory lock. Kod dužeg izveštaja, uspešan prvi deo pa odbijen drugi
+deo ne ponavlja već poslati deo. Izveštaj se može dobiti ručno kroz /provera.
+Ovo nije garancija isporuke svakog upozorenja: posle neizvesnog/otkazanog slanja
+prednost ima izbegavanje restart petlje i duplih poruka.
+
+ČEKA RUČNU PROVERU: redeploy uz postojeći SCHEDULER_ENABLED=on i redovni
+MAIL_CHECK_CRON; /provera na pravim podešenim bazama (očekivano do sedam),
+provera smisla prijavljenih kolona/tipova i restart bez ponavljanja istog
+nalaza. Prvi zdrav nalaz ne šalje automatsku poruku. Stvarna promena šeme i
+oporavak nisu izazivani na produkcionim kolonama; pokriveni su SDK/mock/DB
+proverama. Ne menjati stvarne kolone samo radi testa bez izričitog dogovora.

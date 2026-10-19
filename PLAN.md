@@ -315,9 +315,16 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > nije prijavljen ponovo. Korisnik je potvrdio vraćanje MAIL_CHECK_CRON na
   > `0 8-22 * * *`; scheduler ostaje on. Ostali stvarni termini još čekaju
   > posmatranje. Stara istorija je F1b.10; detalji ručne provere su u docs/EVAL.md.
-- [ ] **F1b.9 Komande** — `/status` (F1.4), `/poslovi` (F1.5), `/provera`:
+- [x] **F1b.9 Komande** — `/status` (F1.4), `/poslovi` (F1.5), `/provera`:
   poređenje Notion baza sa očekivanim kolonama i tipovima (port `schema.js`),
   plus provera pri startu koja šalje poruku samo kad se nalaz promeni.
+  > Prenet schema.js za sedam baza uz Notion data_sources šemu. Provera samo
+  > čita metapodatke; obuhvata tipove, nepraćene checkbox stavke i konfiguraciju
+  > navika. Otisak nalaza je u kv_state, bez nove migracije ili ENV-a.
+  > Prvi zdrav start je tih, promena problema i oporavak se javljaju jednom;
+  > provera u pozadini ne blokira start i radi nezavisno od schedulera.
+  > Ruff i testovi sa bazom prolaze. ČEKA RUČNU PROVERU: redeploy, /provera,
+  > zatim restart bez ponavljanja istog nalaza; detalji u docs/EVAL.md.
 - [ ] **F1b.10 Migracija podataka iz v1.** `scripts/migrate_from_v1.py <stari
   DATA_DIR>`: `facts.json` → `facts` (sa vektorima), `birthdays.json`,
   istorija monitoringa, `motivacije.json`, prijavljeni mejlovi. Istorija

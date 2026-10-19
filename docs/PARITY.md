@@ -16,6 +16,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Izveštaj u Google Doc | F1b.7: stvaran Doc link i pregled zadataka/kalendara vraćeni; opcioni izvori i greške SDK/HTTP mock provere. |
 | Izmena memorije | F1b.7: probni tekst Alfa → Beta uz isti ID i kategoriju potvrđen u Telegramu; vektor i konkurentnost DB provere. |
 | Zakazani poslovi i nedeljna pohvala navika u 22:00 | F1b.8: svih 14 starih i četiri F2/F6 rasporeda registrovani; scheduler on. Stvarni mail_check i odsustvo duplikata posle restarta potvrđeni 19.10; ostali termini još čekaju posmatranje. |
+| Komande i provera Notion šema | F1b.9: postojeće /status i /poslovi ostaju; /provera i provera promenjenog nalaza pri startu prenete, SDK/mock/DB provere prolaze; novi tok čeka redeploy i ručnu proveru. |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
 alata, 14 poslova i komandi ostaje zadatak F1b.11; ova tabela nije potvrda punog pariteta.
@@ -314,3 +315,46 @@ Zatim je potvrdio vraćanje redovnog MAIL_CHECK_CRON=0 8-22 * * *. Nije nezavisn
 očitana udaljena ENV vrednost posle vraćanja. Ostali poslovi i nedeljna pohvala
 nisu još pojedinačno potvrđeni na pravim terminima; to nije potvrda kompletnog
 operativnog pariteta niti zaštite od upisa drugog bota.
+
+F1b.9 prenosi schema.js i /provera iz services/telegram.js, uz pročitane
+startup poziv iz index.js, README i opise Notion alata. Postojeći /status i
+/poslovi zadržavaju ponašanje iz F1.4/F1.5, već potvrđeno na pravom botu.
+Nova komanda je dostupna samo vlasniku i proverava sedam konfigurisanih baza.
+Minimalna očekivana imena/tipovi ostaju kao u v1, uključujući razliku
+select/status i proveru FAKTURE bez uslova da je Google Drive podešen.
+PIB, telefon i druga opciona polja nisu proizvoljno proglašena obaveznim.
+
+Notion API 2025-09-03 zahteva čitanje properties iz data_source metapodataka;
+baza mora imati tačno jedan izvor, kao ostali v2 servisi. Provera ne bira prvi
+od više izvora. Ne čita redove, ne upisuje Notion i ne koristi LLM. Dodatno
+proverava prazne/ponovljene nazive konfiguracije navika i cilj van praćenog
+spiska; Dnevnik zahteva Checklista relation samo kada je i checklista podešena.
+Nepraćene checkbox kolone vraća kao nalaz, kao v1. Nedostajuća kolona više se
+ne opisuje kao sigurno „uvek neurađena”, jer v2 na nekim čitanjima već odbija
+neispravnu šemu. Nepoklapanje ostaje informacija, bez automatske popravke.
+Ne proverava sve opcione kolone, select/status opcije ni cilj relation veze.
+
+Do tri baze se čitaju paralelno, po 15 s za bazu i njen izvor; jedan neuspeh
+ne skriva ostale nalaze. API/timeout greške imaju stabilan lokalni opis bez
+prosleđivanja serverovog teksta, tajni ili privatnih URL-ova. Cancel se ne
+pretvara u ispravnu proveru. Izveštaji su latinicom i podeljeni prema Telegram
+UTF-16 granici; dugačak nalaz se ne odseca. Ručna komanda ne čita niti menja
+poslednji startup otisak. Zdrav prvi start je tih kao v1, pa odgovor na
+/provera može potvrditi stanje i kada nije stiglo startup obaveštenje.
+
+Startna provera je zaseban pomoćni async zadatak, nezavisno od SCHEDULER_ENABLED,
+sa otkazivanjem pri zaustavljanju aplikacije. Ne blokira polling/scheduler.
+kv_state čuva SHA-256 otisak nalaza i stanje slanja, bez nove migracije.
+Kanonski otisak ignoriše redosled nalaza/kolona, a PostgreSQL advisory lock
+serijalizuje paralelne startove iste instalacije. Nov problem ili promena
+problema šalju izveštaj; uklanjanje svih nalaza šalje kratku potvrdu oporavka.
+Bez konfigurisanih baza prethodni nalaz ostaje sačuvan, bez lažnog oporavka.
+
+Kao v1, pokušaj se pamti pre slanja da restart petlja ne ponovi upozorenje.
+Poboljšanje je da definitivno odbijen prvi deo vraća prethodni otisak i
+omogućava naredni start; neizvesno, delimično ili otkazano slanje zadržava novi
+otisak i ne ponavlja poruku naslepo. Ručna /provera vraća pun aktuelni nalaz.
+Neočekivan neuspeh provere/baze se loguje bez tajni i ne prekida start.
+Nema nove ENV promenljive, izmene SYSTEM_PROMPT-a ili broja zakazanih poslova.
+Stvarni Notion nalaz i ponašanje posle redeploy-a još čekaju ručnu proveru;
+scheduler ostaje on prema poslednjem izboru korisnika.

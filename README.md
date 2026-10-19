@@ -58,12 +58,48 @@ DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter .venv/bin/dexter
 |---|---|
 | `/status` | Aktivni i ugašeni alati, nedostajuća podešavanja, modeli i stanje baze |
 | `/poslovi [sati]` | Evidencija zakazanih poslova, uspeha i grešaka (24h podrazumevano) |
+| `/provera` | Notion baze: nedostajuće kolone, pogrešni tipovi i nepraćene checkbox stavke |
 | `/troskovi [dana]` | Cena, broj poziva, procenat keša i latencija po modelu |
 | `/memorija` | Sve što Dexter pamti o tebi |
 | `/reset` | Briše istoriju razgovora (memorija ostaje) |
 | `/duboko <pitanje>` | Forsira najjači model |
 
 Pošalji PDF ili .txt → ide u bazu znanja i pretraživ je odmah.
+
+`/provera` proverava samo baze podešene svojim postojećim `NOTION_*_DB_ID`
+promenljivima uz `NOTION_API_KEY`. Čita metapodatke baze i njenog jedinog
+izvora podataka kroz Notion API 2025-09-03; ne čita redove, ne menja kolone
+i ne poziva model. Nepodešena baza se izostavlja, a nedostupna ili višeznačna
+baza dobija napomenu umesto potvrde da je ispravna.
+
+| Baza | Obavezne kolone (Notion tipovi) |
+|---|---|
+| TASK BOARD | `Name` title, `Status` status |
+| KLIJENTI | `Klijent` title, `Domen` url, `Aktivan` select |
+| Rođendani | `Ime i prezime` title, `Rođendan` date |
+| FAKTURE | `Broj` title, `Datum izdavanja`/`Datum prometa` date, `Iznos` number, `Status` select |
+| Dnevna checklista | `Dan` title, `Datum` date, sve podešene navike checkbox |
+| Dnevnik | `Dan` title, `Datum` date, `Raspoloženje`/`Energija` select, `Ključna reč` rich_text |
+| To-do lista | `Zadatak` title, `Status` status, `Rok` date |
+
+Ako su podešene i checklista i dnevnik, traži se i `Checklista` relation u
+dnevniku radi automatskog povezivanja. Nepraćene checkbox kolone u checklisti
+se navode posebno, kao i prazna/duplirana konfiguracija navika ili ciljna
+stavka van praćenog spiska. Poređenje koristi tačne nazive; dijakritici i pismo
+u imenu Notion kolone moraju odgovarati konfiguraciji. Tipovi select i status
+se razlikuju. Ovo je provera osnovne šeme, ne svih opcionih polja, opcija statusa,
+sadržaja redova ili dozvola za upis. Zelena provera ne garantuje ispravnost svih podataka.
+
+Ista provera radi u pozadini pri svakom startu, i kada je scheduler isključen.
+Najviše tri baze proveravaju se paralelno, sa rokom od 15 s po bazi. Neuspeh
+provere ili slanja ne prekida start. Prvi ispravan nalaz je tih; novi problem
+šalje izveštaj, promenjen problem novi izveštaj, a prelaz na ispravno stanje
+kratku potvrdu. Otisak nalaza u `kv_state` sprečava isto obaveštenje pri restartu;
+redosled kolona ne predstavlja promenu. Ručna `/provera` uvek vraća aktuelni
+izveštaj i ne troši obaveštenje pri sledećem startu. Provera nije novi cron posao.
+Posle neizvesnog ili delimičnog Telegram slanja isti nalaz se ne šalje ponovo
+naslepo; `/provera` ostaje dostupna. Definitivno odbijeno prvo slanje može se
+ponoviti na narednom startu. Novi ENV i migracija baze nisu potrebni.
 
 ## Testovi i evaluacija
 
