@@ -1143,9 +1143,25 @@ deo ne ponavlja već poslati deo. Izveštaj se može dobiti ručno kroz /provera
 Ovo nije garancija isporuke svakog upozorenja: posle neizvesnog/otkazanog slanja
 prednost ima izbegavanje restart petlje i duplih poruka.
 
-ČEKA RUČNU PROVERU: redeploy uz postojeći SCHEDULER_ENABLED=on i redovni
-MAIL_CHECK_CRON; /provera na pravim podešenim bazama (očekivano do sedam),
-provera smisla prijavljenih kolona/tipova i restart bez ponavljanja istog
-nalaza. Prvi zdrav nalaz ne šalje automatsku poruku. Stvarna promena šeme i
+Pri implementaciji su redeploy, /provera na pravim bazama i ponašanje posle
+restarta čekali ručnu proveru. Rezultati slede ispod. Stvarna promena šeme i
 oporavak nisu izazivani na produkcionim kolonama; pokriveni su SDK/mock/DB
 proverama. Ne menjati stvarne kolone samo radi testa bez izričitog dogovora.
+
+### F1b.9 — rezultati ručne provere (19.10.2026)
+
+Posle uputstva za redeploy bez promena ENV-a korisnik je prosledio odgovor
+na /provera: „Notion šeme su u redu (provereno baza: 7).” Time je potvrđeno
+čitanje stvarnih metapodataka sedam podešenih Notion baza i ispravan ručni
+izveštaj. To nije provera sadržaja redova, svih opcionih polja ili dozvola za upis.
+
+Zatim je, na uputstvo da u Coolify-u restartuje Dexter i sačeka oko minut,
+korisnik odgovorio da nije stiglo ništa. To odgovara očekivanom tihom startu
+za nepromenjen zdrav nalaz. Restart log, izvršenje pomoćnog zadatka i kv_state
+nisu nezavisno očitani u ovoj sesiji; odsustvo poruke samo po sebi ne proverava
+putanju upozorenja za neispravnu šemu. Ta putanja, promena problema i oporavak
+ostaju pokriveni SDK/mock/DB testovima, bez menjanja stvarnih kolona za probu.
+
+Glavni ručni tok F1b.9 je potvrđen. SCHEDULER_ENABLED i redovni MAIL_CHECK_CRON
+ostaju po prethodnom dogovoru, bez nove konfiguracije. Ova dopuna menja samo
+dokumentaciju; izvršni kod odgovara zelenom CI prolazu sa 695 testova.

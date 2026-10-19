@@ -16,7 +16,7 @@ novi zadaci ne označavaju stare alate i poslove kao prenete.
 | Izveštaj u Google Doc | F1b.7: stvaran Doc link i pregled zadataka/kalendara vraćeni; opcioni izvori i greške SDK/HTTP mock provere. |
 | Izmena memorije | F1b.7: probni tekst Alfa → Beta uz isti ID i kategoriju potvrđen u Telegramu; vektor i konkurentnost DB provere. |
 | Zakazani poslovi i nedeljna pohvala navika u 22:00 | F1b.8: svih 14 starih i četiri F2/F6 rasporeda registrovani; scheduler on. Stvarni mail_check i odsustvo duplikata posle restarta potvrđeni 19.10; ostali termini još čekaju posmatranje. |
-| Komande i provera Notion šema | F1b.9: postojeće /status i /poslovi ostaju; /provera i provera promenjenog nalaza pri startu prenete, SDK/mock/DB provere prolaze; novi tok čeka redeploy i ručnu proveru. |
+| Komande i provera Notion šema | F1b.9: postojeće /status i /poslovi ostaju; /provera je na stvarnom nalogu potvrdila sedam baza, a posle restarta nema obaveštenja za isti zdrav nalaz. Promena problema i oporavak ostaju SDK/mock/DB provere. |
 
 Ovo je evidencija razlika nastalih radom van redosleda F1b. Konačna tabela svih 46
 alata, 14 poslova i komandi ostaje zadatak F1b.11; ova tabela nije potvrda punog pariteta.
@@ -356,5 +356,11 @@ omogućava naredni start; neizvesno, delimično ili otkazano slanje zadržava no
 otisak i ne ponavlja poruku naslepo. Ručna /provera vraća pun aktuelni nalaz.
 Neočekivan neuspeh provere/baze se loguje bez tajni i ne prekida start.
 Nema nove ENV promenljive, izmene SYSTEM_PROMPT-a ili broja zakazanih poslova.
-Stvarni Notion nalaz i ponašanje posle redeploy-a još čekaju ručnu proveru;
-scheduler ostaje on prema poslednjem izboru korisnika.
+Korisnik je 19.10.2026. posle uputstva za redeploy prosledio /provera odgovor
+„Notion šeme su u redu (provereno baza: 7).” Zatim je na uputstvo da restartuje
+Dexter i sačeka oko minut potvrdio da nije stiglo automatsko obaveštenje.
+Time je potvrđen stvarni ručni izveštaj i očekivana tišina za nepromenjen zdrav
+nalaz. Nije nezavisno pročitan startup log ili kv_state posle restarta.
+Neispravan nalaz, njegova promena i oporavak nisu izazivani na produkcionim
+kolonama; ostaju SDK/mock/DB provere. Scheduler ostaje on prema poslednjem
+izboru korisnika. Ova dopuna menja samo dokumentaciju.

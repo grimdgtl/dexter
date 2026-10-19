@@ -323,8 +323,10 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > navika. Otisak nalaza je u kv_state, bez nove migracije ili ENV-a.
   > Prvi zdrav start je tih, promena problema i oporavak se javljaju jednom;
   > provera u pozadini ne blokira start i radi nezavisno od schedulera.
-  > Ruff i testovi sa bazom prolaze. ČEKA RUČNU PROVERU: redeploy, /provera,
-  > zatim restart bez ponavljanja istog nalaza; detalji u docs/EVAL.md.
+  > Ruff i 695 testova sa bazom prolaze. Korisnik je 19.10.2026. posle redeploy-a
+  > prosledio /provera sa sedam ispravnih baza i nakon uputstva za restart
+  > potvrdio da nije stiglo obaveštenje za nepromenjen zdrav nalaz.
+  > Promena neispravne šeme i oporavak ostaju SDK/mock/DB provere; detalji u docs/EVAL.md.
 - [ ] **F1b.10 Migracija podataka iz v1.** `scripts/migrate_from_v1.py <stari
   DATA_DIR>`: `facts.json` → `facts` (sa vektorima), `birthdays.json`,
   istorija monitoringa, `motivacije.json`, prijavljeni mejlovi. Istorija
