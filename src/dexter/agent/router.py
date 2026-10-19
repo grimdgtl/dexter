@@ -1,18 +1,14 @@
-"""Izbor modela po poruci.
+"""Staro pravilo, opcioni klasifikator i štedljiv izbor bez dodatnih API poziva.
 
-Tri nivoa: brzi (Haiku), glavni (Sonnet) i jaki (Opus). Haiku ide za
-pozadinske stvari (memorija, podsetnici), Sonnet za skoro sve razgovore, a
-Opus kad korisnik eksplicitno traži dubinu ili je zahtev očigledno težak.
-
-Ovo je namerno jednostavno pravilo. Faza 3 plana: napraviti klasifikator
-(Haiku sa jednim pitanjem "jednostavno/srednje/teško") i izmeriti da li
-štedi novac bez gubitka kvaliteta. Bez merenja ne menjamo.
+Economy prepoznaje ograničen skup rutinskih zahteva; nejasan nastavak razgovora
+ostaje na glavnom modelu jer kratka poruka ne znači nužno jednostavan zadatak.
 """
 
 import asyncio
 import json
 import logging
 import re
+import unicodedata
 
 from dexter import llm
 from dexter.config import settings
@@ -33,6 +29,60 @@ DEEP_HINTS = re.compile(
     re.IGNORECASE,
 )
 
+ECONOMY_COMPLEX = re.compile(
+    r"\b(analiz\w*|strateg\w*|upored\w*|razradi\w*|pregovar\w*|pregovor\w*|"
+    r"ugovor\w*|rizik\w*|posledic\w*|odluk\w*|preporuc\w*|objasni\w*|razlik\w*|"
+    r"sazm\w*|sumir\w*|izvestaj\w*|faktur\w*|posalj\w*|slanj\w*|obrisi\w*|"
+    r"zaboravi\w*|plac\w*|isplat\w*|proceni\w*|osmisl\w*|plan\w*|projektuj\w*)\b"
+)
+ECONOMY_GREETING = re.compile(
+    r"(?:zdravo|cao|pozdrav|dobro jutro|dobar dan|dobro vece|laku noc|hvala(?: ti)?"
+    r"(?: na (?:pomoci|odgovoru))?)[.!?, ]*(?:cujemo se sutra[.!]*)?"
+)
+ECONOMY_BASIC = re.compile(
+    r"^(?:kakvo je vreme\b|hoce li (?:padati|biti)\b|koji je (?:danas )?datum\b|"
+    r"koliko (?:je \d|minuta ima sat\b)|prevedi rec\b|kako se kaze\b|"
+    r"navedi (?:tri|[1-5]) boje\b|ponovi naziv\b)"
+)
+ECONOMY_ACTION = re.compile(
+    r"^(?:prikazi|pokazi|izlistaj|procitaj|nadji|pronadji|pretrazi|proveri|zapamti|"
+    r"oznaci|dodaj|upisi|kreiraj|sacuvaj|sta imam|koji su|ko slavi|ima li)\b"
+)
+ECONOMY_DOMAIN = re.compile(
+    r"\b(vreme\w*|prognoz\w*|memorij\w*|cinjenic\w*|zadat\w*|task\w*|klijent\w*|"
+    r"bele[sz]k\w*|notion\w*|drive\w*|dokument\w*|mejl\w*|mail\w*|email\w*|"
+    r"kalendar\w*|termin\w*|sastan\w*|rodjendan\w*|rodendan\w*|"
+    r"checklist\w*|ceklist\w*|dorucak\w*|teretan\w*|dnevnik\w*|"
+    r"sajt\w*|internet\w*|web\w*|vest\w*|odgovor\w*)\b"
+)
+
+
+def pick_economy_model(text: str) -> tuple[str, str]:
+    cfg = settings()
+    stripped = text.strip()
+    for prefix in DEEP_PREFIX:
+        if stripped.lower().startswith(prefix):
+            return cfg.model_deep, stripped[len(prefix) :].strip()
+    normalized = "".join(
+        c
+        for c in unicodedata.normalize("NFKD", u_latinicu(stripped).lower().replace("đ", "dj"))
+        if not unicodedata.combining(c)
+    )
+    # Više koraka ili nepoznat sadržaj ne spuštamo samo zato što su kratko napisani.
+    if (
+        len(stripped) > 400
+        or ECONOMY_COMPLEX.search(normalized)
+        or re.search(r"[\n;]|\b(?:i|pa|zatim|onda)\b", normalized)
+    ):
+        return cfg.model_main, stripped
+    if (
+        ECONOMY_GREETING.fullmatch(normalized)
+        or ECONOMY_BASIC.search(normalized)
+        or (ECONOMY_ACTION.search(normalized) and ECONOMY_DOMAIN.search(normalized))
+    ):
+        return cfg.model_fast, stripped
+    return cfg.model_main, stripped
+
 
 def pick_model(text: str) -> tuple[str, str]:
     """Vraća (model, tekst bez prefiksa)."""
@@ -47,6 +97,8 @@ def pick_model(text: str) -> tuple[str, str]:
 
 
 async def select_model(text: str) -> tuple[str, str]:
+    if settings().router_mode == "economy":
+        return pick_economy_model(text)
     fallback, stripped = pick_model(text)
     if settings().router_mode == "rule" or text.strip().lower().startswith(DEEP_PREFIX):
         return fallback, stripped

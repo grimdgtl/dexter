@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     model_deep: str = "claude-opus-5-5"
     max_tokens: int = 8192
     prompt_cache: Literal["on", "off"] = "on"
-    router_mode: Literal["rule", "classifier"] = "rule"
+    router_mode: Literal["rule", "classifier", "economy"] = "rule"
     streaming: Literal["on", "off"] = "on"
     daily_budget_usd: Decimal | None = Field(None, gt=0, allow_inf_nan=False)
 

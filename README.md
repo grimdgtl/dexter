@@ -133,7 +133,7 @@ bazu. Postupak i šablon za beleženje promena su u [`docs/EVAL.md`](docs/EVAL.m
 | `EMBED_PROVIDER` | `openai` | `openai` ili `local`; promena dimenzije traži ponovnu vektorizaciju |
 | `EMBED_LOCAL_MODEL` | `intfloat/multilingual-e5-small` | E5 small (384) ili `intfloat/multilingual-e5-base` (768); promena traži reembed |
 | `PROMPT_CACHE` | `on` | `off` uklanja sve cache breakpointe iz zahteva za poređenje troška |
-| `ROUTER_MODE` | `rule` | `classifier` uključuje brzi klasifikator; kvar vraća izbor pravilom |
+| `ROUTER_MODE` | `rule` | `economy`: brzi za rutinu, glavni za složeno/nejasno, duboki samo eksplicitno; `classifier`: dodatni brzi poziv |
 | `STREAMING` | `on` | Postepen prikaz u Telegramu; `off` šalje samo gotov odgovor |
 | `DAILY_BUDGET_USD` | nije postavljeno | Pozitivan dnevni budžet za modele iz `usage`; 80% upozorenje, 100% brzi model |
 | `CHUNK_CHARS` | `2000` | Veličina tela dela pre dodavanja naslova; najmanje 100 znakova |
@@ -746,6 +746,24 @@ i `duboko:` direktno biraju jaki model. Slike ostaju na glavnom modelu.
 poruka; `--simulacija` koristi kontrolne oznake kao odgovor lažnog modela.
 Oznake treba potvrditi i proširiti svojim slučajevima pre uključivanja klasifikatora;
 podrazumevano ostaje `rule` dok pravi eval ne potvrdi kvalitet i ukupan trošak.
+
+Za manju potrošnju u Coolify postavi `ROUTER_MODE=economy` (Runtime, bez Build Time)
+i redeploy. `/status` prikazuje aktivan režim. Jednostavni pregledi, pretrage i
+kratke rutinske radnje koriste `MODEL_FAST`; nejasni nastavci poput „može”,
+složeniji zahtevi, finansijski/slanje/brisanje i dugi ulazi ostaju na `MODEL_MAIN`.
+U ovom režimu samo `/duboko` ili `duboko:` biraju `MODEL_DEEP`; dužina poruke više
+ne uključuje Opus automatski. Slike ostaju na glavnom modelu, pozadinski poslovi
+zadržavaju svoje modele. Potvrde rizičnih radnji rade isto za sve modele.
+Izbor ne pravi dodatni LLM poziv. `rule` vraća raniji izbor, a `classifier`
+ostaje zasebna opcija. Statički SYSTEM_PROMPT i prozor istorije nisu promenjeni.
+
+`python -m evals.economy_eval` lokalno poredi raspodelu modela na nepromenjenih
+40 sintetičkih poruka. Cena u tom izveštaju je hipotetička, uz iste tokene za
+svaki model; to nije merenje kvaliteta ili stvarne produkcione uštede. Posle
+promene proveri nekoliko stvarnih rutinskih i složenih zahteva i uporedi
+`/troskovi 1` narednih dana. Za slabiji odgovor možeš tražiti `/duboko`, uz veću cenu.
+Opcion `DAILY_BUDGET_USD=0.50` je primer dnevnog praga, ne tvrdi plafon računa:
+na dostignutom pragu model prelazi na brzi, koji i dalje troši novac.
 
 Telegram podrazumevano prikazuje odgovor dok `messages.stream` vraća tekst.
 Ista poruka se menja najviše jednom u sekundi; dugi odgovori prelaze u dodatne poruke.

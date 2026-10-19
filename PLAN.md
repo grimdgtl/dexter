@@ -406,12 +406,17 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > odlomke i proveru dnevnog budžeta. Ruff i 782 testa sa bazom prolaze;
   > uspeh/prazan odgovor, HTTP greške, nepoznata naplata pri timeout-u i veze
   > sa evidencijom razmene imaju mock/DB testove. Detalji u docs/EVAL.md.
-- [ ] **F3.7 Štedljiv izbor modela.** Opcion `ROUTER_MODE=economy`: rutinske
+- [x] **F3.7 Štedljiv izbor modela.** Opcion `ROUTER_MODE=economy`: rutinske
   poruke i jednostavni alati koriste brzi model, nejasni/složeni glavni, a jaki
   samo uz izričit `/duboko`. Bez plaćene klasifikacije; merenje pre/posle u EVAL-u.
   > IZMENA 19.10.2026: korisnik je prijavio $3.202 tokom testiranja, od toga
   > $3.076 za Sonnet. Ušteda se proverava odvojeno od kvaliteta odgovora;
   > postojeći režimi i potvrde rizičnih radnji ostaju dostupni.
+  > Ruff i 820 testova sa bazom prolaze. Na istih 40 sintetičkih poruka izbor
+  > ide sa 0/33/7 na 14/24/2 (brzi/glavni/duboki), bez plaćene klasifikacije.
+  > Račun uz identične zamišljene tokene je 38.9% niži; kvalitet odgovora i
+  > stvarna produkciona ušteda nisu mereni. Podrazumevani rule ostaje kompatibilan;
+  > economy se uključuje kroz Runtime ENV pri redeploy-u. Detalji u docs/EVAL.md.
 
 ### Faza 4 — Lokalni modeli sa Hugging Face-a (17.11–23.11)
 

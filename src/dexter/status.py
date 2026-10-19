@@ -18,6 +18,7 @@ async def report() -> str:
     lines += [
         f"Automatski poslovi: {'uključeni' if cfg.scheduler_enabled == 'on' else 'isključeni'}",
         f"Modeli: brzi {cfg.model_fast}, glavni {cfg.model_main}, duboki {cfg.model_deep}",
+        f"Izbor modela: {cfg.router_mode}",
         f"Embeddinzi: {cfg.embed_provider}, {cfg.embed_model} ({cfg.embed_dim} dimenzija)",
     ]
     if cfg.embed_provider == "openai" and not cfg.openai_api_key:

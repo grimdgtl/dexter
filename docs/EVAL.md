@@ -1262,3 +1262,49 @@ Ruff prolazi; 782 testa sa pravom lokalnom PostgreSQL/pgvector bazom prolaze
 argumente, latinicu, linkove i ograničenja, HTTP 401/429/500 bez retry-ja, timeout,
 prazan/neispravan uspeh i evidenciju troška/budžeta. Pravi API i kvalitet rezultata
 nisu mereni: čeka ključ u Coolify-u, redeploy, `/status` i jedan javni upit sa linkovima.
+
+## F3.7 — štedljiv izbor modela (19.10.2026)
+
+Povod je korisnikov stvarni `/troskovi 7`: Sonnet 96 poziva / $3.076 i Haiku 121
+poziv / $0.126, ukupno $3.202. Sonnet čini oko 96.1% evidentiranog iznosa.
+To nije sedam punih dana rada, niti 217 korisničkih poruka: jedna razmena može
+imati više modelskih poziva i pozadinsko izvlačenje memorije. Različit broj tokena
+po pozivu ne dozvoljava poređenje kvaliteta/cene samo iz proseka ovih grupa.
+
+Pre: rule bira glavni model za rutinu, a dužina preko 800 znakova ili dva teška
+pojma automatski biraju duboki. Posle: **opcioni** `ROUTER_MODE=economy` koristi
+brzi model za ograničen skup kratkih rutinskih zahteva. Nejasni nastavci ("može",
+"uradi to"), više koraka, finansijske/slanje/brisanje radnje, složeni i dugi ulazi
+ostaju na glavnom. Samo eksplicitni `/duboko` / `duboko:` bira jaki model.
+Multimodalni ulazi i modeli pozadinskih poslova ostaju kao ranije. Izbor je lokalni,
+bez novog plaćenog klasifikatora. Potvrde, istorija i SYSTEM_PROMPT nisu promenjeni.
+Podrazumevani `rule` i opcioni `classifier` ostaju dostupni; `/status` prikazuje režim.
+
+`python -m evals.economy_eval` ne poziva model ili API i ne zahteva vezu sa bazom.
+Koristi nepromenjen `evals/router.jsonl` (40 sintetičkih poruka iz F3.2).
+
+| Režim | Haiku | Sonnet | Opus | Lakih na brzom | Srednjih/teških na brzom | Izbor ms/poruka |
+|---|---|---|---|---|---|---|
+| rule | 0 | 33 | 7 | 0/14 | 0 | 0.0035 |
+| economy | 14 | 24 | 2 | 14/14 | 0 | 0.0251 |
+
+Deset poruka označenih kao teško u economy ide glavnom modelu, dve sa eksplicitnim
+prefiksom dubokom. To je promena politike cene; nije poboljšanje originalne troklasne
+tačnosti iz F3.2. Ovaj skup je regresiona provera izbora, ne nezavisan dokaz kvaliteta.
+
+Uz **zamišljenih istih** 1000 svežih ulaznih + 1000 cache-write + 4000 cache-read
++ 250 izlaznih tokena za svaku poruku i postojeće `usage.PRICES`, račun je
+$0.347800 → $0.212660 (**38.9% niže**). Cene osnovnih modela potvrđene su prema
+[Anthropic cenovniku](https://platform.claude.com/docs/en/about-claude/pricing).
+To je poređenje tarife i raspodele, nije stvarno generisanje odgovora: količina
+tokena, cache pri promeni modela, broj alata/koraka, latencija odgovora i kvalitet
+mogu se promeniti. Produkcioni procenat uštede ne obećavamo.
+
+Ruff i svih 820 testova sa PostgreSQL/pgvector bazom prolaze (16.39 s).
+Regresioni slučajevi obuhvataju rutinu, ćirilicu/dijakritike pri izboru, višestruke
+zahteve, osetljive radnje, nejasne nastavke i eksplicitni duboki model. Integracioni
+test pokreće celu agentsku petlju: dva brza poziva + jedan mock Perplexity zahtev,
+svi u istom turn_id, bez router API poziva, uz očuvanu istoriju i pregled statusa.
+Stvarni kvalitet sa Haiku-om i stvarna cena čekaju redeploy uz economy i korisnikovu
+proveru nekoliko rutinskih/složenih zahteva. `/troskovi 1` uključuje i pozive pre
+promene tog dana; za čisto poređenje treba izdvojiti periode od deploy-a.

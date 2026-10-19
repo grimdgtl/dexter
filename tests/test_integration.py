@@ -1653,6 +1653,72 @@ async def test_web_search_records_cost_turn_and_budget(db, monkeypatch, respx_mo
     assert route.call_count == 1
 
 
+async def test_economy_agent_web_tool_flow_and_billing(db, monkeypatch, respx_mock):
+    from anthropic.types import Message
+
+    from dexter import llm, memory, status
+    from dexter.agent import history, loop
+    from dexter.config import settings
+    from dexter.services import web
+
+    cfg = settings()
+    monkeypatch.setattr(cfg, "router_mode", "economy")
+    monkeypatch.setattr(cfg, "perplexity_api_key", "test")
+    monkeypatch.setattr(cfg, "perplexity_search_type", "fast")
+    monkeypatch.setattr(cfg, "daily_budget_usd", None)
+    monkeypatch.setattr(memory, "extract_and_save", AsyncMock())
+    route = respx_mock.post(web.URL).respond(
+        200,
+        json={
+            "results": [
+                {"url": "https://docs.python.org", "title": "Python", "snippet": "Zvanične vesti."}
+            ]
+        },
+    )
+    calls = []
+
+    async def create(**kwargs):
+        calls.append(kwargs)
+        first = len(calls) == 1
+        return Message.model_validate(
+            {
+                "id": f"economy-{len(calls)}",
+                "type": "message",
+                "role": "assistant",
+                "model": kwargs["model"],
+                "content": (
+                    [
+                        {
+                            "type": "tool_use",
+                            "id": "w1",
+                            "name": "web_search",
+                            "input": {"upit": "Python vesti"},
+                        }
+                    ]
+                    if first
+                    else [{"type": "text", "text": "Izvor: https://docs.python.org"}]
+                ),
+                "stop_reason": "tool_use" if first else "end_turn",
+                "usage": {"input_tokens": 100, "output_tokens": 20},
+            }
+        )
+
+    monkeypatch.setattr(
+        llm, "client", lambda: SimpleNamespace(messages=SimpleNamespace(create=create))
+    )
+    result = await loop.run(7, "Pretraži internet: Python vesti")
+    assert result.model == cfg.model_fast and "docs.python.org" in result.text
+    assert len(calls) == 2 and all(c["model"] == cfg.model_fast for c in calls)
+    assert route.call_count == 1
+    rows = await db.fetch("SELECT model,purpose,turn_id FROM usage")
+    assert len(rows) == 3 and len({row["turn_id"] for row in rows}) == 1
+    assert sum(row["purpose"] == "chat" for row in rows) == 2
+    assert sum(row["purpose"] == "web_search" for row in rows) == 1
+    assert not any(row["purpose"] == "router" for row in rows)
+    assert len(await history.load(7, 12)) == 4
+    assert "Izbor modela: economy" in await status.report()
+
+
 async def test_router_evaluation_tracks_accuracy_cost_and_confusion(db):
     from evals.router_eval import evaluate
 
