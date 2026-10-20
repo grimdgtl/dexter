@@ -38,7 +38,7 @@ def image(data=b"slika racuna"):
     ]
 
 
-async def test_forced_tool_http_returns_validated_private_snapshot(
+async def test_auto_tool_http_returns_validated_private_snapshot(
     monkeypatch, respx_mock, anthropic_client
 ):
     route = respx_mock.post("https://api.anthropic.com/v1/messages").respond(
@@ -65,8 +65,8 @@ async def test_forced_tool_http_returns_validated_private_snapshot(
     assert prepared._receipt.stavke[0].naziv == "Kafa"
     assert "120.50" in receipts.preview(prepared)
     body = json.loads(route.calls[0].request.content)
-    assert body["tool_choice"]["name"] == "receipt_data"
-    assert body["tool_choice"]["type"] == "tool"
+    assert body["tool_choice"] == {"type": "auto", "disable_parallel_tool_use": True}
+    assert [tool["name"] for tool in body["tools"]] == ["receipt_data"]
     assert body["messages"][0]["content"][0] == image()[0]
     assert llm.usage.record.await_args.args[1] == "receipt_extract"
     with pytest.raises(ValidationError):
@@ -103,6 +103,30 @@ async def test_preparation_failure_cannot_leave_pending_action(monkeypatch):
     with receipts.image_scope(image()):
         result = await registry.execute("receipt_extract", {})
     assert result.is_error and not result.pending and not registry._PENDING
+
+
+@pytest.mark.parametrize("response_kind", ["text", "wrong-tool", "multiple", "truncated"])
+async def test_auto_receipt_without_one_complete_expected_tool_has_no_pending_action(
+    monkeypatch, response_kind
+):
+    monkeypatch.setattr(registry, "_PENDING", {})
+    block = SimpleNamespace(type="tool_use", name="receipt_data", input=receipt_data())
+    content = [block]
+    stop = "tool_use"
+    if response_kind == "text":
+        content, stop = [SimpleNamespace(type="text", text="Sažetak računa")], "end_turn"
+    elif response_kind == "wrong-tool":
+        block.name = "mail_send"
+    elif response_kind == "multiple":
+        content = [block, block]
+    else:
+        stop = "max_tokens"
+    create = AsyncMock(return_value=SimpleNamespace(content=content, stop_reason=stop))
+    monkeypatch.setattr(llm, "create", create)
+    with receipts.image_scope(image()):
+        result = await registry.execute("receipt_extract", {})
+    assert result.is_error and result.pending is None and not registry._PENDING
+    create.assert_awaited_once()
 
 
 async def test_image_scope_is_isolated_and_text_does_not_reuse_previous_image():

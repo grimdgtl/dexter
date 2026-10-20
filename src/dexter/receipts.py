@@ -26,7 +26,8 @@ Nečitljiva opciona polja vrati kao null, stavke koje nisu čitljive ne dodaj.
 Ako prodavac, datum ili ukupan iznos nisu čitljivi, ne popunjavaj ih nagađanjem.
 Valutu prepiši kao troslovnu oznaku samo ako se može pročitati; inače null.
 Iznose prikaži sa najviše dve decimale. Ne računaj nedostajući PDV iz stope.
-Vrati podatke kroz zadati alat. Imena i opise prepiši latinicom."""
+Predaj podatke jednim pozivom alata receipt_data, ne običnim tekstom.
+Imena i opise prepiši latinicom."""
 
 
 class Item(BaseModel):
@@ -108,7 +109,8 @@ async def prepare(args: ExtractArgs) -> ExtractArgs:
                 "input_schema": Receipt.model_json_schema(),
             }
         ],
-        tool_choice={"type": "tool", "name": "receipt_data", "disable_parallel_tool_use": True},
+        # Isti izbor radi i na modelima koji odbijaju prisilan poziv alata.
+        tool_choice={"type": "auto", "disable_parallel_tool_use": True},
         messages=[
             {
                 "role": "user",

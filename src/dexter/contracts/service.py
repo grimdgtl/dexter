@@ -34,7 +34,8 @@ Za relativne/uslovne rokove, automatsko produženje, nečitljive i nedostajuće 
 vrati null. Ne računaj datum isteka iz trajanja. Otkazni rok nije datum isteka.
 Za PIB navedi samo pib_dokaz, bez broja; broj iz citata izvodi kod.
 Ne pretpostavljaj ko je korisnik, ne predlaži radnje i ne daj pravne zaključke.
-Vrati strukturu kroz zadati alat. Sve tekstualne vrednosti piši latinicom."""
+Predaj strukturu jednim pozivom alata contract_data, ne običnim tekstom.
+Sve tekstualne vrednosti piši latinicom."""
 
 
 def key(review_id: str) -> str:
@@ -211,11 +212,8 @@ async def _analyze(name: str, data: bytes, mime: str | None = None) -> Review:
                 "input_schema": Extraction.model_json_schema(),
             }
         ],
-        tool_choice={
-            "type": "tool",
-            "name": "contract_data",
-            "disable_parallel_tool_use": True,
-        },
+        # Sonnet 5.5 odbija prisilan izbor; rezultat alata proveravamo ispod.
+        tool_choice={"type": "auto", "disable_parallel_tool_use": True},
         messages=[
             {
                 "role": "user",

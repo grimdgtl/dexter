@@ -452,8 +452,10 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   Claude vision prepisuje tekst → indeks. Ograničenje `OCR_MAX_PAGES` (20).
 - [x] **F5.2 Računi u podatke.** Slika računa → alat `receipt_extract` sa
   strukturisanim izlazom (pydantic: prodavac, PIB, datum, ukupno, PDV, stavke)
-  preko forsiranog tool poziva → tabela `expenses` (uz potvrdu). Komanda
+  preko strukturisanog tool poziva → tabela `expenses` (uz potvrdu). Komanda
   `/rashodi [mesec]` (NE `/troskovi`, ta je za API troškove).
+  > IZMENA F7.4: koristi se `auto` i obavezna lokalna validacija jer Sonnet 5.5
+  > ne podržava prisilan izbor alata. Nepotpun odgovor ne priprema upis.
 - [x] **F5.3 Word i Excel.** Ingest `.docx` (`python-docx`) i `.xlsx`
   (`openpyxl`, svaki list kao tekst tabele).
 - [x] **F5.4 Glasovni odgovor.** Kad korisnik pošalje glasovnu i uključi
@@ -530,6 +532,18 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > nije potvrđeno da je samo odbijanje otklonjeno. Potreban je novi ručni pokušaj.
   > Ruff i 879 testova sa PostgreSQL/pgvector bazom prolaze. Mock proverava
   > HTTP 400, bezbednu dijagnostiku, ponavljanje PDF-a/slike i delimičan OCR.
+
+- [x] **F7.4 Podržan izbor alata za izdvajanje ugovora i računa.** `auto`
+  sa jednim ponuđenim alatom, eksplicitno uputstvo za strukturisani poziv i
+  postojeća provera tačno jednog očekivanog alata, potpunog odgovora i Pydantic
+  strukture. Slobodan tekst, pogrešan/višestruk poziv ili prekid ne daju upis.
+  > IZMENA 20.10.2026: korisnikov novi odgovor potvrđuje da model odbija
+  > `tool_choice: tool/any`. Anthropic dokumentacija potvrđuje ograničenje za
+  > Sonnet 5.5. Ispravka obuhvata oba mesta sa istom pretpostavkom, bez menjanja
+  > modela, ENV-a, šeme baze, provere citata i korisničkih potvrda.
+  > Ruff i 889 testova sa PostgreSQL/pgvector bazom prolaze. SDK/mock test
+  > reprodukuje prijavljeni 400, zatim uspešan auto zahtev uz sačuvan OCR.
+  > Stvaran model, Telegram prikaz i potvrda zadataka čekaju ručni pokušaj.
 
 ## 5. Nove zavisnosti po fazama
 

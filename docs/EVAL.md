@@ -1415,3 +1415,28 @@ Stvarni razlog odbijanja i njegovo otklanjanje čekaju novi pokušaj posle redep
 Ruff i 879 testova sa PostgreSQL/pgvector bazom prolaze (17.53 s); bez baze
 741 prolazi, 138 se preskače. Proverena je i ponovna upotreba OCR-a fotografije
 posle neuspeha, uz zaseban otisak i ponovnu obradu pri promeni vlasnika.
+
+## F7.4 — kompatibilno izdvajanje bez prisilnog izbora alata (20.10.2026)
+
+Nova korisnička poruka potvrđuje konkretan uzrok: `tool_choice: type "tool" and
+"any" are not supported for this model.` Prethodna implementacija je tražila
+prisilan `contract_data` poziv; ista pretpostavka je postojala za `receipt_data`.
+[Anthropic dokumentacija za Sonnet 5.5](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5)
+potvrđuje da `tool`/`any` vraćaju 400, a `auto` ostaje podržan.
+
+Oba izdvajanja sada šalju `auto` uz jedan ponuđeni alat i zabranu paralelnih
+poziva. Uputstvo za izdvajanje eksplicitno traži predaju kroz imenovani alat.
+Lokalna provera ostaje obavezna: tačno jedan očekivani poziv, stop_reason=tool_use,
+Pydantic validacija. Nema parsiranja običnog sažetka kao podataka, dodatnog
+automatskog plaćenog pokušaja ili promene modela. Persona SYSTEM_PROMPT nije menjan.
+
+SDK/respx + PostgreSQL test prvo reprodukuje prijavljeno odbijanje prisilnog
+poziva. Zatim istom rutom `auto` uspešno vraća pregled sa dva predloga i
+proverenim citatima; prepis obe stranice se učitava iz kv_state, bez OCR poziva.
+Jedinični testovi proveravaju da običan tekst, pogrešan alat, višestruki pozivi,
+max_tokens prekid i neispravna struktura ne sačuvaju pregled. Za račune takvi
+odgovori ne ostavljaju pending potvrdu. Raniji testovi potvrde/upisa ostaju zeleni.
+
+Ruff i 889 testova sa PostgreSQL/pgvector bazom prolaze (19.77 s). Spoljni API-ji
+su mock-ovani; stvarni odgovor Sonnet-a i Telegram potvrde zahtevaju redeploy i
+ponovljen korisnički test. Uspeh mock-a nije merenje kvaliteta stvarnog izdvajanja.

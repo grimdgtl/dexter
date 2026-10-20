@@ -197,6 +197,34 @@ async def test_analyze_limits_before_paid_calls(monkeypatch):
     create.assert_not_awaited()
 
 
+@pytest.mark.parametrize("kind", ["text", "wrong-tool", "multiple", "truncated", "invalid"])
+async def test_auto_contract_requires_one_complete_valid_expected_tool_before_saving(
+    monkeypatch, kind
+):
+    db = SimpleNamespace(fetchval=AsyncMock(return_value=None), execute=AsyncMock())
+    monkeypatch.setattr(service, "pool", lambda: db)
+    monkeypatch.setattr(service.ingest, "_pdf_pages", lambda _: ["Izmišljeni ugovor."])
+    block = SimpleNamespace(type="tool_use", name="contract_data", input=extraction().model_dump())
+    content, stop = [block], "tool_use"
+    if kind == "text":
+        content, stop = [SimpleNamespace(type="text", text="Običan sažetak ugovora")], "end_turn"
+    elif kind == "wrong-tool":
+        block.name = "mail_send"
+    elif kind == "multiple":
+        content = [block, block]
+    elif kind == "truncated":
+        stop = "max_tokens"
+    else:
+        block.input = {"strane": "neispravna struktura"}
+    create = AsyncMock(return_value=SimpleNamespace(content=content, stop_reason=stop))
+    monkeypatch.setattr(service.llm, "create", create)
+    with pytest.raises(ValueError):
+        await service.analyze("primer.pdf", b"primer")
+    db.execute.assert_not_awaited()
+    create.assert_awaited_once()
+    assert create.await_args.kwargs["tool_choice"]["type"] == "auto"
+
+
 def test_contract_eval_reports_negative_cases_without_paid_calls():
     from evals.contract_eval import evaluate
 

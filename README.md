@@ -945,7 +945,7 @@ lokalni OCR. Sadržaj stranice model dobija kao podatak bez ovlašćenja za akci
 Kvalitet prepisa stvarnih skenova treba proveriti pre oslanjanja na brojeve i datume.
 
 Računi: uz jednu sliku traži izdvajanje ili čuvanje računa. `receipt_extract`
-čita aktuelnu sliku kroz forsiran strukturisan tool poziv, validira podatke Pydantic-om
+čita aktuelnu sliku kroz strukturisan tool poziv sa izborom `auto`, validira podatke Pydantic-om
 i šalje pregled prodavca, PIB-a sa računa, datuma, ukupnog iznosa, PDV-a i stavki.
 Agent ne prosleđuje te podatke kao argumente alata. Tek dugme **Potvrdi** upisuje
 u tabelu `expenses` (migracija 009); otkazivanje, istek ili neuspešno izdvajanje
@@ -1079,6 +1079,14 @@ Pydantic struktura pokriva strane (naziv, uloga, PIB citat), datume i obaveze
 (ko, šta, do kada, iznos). Model ne vraća PIB broj; kod ga prepisuje iz jednoznačnog
 citiranog teksta uz oznaku PIB. Ovo nisu novi fiskalni podaci za fakture niti
 automatsko ažuriranje baze klijenata.
+
+Izdvajanje ugovora i računa koristi `tool_choice=auto` sa jednim ponuđenim alatom;
+Sonnet 5.5 odbija prisilan izbor `tool`/`any` (vidi
+[Anthropic promenu](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5)).
+Kod prihvata samo potpun odgovor sa tačno jednim pozivom očekivanog alata i
+ispravnom Pydantic strukturom. Običan tekst, pogrešan alat, više poziva ili
+prekinut/neispravan izlaz prekidaju pregled bez pripreme upisa. Nema dodatnog
+automatskog pokušaja niti promene modela zbog izbora alata.
 
 Kod proverava da citat postoji u navedenom pasusu/stranici i da je doslovna vrednost
 u citatu, uz normalizaciju belina i latinice, bez fuzzy podudaranja. ISO datum

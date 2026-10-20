@@ -108,7 +108,8 @@ async def test_contract_scan_pipeline_persistence_and_reuse(
     assert await db.fetchval("SELECT count(*) FROM commitments") == 0
     assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='contract_extract'") == 1
     body = json.loads(route.calls[0].request.content)
-    assert body["tool_choice"]["name"] == "contract_data"
+    assert body["tool_choice"] == {"type": "auto", "disable_parallel_tool_use": True}
+    assert [tool["name"] for tool in body["tools"]] == ["contract_data"]
     assert json.loads(body["messages"][0]["content"])[1]["strana"] == 2
     assert "PODACI" in body["system"]
 
@@ -198,6 +199,78 @@ async def test_contract_two_ocr_successes_then_api_400_reports_reason_without_sa
     assert route.call_count == 5
     assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='ocr'") == 2
     assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='contract_extract'") == 1
+
+
+async def test_contract_model_rejects_forced_choice_and_auto_reuses_cached_scan(
+    db, monkeypatch, respx_mock, anthropic_client
+):
+    import hashlib
+    from uuid import NAMESPACE_URL, uuid5
+
+    from dexter import llm
+    from dexter.contracts import service
+    from evals.contract_cases import PAGES, extraction
+
+    def respond(request):
+        body = json.loads(request.content)
+        if body["tool_choice"]["type"] in {"tool", "any"}:
+            return httpx.Response(
+                400,
+                json={
+                    "type": "error",
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": 'tool_choice: type "tool" and "any" are not supported for this model.',
+                    },
+                },
+            )
+        assert body["tool_choice"] == {"type": "auto", "disable_parallel_tool_use": True}
+        return httpx.Response(
+            200,
+            json={
+                "id": "auto-contract",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-sonnet-5-5",
+                "content": [
+                    {"type": "text", "text": "Predajem strukturisane podatke."},
+                    {
+                        "type": "tool_use",
+                        "id": "c1",
+                        "name": "contract_data",
+                        "input": extraction().model_dump(),
+                    },
+                ],
+                "stop_reason": "tool_use",
+                "usage": {"input_tokens": 10, "output_tokens": 10},
+            },
+        )
+
+    route = respx_mock.post("https://api.anthropic.com/v1/messages").mock(side_effect=respond)
+    monkeypatch.setattr(llm, "client", lambda: anthropic_client)
+    with pytest.raises(ValueError, match='type "tool" and "any" are not supported'):
+        await service._extraction_request(
+            model=service.settings().model_main,
+            max_tokens=8192,
+            tool_choice={"type": "tool", "name": "contract_data"},
+            tools=[
+                {"name": "contract_data", "input_schema": service.Extraction.model_json_schema()}
+            ],
+            messages=[{"role": "user", "content": "Kontrolni zahtev."}],
+        )
+    digest = hashlib.sha256(b"cached-scan").hexdigest()
+    review_id = str(uuid5(NAMESPACE_URL, f"dexter:contract:v1:1:{digest}"))
+    await service._remember_ocr(review_id, ["\n\n".join(page) for page in PAGES])
+    monkeypatch.setattr(service.ingest, "_pdf_pages", lambda _: ["", ""])
+    ocr = AsyncMock()
+    monkeypatch.setattr(service.ocr, "read_page", ocr)
+    result = await service.analyze("sken.pdf", b"cached-scan")
+    ocr.assert_not_awaited()
+    assert result.id == review_id and len(result.predlozi) == 2
+    assert "citat proveren" in service.render(result)
+    assert route.call_count == 2
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='contract_extract'") == 1
+    assert not await db.fetchval("SELECT count(*) FROM commitments")
 
 
 async def test_contract_partial_ocr_checkpoint_reuses_first_page_after_second_page_failure(
