@@ -520,6 +520,17 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > Ruff i 867 testova sa PostgreSQL/pgvector bazom prolaze; provereni su vlasnik,
   > istek, konkurentno preuzimanje, restart, prekid i izostanak običnog indeksiranja.
 
+- [x] **F7.3 Dijagnostika odbijenog izdvajanja i ponovna upotreba OCR-a.**
+  HTTP status, bezbedan razlog greške javnih API parametara i request ID stižu
+  u log i Telegram. Odgovori koji mogu citirati ugovor se ne prikazuju. Prepis
+  svake pročitane stranice čuva se u kv_state pre sledećeg plaćenog koraka.
+  > IZMENA 20.10.2026: produkcijski log potvrđuje dva uspešna OCR poziva, zatim
+  > Anthropic 400 pri narednom zahtevu. Stari log čuva samo BadRequestError,
+  > pa konkretan razlog odbijanja još nije poznat. Ova dopuna omogućava dijagnozu;
+  > nije potvrđeno da je samo odbijanje otklonjeno. Potreban je novi ručni pokušaj.
+  > Ruff i 879 testova sa PostgreSQL/pgvector bazom prolaze. Mock proverava
+  > HTTP 400, bezbednu dijagnostiku, ponavljanje PDF-a/slike i delimičan OCR.
+
 ## 5. Nove zavisnosti po fazama
 
 | Faza | Paket | Zašto |

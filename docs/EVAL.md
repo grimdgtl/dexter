@@ -1388,3 +1388,30 @@ preuzimanje i nedostupnu bazu bez prelaska na drugi plaćeni tok. Mreža je mock
 
 Ruff i 867 testova sa PostgreSQL/pgvector bazom prolaze (16.93 s).
 Stvarna Telegram obrada, OCR i Notion potvrda čekaju redeploy i ručnu proveru.
+
+## F7.3 — dijagnostika HTTP odbijanja i OCR checkpoint (20.10.2026)
+
+Produkcijski log korisnika: dva Anthropic 200 odgovora, zatim 400 Bad Request i
+`Pregled ugovora nije uspeo (BadRequestError)`. Kod i redosled poziva ukazuju da
+je odbijeno strukturisano izdvajanje posle OCR-a. Razlog odbijanja nije sačuvan;
+ne pripisujemo ga određenom JSON Schema ključu bez odgovora servisa.
+
+Posle dopune greška izdvajanja daje HTTP status, request ID i razlog kada odgovor
+počinje javnim parametrom zahteva (tools/input_schema/tool_choice/limiti).
+`messages`/`system` i proizvoljna tela grešaka se ne loguju niti prosleđuju.
+Poznati ključevi i Bearer vrednosti se uklanjaju, višeredni nastavak se odbacuje.
+Ovo je dijagnostika, ne potvrda da produkcijski 400 više ne nastaje.
+
+Prepis se sada pamti posle svake pročitane stranice. Simulacija kroz pravi SDK
+i PostgreSQL: prvi pokušaj ima dva mock OCR uspeha i jedan mock 400; drugi ima
+samo jedan ponovljen extraction zahtev, bez dodatnog OCR-a. Posle mock oporavka
+nastaje pregled sa dva predloga, bez upisa zadataka. Poseban test prekida drugu
+stranicu: sledeći pokušaj koristi prvu iz baze i čita samo drugu. Neispravni ili
+preveliki cache zapisi se ne koriste, a izvorni tekstualni sloj ima prednost.
+Nema stvarnih poziva Anthropic/Notion API-ju. Ranije plaćeni produkcijski OCR
+ne može da se povrati jer prethodna verzija nije čuvala neuspešan pokušaj.
+
+Stvarni razlog odbijanja i njegovo otklanjanje čekaju novi pokušaj posle redeploy-a.
+Ruff i 879 testova sa PostgreSQL/pgvector bazom prolaze (17.53 s); bez baze
+741 prolazi, 138 se preskače. Proverena je i ponovna upotreba OCR-a fotografije
+posle neuspeha, uz zaseban otisak i ponovnu obradu pri promeni vlasnika.

@@ -113,6 +113,133 @@ async def test_contract_scan_pipeline_persistence_and_reuse(
     assert "PODACI" in body["system"]
 
 
+async def test_contract_two_ocr_successes_then_api_400_reports_reason_without_saving(
+    db, monkeypatch, respx_mock, anthropic_client, caplog
+):
+    from dexter import llm, telegram_bot
+    from dexter.contracts import service
+    from evals.contract_cases import PAGES
+
+    monkeypatch.setattr(service.ingest, "_pdf_pages", lambda _: ["", ""])
+    monkeypatch.setattr(llm, "client", lambda: anthropic_client)
+    ocr_responses = iter(PAGES)
+
+    def respond(request):
+        body = json.loads(request.content)
+        if "tools" in body:
+            return httpx.Response(
+                400,
+                headers={"request-id": "req_contract_400"},
+                json={
+                    "type": "error",
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": "tools.0.input_schema: rejected schema keyword",
+                    },
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "id": "ocr",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-sonnet-5-5",
+                "stop_reason": "end_turn",
+                "content": [{"type": "text", "text": "\n\n".join(next(ocr_responses))}],
+                "usage": {"input_tokens": 10, "output_tokens": 10},
+            },
+        )
+
+    monkeypatch.setattr(service.ocr, "render_page", lambda *_: b"mock-image")
+    route = respx_mock.post("https://api.anthropic.com/v1/messages").mock(side_effect=respond)
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id=1))
+    ctx = SimpleNamespace(
+        bot=SimpleNamespace(send_message=AsyncMock(), send_chat_action=AsyncMock())
+    )
+    monkeypatch.setattr(telegram_bot, "_chat_locks", {})
+    await telegram_bot._contract_review(update, ctx, "sken.pdf", b"scan", "application/pdf")
+    assert route.call_count == 3
+    text = "\n".join(call.args[1] for call in ctx.bot.send_message.await_args_list)
+    assert "HTTP 400" in text and "rejected schema keyword" in text and "req_contract_400" in text
+    assert "razlog=tools.0.input_schema" in caplog.text
+    assert not await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'contract:review:%'")
+    assert not await db.fetchval("SELECT count(*) FROM commitments")
+    assert not await db.fetchval("SELECT count(*) FROM usage WHERE purpose='contract_extract'")
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='ocr'") == 2
+    await telegram_bot._contract_review(update, ctx, "sken.pdf", b"scan", "application/pdf")
+    assert route.call_count == 4
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='ocr'") == 2
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'contract:ocr:%'") == 1
+
+    from evals.contract_cases import extraction
+
+    route.respond(
+        200,
+        json={
+            "id": "extract",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-sonnet-5-5",
+            "stop_reason": "tool_use",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "c1",
+                    "name": "contract_data",
+                    "input": extraction().model_dump(),
+                }
+            ],
+            "usage": {"input_tokens": 10, "output_tokens": 10},
+        },
+    )
+    result = await service.analyze("sken.pdf", b"scan", "application/pdf")
+    assert len(result.predlozi) == 2
+    assert route.call_count == 5
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='ocr'") == 2
+    assert await db.fetchval("SELECT count(*) FROM usage WHERE purpose='contract_extract'") == 1
+
+
+async def test_contract_partial_ocr_checkpoint_reuses_first_page_after_second_page_failure(
+    db, monkeypatch
+):
+    from dexter.contracts import service
+    from evals.contract_cases import PAGES, extraction
+
+    monkeypatch.setattr(service.ingest, "_pdf_pages", lambda _: ["", ""])
+    ocr = AsyncMock(
+        side_effect=[
+            "\n\n".join(PAGES[0]),
+            RuntimeError("Prekid druge stranice"),
+            "\n\n".join(PAGES[1]),
+        ]
+    )
+    monkeypatch.setattr(service.ocr, "read_page", ocr)
+    monkeypatch.setattr(
+        service.llm,
+        "create",
+        AsyncMock(
+            return_value=SimpleNamespace(
+                stop_reason="tool_use",
+                content=[
+                    SimpleNamespace(
+                        type="tool_use",
+                        name="contract_data",
+                        input=extraction().model_dump(),
+                    )
+                ],
+            )
+        ),
+    )
+    with pytest.raises(RuntimeError, match="Prekid druge"):
+        await service.analyze("sken.pdf", b"scan")
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'contract:ocr:%'") == 1
+    assert not await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'contract:review:%'")
+    result = await service.analyze("sken.pdf", b"scan")
+    assert result.stranice == PAGES
+    assert [call.args[1] for call in ocr.await_args_list] == [0, 1, 1]
+
+
 async def test_contract_intake_is_atomic_scoped_and_survives_reload(db):
     import importlib
 
@@ -126,6 +253,44 @@ async def test_contract_intake_is_atomic_scoped_and_survives_reload(db):
     results = await asyncio.gather(intake.consume(1, 21), intake.consume(1, 22))
     assert sorted(results) == [False, True]
     assert not await intake.consume(1, 23)
+
+
+async def test_contract_image_ocr_retry_is_cached_and_owner_scoped(db, monkeypatch):
+    from dexter.contracts import service
+
+    monkeypatch.setattr(service, "image_bytes", lambda _: b"png")
+    ocr = AsyncMock(return_value="Izmišljeni test ugovor bez datuma.")
+    monkeypatch.setattr(service.ocr, "read_image", ocr)
+    response = SimpleNamespace(
+        stop_reason="tool_use",
+        content=[
+            SimpleNamespace(
+                type="tool_use",
+                name="contract_data",
+                input={},
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        service.llm,
+        "create",
+        AsyncMock(
+            side_effect=[
+                RuntimeError("Prekid izdvajanja"),
+                response,
+                response,
+            ]
+        ),
+    )
+    with pytest.raises(RuntimeError, match="Prekid izdvajanja"):
+        await service.analyze("sken.png", b"image", "image/png")
+    first = await service.analyze("sken.png", b"image", "image/png")
+    assert ocr.await_count == 1
+    monkeypatch.setattr(service.settings(), "telegram_owner_chat_id", 999)
+    second = await service.analyze("sken.png", b"image", "image/png")
+    assert ocr.await_count == 2
+    assert first.id != second.id
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'contract:ocr:%'") == 2
 
 
 async def test_contract_intake_expires_rearms_and_cancels(db):

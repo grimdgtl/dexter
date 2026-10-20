@@ -1110,6 +1110,14 @@ PDF bajtovi se ne čuvaju u aplikaciji i poseban ugovorni tok ne ulazi automatsk
 u RAG indeks. `/reset` ne briše preglede. Confirm args sadrži samo ID pregleda i
 predloga; model ne može da prosledi nov tekst ili rok kroz taj alat.
 
+OCR prepis se čuva po stranici i pre dovršenog pregleda, pod istim otiskom
+vlasnika/fajla/verzije. Ako kasniji korak padne, isti fajl ponovo koristi pročitane
+stranice, a plaća samo preostale pozive. To važi za pokušaje posle ove dopune;
+ranije neuspešni pokušaji nisu sačuvali OCR. `/reset` ne briše ni ovaj prepis.
+Odbijanje zahteva za izdvajanje prikazuje HTTP status i oznaku zahteva, uz razlog
+za greške javnih parametara (šema, izbor alata, limiti); poruke koje mogu citirati
+sadržaj ugovora se izostavljaju. Ovo ne menja proveru citata ili potvrde zadataka.
+
 Notion upis ima trajni claim pre mreže. Ponovni pritisak ne pravi duplikat istog
 predloga. Poznato 4xx odbijanje dopušta novi pokušaj; timeout/5xx ostavlja neizvestan
 ishod i ne šalje ponovo. Proveri Notion ručno. Ako je Notion upis potvrđen, a
