@@ -27,7 +27,7 @@ from dexter.contracts import intake as contract_intake
 from dexter.contracts import service as contract_service
 from dexter.pismo import u_latinicu
 from dexter.rag.ingest import ingest_file
-from dexter.services import schema
+from dexter.services import notion_task_map, schema
 from dexter.tools import registry
 from dexter.transcribe import transcribe
 
@@ -315,7 +315,7 @@ async def _show_contract(update, ctx, review):
     if not registry._TOOLS["contract_task_create"].is_enabled():
         await ctx.bot.send_message(
             update.effective_chat.id,
-            "Za potvrdu zadataka podesi NOTION_API_KEY i NOTION_TODO_DB_ID. Pregled ugovora je sačuvan.",
+            "Za potvrdu Work zadataka podesi NOTION_API_KEY i NOTION_TASKS_DB_ID. Pregled ugovora je sačuvan.",
         )
         return
     for proposal in review.predlozi:
@@ -510,7 +510,13 @@ async def cmd_schema(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _owner(update):
         return
     try:
-        text = schema.format_report(await schema.check())
+        args = getattr(ctx, "args", None) or []
+        if args == ["liste"]:
+            text = notion_task_map.format_report(await notion_task_map.inspect())
+        elif args:
+            text = "Upotreba: /provera ili /provera liste."
+        else:
+            text = schema.format_report(await schema.check())
     except Exception as exc:
         log.warning("Ručna provera šema nije uspela (%s).", type(exc).__name__)
         text = "Nisam uspeo da proverim Notion šeme. Pokušaj ponovo za koji trenutak."

@@ -485,7 +485,7 @@ async def test_contract_real_pdf_renderer_ocr_sdk_and_extraction_share_turn(
 
 
 async def test_contract_confirm_not_cancel_creates_one_notion_task_and_exact_day_reminder(
-    db, monkeypatch, todo_notion, respx_mock
+    db, monkeypatch, contract_notion, respx_mock
 ):
     from datetime import datetime
     from zoneinfo import ZoneInfo
@@ -495,12 +495,14 @@ async def test_contract_confirm_not_cancel_creates_one_notion_task_and_exact_day
 
     review = await _stored_contract(db)
     p = review.predlozi[1]
-    route = respx_mock.post(f"{todo_notion.base}/pages").respond(
-        200, json=todo_notion.page("Probni zadatak")
+    route = respx_mock.post(f"{contract_notion.base}/pages").respond(
+        200, json=contract_notion.page("Probni zadatak")
     )
     raw = {"pregled_id": review.id, "predlog_id": p.id}
     first = await registry.execute("contract_task_create", raw)
     assert first.pending and route.call_count == 0
+    assert "Work → TASK BOARD" in first.text
+    assert contract_notion.database in first.text
     registry.cancel(first.pending[0])
     assert await db.fetchval("SELECT count(*) FROM commitments") == 0
     second, third = await asyncio.gather(
@@ -516,6 +518,8 @@ async def test_contract_confirm_not_cancel_creates_one_notion_task_and_exact_day
     row = await db.fetchrow("SELECT * FROM commitments")
     assert str(row["rok"]) == str(row["remind_on"]) == "2030-12-01"
     body = json.loads(route.calls[0].request.content)
+    assert body["parent"]["data_source_id"] == contract_notion.source
+    assert "Name" in body["properties"] and "Zadatak" not in body["properties"]
     assert body["properties"]["Rok"]["date"]["start"] == "2030-12-01"
     bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=123)))
     tz = ZoneInfo("Europe/Belgrade")
@@ -528,15 +532,66 @@ async def test_contract_confirm_not_cancel_creates_one_notion_task_and_exact_day
     assert route.call_count == 1
 
 
+async def test_contract_legacy_life_task_is_not_duplicated_or_given_another_reminder(
+    db, contract_notion, respx_mock
+):
+    from dexter import commitments
+    from dexter.contracts import tasks
+
+    review = await _stored_contract(db)
+    p = review.predlozi[0]
+    key = f"contract:task:{review.id}:{p.id}"
+    legacy = {
+        "status": "notion_upisano",
+        "task": contract_notion.life.page(),
+        "podsetnik_sacuvan": True,
+    }
+    await db.execute("INSERT INTO kv_state(key,value) VALUES($1,$2)", key, legacy)
+    proof = "Potvrđen raniji zadatak iz ugovora."
+    await commitments.save(
+        commitments.Commitment(tekst=p.tekst, rok=date.fromisoformat(p.rok), dokaz=proof),
+        proof,
+        remind_on=date.fromisoformat(p.podsetnik),
+    )
+    previous = await db.fetch("SELECT * FROM commitments")
+    args = await tasks.prepare(tasks.TaskArgs(pregled_id=review.id, predlog_id=p.id))
+    result = await tasks.save(args)
+    assert result["status"] == "ranije_sacuvano_u_life"
+    assert result["notion"]["id"] == legacy["task"]["id"]
+    assert await db.fetch("SELECT * FROM commitments") == previous
+    assert await db.fetchval("SELECT value FROM kv_state WHERE key=$1", key) == legacy
+    assert all(call.request.method == "GET" for call in respx_mock.calls)
+
+
+async def test_contract_changed_destination_rejects_before_claim_or_write(
+    db, contract_notion, monkeypatch, respx_mock
+):
+    from dexter.contracts import tasks
+
+    review = await _stored_contract(db)
+    p = review.predlozi[0]
+    args = await tasks.prepare(tasks.TaskArgs(pregled_id=review.id, predlog_id=p.id))
+    monkeypatch.setattr(
+        tasks.work,
+        "contract_destination",
+        AsyncMock(return_value={**args._destination, "baza_id": contract_notion.life.database}),
+    )
+    with pytest.raises(ValueError, match="Odredište se promenilo"):
+        await tasks.save(args)
+    assert await db.fetchval("SELECT count(*) FROM kv_state WHERE key LIKE 'contract:task:%'") == 0
+    assert await db.fetchval("SELECT count(*) FROM commitments") == 0
+    assert all(call.request.method == "GET" for call in respx_mock.calls)
+
+
 @pytest.mark.parametrize("status", [400, 500])
 async def test_contract_notion_rejected_vs_uncertain_upsert(
-    db, monkeypatch, todo_notion, respx_mock, status
+    db, monkeypatch, contract_notion, respx_mock, status
 ):
     from dexter.tools import registry
 
     review = await _stored_contract(db)
     raw = {"pregled_id": review.id, "predlog_id": review.predlozi[0].id}
-    route = respx_mock.post(f"{todo_notion.base}/pages").respond(
+    route = respx_mock.post(f"{contract_notion.base}/pages").respond(
         status,
         json={
             "object": "error",
@@ -547,7 +602,7 @@ async def test_contract_notion_rejected_vs_uncertain_upsert(
     )
     first = await registry.execute("contract_task_create", raw)
     assert (await registry.confirm(first.pending[0])).startswith("Greška:")
-    route.respond(200, json=todo_notion.page("Proba"))
+    route.respond(200, json=contract_notion.page("Proba"))
     second = await registry.execute("contract_task_create", raw)
     result = await registry.confirm(second.pending[0])
     assert route.call_count == (2 if status == 400 else 1)
@@ -574,7 +629,7 @@ async def test_contract_wrong_owner_fabricated_proposal_and_model_failure_do_not
         await service.analyze("drugi.pdf", b"drugi")
     assert await db.fetchval("SELECT count(*) FROM kv_state") == 1
     monkeypatch.setattr(registry.settings(), "notion_api_key", "test")
-    monkeypatch.setattr(registry.settings(), "notion_todo_db_id", "test")
+    monkeypatch.setattr(registry.settings(), "notion_tasks_db_id", "test")
     result = await registry.execute(
         "contract_task_create", {"pregled_id": value.id, "predlog_id": "a" * 16}
     )

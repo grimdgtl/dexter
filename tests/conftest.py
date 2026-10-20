@@ -308,6 +308,52 @@ def todo_notion(monkeypatch, respx_mock):
 
 
 @pytest.fixture
+def contract_notion(monkeypatch, respx_mock, todo_notion):
+    from dexter.config import settings
+
+    base = todo_notion.base
+    database = "44444444-4444-4444-4444-444444444444"
+    source = "55555555-5555-5555-5555-555555555555"
+    parent = "66666666-6666-6666-6666-666666666666"
+    monkeypatch.setattr(settings(), "notion_tasks_db_id", database)
+    metadata = {
+        "object": "database",
+        "id": database,
+        "title": [{"plain_text": "TASK BOARD"}],
+        "parent": {"type": "page_id", "page_id": parent},
+        "data_sources": [{"id": source}],
+    }
+    respx_mock.get(f"{base}/databases/{database}").respond(200, json=metadata)
+    respx_mock.get(f"{base}/pages/{parent}").respond(
+        200,
+        json={
+            "object": "page",
+            "id": parent,
+            "parent": {"type": "workspace", "workspace": True},
+            "properties": {"title": {"type": "title", "title": [{"plain_text": "Work"}]}},
+        },
+    )
+    props = {"Name": {"type": "title"}, "Status": {"type": "status"}, "Rok": {"type": "date"}}
+    respx_mock.get(f"{base}/data_sources/{source}").respond(200, json={"properties": props})
+
+    def page(title="Poslovni zadatak"):
+        result = todo_notion.page(title)
+        result["parent"]["data_source_id"] = source
+        result["properties"]["Name"] = result["properties"].pop("Zadatak")
+        return result
+
+    return SimpleNamespace(
+        base=base,
+        database=database,
+        source=source,
+        page=page,
+        metadata=metadata,
+        props=props,
+        life=todo_notion,
+    )
+
+
+@pytest.fixture
 async def anthropic_client(respx_mock):
     import httpx
     from anthropic import AsyncAnthropic, _base_client

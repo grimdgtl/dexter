@@ -70,7 +70,7 @@ async def test_chat_lock_is_released_after_failure(ctx, monkeypatch, cancel):
 
 
 async def test_contract_caption_bypasses_generic_index_and_agent_and_shows_confirmation(
-    ctx, monkeypatch
+    ctx, monkeypatch, contract_notion
 ):
     from dexter.tools import registry
     from evals.contract_cases import review
@@ -78,7 +78,6 @@ async def test_contract_caption_bypasses_generic_index_and_agent_and_shows_confi
     value = review()
     monkeypatch.setattr(registry, "_PENDING", {})
     monkeypatch.setattr(telegram_bot.settings(), "notion_api_key", "test")
-    monkeypatch.setattr(telegram_bot.settings(), "notion_todo_db_id", "test")
     analyze = AsyncMock(return_value=value)
     monkeypatch.setattr(telegram_bot.contract_service, "analyze", analyze)
     monkeypatch.setattr(telegram_bot.contract_service, "load", AsyncMock(return_value=value))

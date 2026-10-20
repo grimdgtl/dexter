@@ -171,7 +171,7 @@ def test_review_is_latin_and_missing_or_bad_field_is_explicit():
 
 async def test_confirmation_private_arguments_cannot_be_supplied_by_model(monkeypatch):
     monkeypatch.setattr(registry.settings(), "notion_api_key", "test")
-    monkeypatch.setattr(registry.settings(), "notion_todo_db_id", "test")
+    monkeypatch.setattr(registry.settings(), "notion_tasks_db_id", "test")
     result = await registry.execute(
         "contract_task_create",
         {

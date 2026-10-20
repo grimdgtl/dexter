@@ -50,7 +50,9 @@ async def todo_list(args: ListArgs) -> list[dict]:
 
 @tool(
     "todo_add",
-    "Dodaje nov lični zadatak na To-do listu (Life stranica).",
+    "Dodaje nov lični zadatak na To-do listu (Life stranica). Posao, klijenti i poslovni "
+    "ugovori idu u Work preko notion_add_task, nikad ovde. Ako oblast nije jasna, "
+    "pitaj Work ili Life.",
     requires=todo.REQUIRES,
 )
 async def todo_add(args: AddArgs) -> dict:

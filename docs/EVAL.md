@@ -1440,3 +1440,35 @@ odgovori ne ostavljaju pending potvrdu. Raniji testovi potvrde/upisa ostaju zele
 Ruff i 889 testova sa PostgreSQL/pgvector bazom prolaze (19.77 s). Spoljni API-ji
 su mock-ovani; stvarni odgovor Sonnet-a i Telegram potvrde zahtevaju redeploy i
 ponovljen korisnički test. Uspeh mock-a nije merenje kvaliteta stvarnog izdvajanja.
+
+## F7.5 — poslovni ugovorni zadaci u Work (20.10.2026)
+
+Korisnik je posle F7.4 prosledio stvarni pregled probnog skena sa citatima i
+oba predloga, zatim potvrdio odbacivanje i upis prvog zadatka. Upis je završio
+u Life listi. U kodu je pronađen neposredni uzrok: contracts/tasks.py je pozivao
+lični todo servis. To nije greška OCR-a niti provere citata. Stvarno slanje
+podsetnika za 2030. godinu nije testirano.
+
+Potvrda sada čita stvarne roditelje poslovne baze i šemu, prikazuje Work putanju
+i ID, a upis koristi njen data source, Name/Status/Rok. Nema rezervnog Life upisa
+ili automatskog dodavanja kolona. Isti Work/Life ID se odbija; promenjeno odredište
+između pripreme i potvrde odbija se pre trajne rezervacije ili spoljnog upisa.
+Model i dalje dostavlja samo dva ID argumenta. Persona SYSTEM_PROMPT je nepromenjen.
+
+SDK/respx testovi razlikuju dve istoimene liste preko roditelja, obrađuju
+nedostupnog roditelja, ciklus, paginaciju, limit i sanitizuju API greške. Komanda
+/provera liste čita samo metapodatke, najviše 50 izvora; ne koristi LLM niti menja
+ENV/Notion. PostgreSQL testovi potvrđuju upis u Work uz Rok, otkazivanje bez upisa,
+konkurentne potvrde sa jednim redom/podsetnikom i odbijanje promenjenog odredišta.
+Raniji Life zapis zadržava isti trajni ključ i postojeći podsetnik, vraća svoj
+link i ne stvara Work duplikat. Neizvesni 5xx ishod se i dalje ne ponavlja.
+
+Ruff i 899 testova sa PostgreSQL/pgvector bazom prolaze. Spoljni pozivi u testovima
+su mock-ovani. Native Notion pregled potvrđuje odvojene Life/Work stranice i Work → FIRMA →
+TASKS sa ranijim završenim probnim F1b.5 zadatkom i postojećom kolonom Rok.
+Probni ugovorni red premešten je iz Life u TASKS: Notion prikazuje uspešno
+premeštanje, isti page ID, Not started i rok 15.03.2030. Nije kreiran novi red
+ili menjan lokalni podsetnik. Notion pri premeštanju prenosi i svojstvo Oblast
+iz Life; nije brisano da se sačuva sadržaj zapisa. Neidentifikovani stariji
+zadaci nisu masovno premeštani. Lokalna aplikacija nema produkcioni ENV, zato
+njegova potvrda čeka /provera liste posle redeploy-a.

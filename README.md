@@ -59,6 +59,7 @@ DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter .venv/bin/dexter
 | `/status` | Aktivni i ugašeni alati, nedostajuća podešavanja, modeli i stanje baze |
 | `/poslovi [sati]` | Evidencija zakazanih poslova, uspeha i grešaka (24h podrazumevano) |
 | `/provera` | Notion baze: nedostajuće kolone, pogrešni tipovi i nepraćene checkbox stavke |
+| `/provera liste` | Stvarne putanje i ID-jevi podešenih Work/Life baza i dostupnih lista; samo čitanje |
 | `/troskovi [dana]` | Cena, broj poziva, procenat keša i latencija po modelu |
 | `/memorija` | Sve što Dexter pamti o tebi |
 | `/reset` | Briše istoriju razgovora (memorija ostaje) |
@@ -302,6 +303,14 @@ navedena polja; fiskalni podaci i cena se ne dopunjavaju iz pretpostavke.
 `client_update` menja samo navedena neprazna polja; prazno/null znači „ne diraj”,
 a ne brisanje. `client_find` podržava i deo naziva; `client_list` ima limit 50
 (najviše 100) i opcion `aktivan` filter. Dostignut limit nije ukupan broj klijenata.
+
+Poslovni TASK BOARD pod Work koristi `NOTION_TASKS_DB_ID`; privatna Life lista
+koristi `NOTION_TODO_DB_ID`. To su ID-jevi izvornih baza, ne njihovih prikaza
+ili stranica Work/Life. Poslovni servis odbija iste ID-jeve za obe liste.
+`/provera liste` čita putanju preko roditelja, izvor i tipove kolona, kao i
+do 50 dostupnih izvora baza sa naslovom i statusom. Nedostupan roditelj ili
+prekinuta pretraga jasno su označeni; podešavanja i redovi se ne menjaju.
+Komanda ne poziva model. Za nejasan zahtev Dexter traži Work ili Life.
 
 Poslovni TASK BOARD koristi `Name` (Title) i `Status` (Status: `Not started`,
 `In progress`, `Done`). `notion_add_task` podrazumevano postavlja `Not started`;
@@ -1102,8 +1111,15 @@ ovo je konzervativno pravilo, ne pravni parser svih mogućih formulacija.
 Relativni/nepoznati rokovi se ne računaju nagađanjem. Prošli rokovi ne daju predlog.
 
 Svaki predlog ima svoja dugmad **Sačuvaj zadatak / Odbaci** i postojeće isticanje
-potvrde posle 30 minuta. Tek potvrda stvara red u ličnoj **Notion To-do** bazi
-(`NOTION_TODO_DB_ID`, polje Rok) i, ako je rok poznat, trajni Telegram podsetnik.
+potvrde posle 30 minuta. Tek potvrda stvara red u poslovnom **Work TASK BOARD-u**
+(`NOTION_TASKS_DB_ID`, polje `Rok` tipa Date) i,
+ako je rok poznat, trajni Telegram podsetnik. Pre potvrde se proverava putanja
+pod Work i kolone `Name`/`Status`/`Rok`; izabrana putanja i ID baze su u pregledu.
+Promena odredišta između pregleda i potvrde odbija upis. Life nije rezervno
+odredište. Nedostajuća kolona se prijavljuje, bez automatske promene šeme.
+Ranije sačuvani predlog koji je koristio Life ne pravi novi Work red niti
+podsetnik: vraća postojeći link za proveru/premeštanje. Njegov trajni ključ
+i postojeći podsetnik ostaju sačuvani.
 Kod obaveze je podsetnik prethodnog dana; kod predloga pregleda ugovora tačno
 30 dana pre isteka. Postojeći posao `commitment_reminders` proverava izabrani dan, obično
 u 09:00 u TIMEZONE, uz tihe sate. SCHEDULER_ENABLED mora biti on; propušten dan

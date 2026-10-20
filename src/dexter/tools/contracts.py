@@ -4,7 +4,7 @@ from uuid import UUID
 
 from dexter.contracts import service, tasks
 from dexter.contracts.models import StrictModel
-from dexter.services import todo
+from dexter.services import notion_work
 from dexter.tools.registry import tool
 
 
@@ -23,11 +23,13 @@ async def contract_get(args: ReviewArgs) -> str:
 
 @tool(
     "contract_task_create",
-    "Priprema jedan postojeći predlog iz pregleda ugovora. Korisnik potvrđuje Notion zadatak i prikazani Telegram podsetnik dugmetom. Ne prima tekst, rokove ni fiskalne podatke od modela.",
+    "Priprema postojeći predlog iz pregleda ugovora za poslovnu Work bazu. Korisnik "
+    "potvrđuje odredište, zadatak i prikazani Telegram podsetnik dugmetom. Ne prima "
+    "tekst, rokove ni fiskalne podatke od modela.",
     confirm=True,
     prepare=tasks.prepare,
     preview=tasks.preview,
-    requires=todo.REQUIRES,
+    requires=notion_work.TASK_REQUIRES,
 )
 async def contract_task_create(args: tasks.TaskArgs) -> dict:
     return await tasks.save(args)

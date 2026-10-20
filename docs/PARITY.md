@@ -508,3 +508,22 @@ nalaz. Nije nezavisno pročitan startup log ili kv_state posle restarta.
 Neispravan nalaz, njegova promena i oporavak nisu izazivani na produkcionim
 kolonama; ostaju SDK/mock/DB provere. Scheduler ostaje on prema poslednjem
 izboru korisnika. Ova dopuna menja samo dokumentaciju.
+
+### Work/Life odredišta — ispravka F7.5 (20.10.2026)
+
+Lični todo_* ostaje Life preko NOTION_TODO_DB_ID, poslovni notion_* zadaci Work
+preko NOTION_TASKS_DB_ID. Opisi izričito razlikuju oblasti; nejasan zahtev traži
+razjašnjenje. Poslovni servis odbija da oba podešavanja pokazuju na istu bazu.
+Novi ugovorni upis koristi poslovnu bazu sa Name/Status/Rok, proverenu preko
+Work roditelja, i prikazuje stvarno odredište pre potvrde. Stara implementacija
+F7.1 koristila je Life; trajni ključevi i podsetnici ne brišu se radi ponovnog
+upisa. Već sačuvan predlog vraća postojeći link bez duplikata, uz napomenu za
+proveru/premeštanje. Nema automatske migracije starih zadataka.
+
+/provera liste dopunjuje postojeću /provera komandu: podešene putanje, ID-jevi,
+izvori i kolone, uz ograničenu pretragu dostupnih lista i označene delimične
+nalaze. Samo metadata GET/search; nema modela ni izmene podešavanja/šeme/redova.
+Native UI potvrđuje Work → FIRMA → TASKS i postojeći Rok. Probni ugovorni red
+je premešten iz Life u TASKS sa istim page ID-jem, statusom i rokom, bez novog
+podsetnika. Raniji F1b.5 poslovni zapis već jeste u Work. Neidentifikovani stariji
+zapisi i produkcioni ENV čekaju zasebnu proveru; masovna migracija nije rađena.

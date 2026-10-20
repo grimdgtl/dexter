@@ -545,6 +545,23 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > reprodukuje prijavljeni 400, zatim uspešan auto zahtev uz sačuvan OCR.
   > Stvaran model, Telegram prikaz i potvrda zadataka čekaju ručni pokušaj.
 
+- [x] **F7.5 Work i Life odredišta zadataka.** Ugovorni predlozi koriste poslovni
+  Work TASK BOARD, sa rokom i putanjom/ID-jem baze u potvrdi. Provera odbija
+  pogrešnu oblast, nedostajuću šemu i promenu odredišta pre upisa. `/provera liste`
+  prikazuje podešena i dostupna izvorna odredišta, bez upisa ili modela.
+  > IZMENA 20.10.2026: korisnik je potvrdio stvarni OCR/pregled sa citatima,
+  > odbacivanje i upis prvog predloga, ali je zadatak završio u privatnoj Life
+  > listi. Uzrok u kodu je direktan poziv ličnog todo servisa. Poslovni i lični
+  > opisi sada eksplicitno razdvajaju Work/Life i traže razjašnjenje nejasne oblasti.
+  > Stari trajni ključ čuva se; već upisani Life predlog vraća postojeći link,
+  > bez duplog Work reda ili novog podsetnika. Postojeći redovi se ne migriraju
+  > automatski. Nema nove ENV promenljive, migracije ili promene persone.
+  > Ruff i 899 testova sa PostgreSQL/pgvector bazom prolaze. Native Notion UI
+  > potvrđuje Work → FIRMA → TASKS, raniji F1b.5 zapis i postojeću kolonu Rok.
+  > Probni ugovorni red premešten je iz Life u tu bazu sa istim ID-jem, rokom i
+  > statusom. Stariji neidentifikovani zadaci nisu grupno premeštani; produkcioni
+  > ENV ostaje za proveru preko /provera liste posle redeploy-a.
+
 ## 5. Nove zavisnosti po fazama
 
 | Faza | Paket | Zašto |

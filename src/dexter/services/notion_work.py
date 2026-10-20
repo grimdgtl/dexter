@@ -1,6 +1,7 @@
 """Poslovni TASK BOARD i podstranice Knowledge Base-a iz v1."""
 
 import logging
+from datetime import date
 from uuid import UUID
 
 from dexter.config import settings
@@ -14,7 +15,49 @@ log = logging.getLogger(__name__)
 
 
 async def task_source(api) -> str:
+    cfg = settings()
+    if cfg.notion_tasks_db_id and cfg.notion_todo_db_id:
+        if UUID(cfg.notion_tasks_db_id) == UUID(cfg.notion_todo_db_id):
+            raise ValueError("Work i Life imaju isti ID baze. Proveri /provera liste.")
     return await notion.database_source(api, settings().notion_tasks_db_id, "NOTION_TASKS_DB_ID")
+
+
+async def contract_destination(api=None) -> dict:
+    from dexter.services.notion_task_map import Inspector
+
+    if api is None:
+        async with notion.client() as connection:
+            return await contract_destination(connection)
+    source = await task_source(api)
+    target = await Inspector(api).database(settings().notion_tasks_db_id)
+    if target["oblast"] != "Work":
+        raise ValueError("Poslovna baza nije potvrđena pod Work. Proveri /provera liste.")
+    props = target["izvori"][0]["kolone"]
+    if any(
+        props.get(name) != kind
+        for name, kind in (("Name", "title"), ("Status", "status"), ("Rok", "date"))
+    ):
+        raise ValueError(
+            "Work baza zahteva Name (title), Status (status) i Rok (date). "
+            "Proveri /provera liste; šema nije menjana."
+        )
+    return {"baza_id": target["id"], "izvor_id": source, "putanja": target["putanja"]}
+
+
+async def add_contract_task(title: str, rok: str | None, destination: dict) -> dict:
+    async with notion.client() as api:
+        props = {
+            "Name": {"title": notion.text_fragments(title)},
+            "Status": {"status": {"name": "Not started"}},
+        }
+        if rok:
+            props["Rok"] = {"date": {"start": date.fromisoformat(rok).isoformat()}}
+        return task_row(
+            await api.pages.create(
+                parent={"type": "data_source_id", "data_source_id": destination["izvor_id"]},
+                properties=props,
+            )
+        )
 
 
 def task_row(page: dict) -> dict:

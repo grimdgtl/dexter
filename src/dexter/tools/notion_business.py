@@ -159,8 +159,9 @@ async def client_find(args: ClientFindArgs) -> list[dict]:
 
 @tool(
     "notion_add_task",
-    "Dodaje novi poslovni zadatak u Notion TASK BOARD. Koristi za 'dodaj mi ovo u taskove', "
-    "'podseti me da uradim X', 'ubaci na listu'. Za LIČNE zadatke koristi todo_add. "
+    "Dodaje novi poslovni zadatak u Notion TASK BOARD na Work stranici. Koristi za "
+    "'dodaj mi ovo u taskove', 'podseti me da uradim X', 'ubaci na listu' kada se odnosi "
+    "na posao. Za LIČNE zadatke koristi todo_add. Ako oblast nije jasna, pitaj Work ili Life. "
     "Status je podrazumevano Not started. Sam upis zadatka ne zakazuje podsetnik.",
     requires=work.TASK_REQUIRES,
 )
@@ -170,7 +171,8 @@ async def notion_add_task(args: TaskAddArgs) -> dict:
 
 @tool(
     "notion_list_tasks",
-    "Vraća poslovne zadatke iz TASK BOARD-a za 'šta imam da radim', 'otvoreni taskovi' "
+    "Vraća poslovne zadatke sa Work stranice iz TASK BOARD-a za 'šta imam da radim', "
+    "'otvoreni taskovi' "
     "ili jutarnji pregled. Opciono filtriraj status; bez filtera vraća sve statuse, "
     "uključujući Done (do 25). Za ličnu listu koristi todo_list.",
     requires=work.TASK_REQUIRES,
