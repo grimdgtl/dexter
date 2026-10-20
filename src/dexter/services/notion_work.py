@@ -44,7 +44,9 @@ async def contract_destination(api=None) -> dict:
     return {"baza_id": target["id"], "izvor_id": source, "putanja": target["putanja"]}
 
 
-async def add_contract_task(title: str, rok: str | None, destination: dict) -> dict:
+async def add_contract_task(
+    title: str, rok: str | None, destination: dict, description: str
+) -> dict:
     async with notion.client() as api:
         props = {
             "Name": {"title": notion.text_fragments(title)},
@@ -56,6 +58,7 @@ async def add_contract_task(title: str, rok: str | None, destination: dict) -> d
             await api.pages.create(
                 parent={"type": "data_source_id", "data_source_id": destination["izvor_id"]},
                 properties=props,
+                children=paragraphs(description),
             )
         )
 

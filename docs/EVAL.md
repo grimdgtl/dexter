@@ -1472,3 +1472,33 @@ ili menjan lokalni podsetnik. Notion pri premeštanju prenosi i svojstvo Oblast
 iz Life; nije brisano da se sačuva sadržaj zapisa. Neidentifikovani stariji
 zadaci nisu masovno premeštani. Lokalna aplikacija nema produkcioni ENV, zato
 njegova potvrda čeka /provera liste posle redeploy-a.
+
+## F7.6 — sažet naslov i odgovor posle potvrde (20.10.2026)
+
+Korisnički snimci potvrđuju problem: ugovorni zadatak ima ceo izvorni pasus u
+naslovu, a Telegram nakon potvrde prikazuje sirov JSON. Novi naslov se izvodi
+iz postojećeg predloga, bez novog modelskog poziva: uklanja se završni iznos u
+zagradi i ograničava dužina na 100 znakova. Puna obaveza sa iznosom, naziv ugovora,
+rok/podsetnik i ceo izvor upisuju se u telo stranice kroz children istog create
+zahteva. Izvor se više ne odseca na 400 znakova u naslovu. Pregled ugovora i
+provera citata ostaju isti, kao i ID predloga, trajni ključ i zaštita od duplikata.
+
+Potvrda pre upisa prikazuje poslovnu putanju, čitljive datume, ugovor i obavezu.
+ID baze ostaje interno vezan za potvrdu i dostupan kroz /provera liste. Posle
+upisa Telegram prikazuje poslovni ishod, datum roka/podsetnika i kratak kanonski
+Notion link. Ne ponavlja pregled niti prikazuje tehnički JSON. Formatter drugih
+potvrdnih alata čuva poruke, napomene, linkove, promenjen broj fakture i oznaku
+delimičnog uspeha. Neuspešna dostava završnog PDF-a ima zasebnu napomenu da ne
+pokvari parsiranje rezultata. Interni agentski kontekst i dalje dobija rezultat.
+
+Ruff i 907 testova sa PostgreSQL/pgvector bazom prolaze (22.46 s). Mock/SDK/DB
+provere pokrivaju pun izvor u children, kratak naslov i pregled bez ID-ja baze,
+kratak Notion link uprkos starom dugom slugu, očuvane napomene, latinicu,
+odeljen interni rezultat, delimičan uspeh i dostavu konačnog PDF-a. Nema pravih
+API poziva u testovima, novog ENV-a, migracije ili promene SYSTEM_PROMPT-a.
+
+Postojeći probni Notion red ručno je sređen kroz native UI: naslov
+„Izvršilac: dostavi izveštaj”, obaveza/iznos/izvor u opisu, isti page ID, status
+Not started i rok 15.03.2030. Lokalni podsetnik nije menjan. Novi automatski upis
+i Telegram prikaz zahtevaju redeploy i ručnu proveru; postojeći red se ne kreira
+ponovo radi testiranja.

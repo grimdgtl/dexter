@@ -1,5 +1,6 @@
 """Potvrda vezuje tačno pregledani predlog; neizvestan Notion upis se ne ponavlja."""
 
+import re
 from datetime import date
 from uuid import UUID
 
@@ -13,6 +14,26 @@ from dexter.contracts.models import Proposal, Review, StrictModel
 from dexter.db import pool
 from dexter.proactive_time import local_now
 from dexter.services import notion_work as work
+
+
+def title(proposal: Proposal) -> str:
+    text = re.sub(r" \([\d., ]+ [A-Z]{3}\)$", "", proposal.tekst)
+    text = " ".join(text.split())
+    return text if len(text) <= 100 else text[:99].rstrip() + "…"
+
+
+def display_date(value: str | None) -> str:
+    return date.fromisoformat(value).strftime("%d.%m.%Y.") if value else "bez roka"
+
+
+def description(args: "TaskArgs") -> str:
+    p = args._proposal
+    return (
+        f"Ugovor: {args._review.naziv}\nObaveza: {p.tekst}\n"
+        f"Rok: {display_date(p.rok)}\n"
+        f"Telegram podsetnik: {display_date(p.podsetnik) if p.podsetnik else 'nije predložen'}\n"
+        f"Izvor:\n{p.izvor}"
+    )
 
 
 class TaskArgs(StrictModel):
@@ -39,12 +60,12 @@ def preview(args: TaskArgs) -> str:
     if p is None or args._review is None or args._destination is None:
         raise ValueError("Predlog nije pripremljen.")
     return (
-        f"Ugovor: {args._review.naziv}\nZadatak: {p.tekst}\n"
-        f"Notion odredište: {args._destination['putanja']} (Work)\n"
-        f"Baza: {args._destination['baza_id']}\n"
-        f"Notion rok: {p.rok or 'bez roka'}\n"
-        f"Telegram podsetnik: {p.podsetnik or 'nije predložen'} (jutarnja provera obaveza)\n"
-        f"Izvor: {p.izvor}\nProveri da želiš ovaj zadatak na svojoj listi, pa potvrdi."
+        f"Zadatak: {p.tekst}\n"
+        f"Lista: {args._destination['putanja']}\n"
+        f"Rok: {display_date(p.rok)}\n"
+        f"Podsetnik: {display_date(p.podsetnik) if p.podsetnik else 'nije predložen'}\n"
+        f"Ugovor: {args._review.naziv}\n"
+        "Izvor i citat biće u opisu zadatka. Sačuvaj samo ako želiš ovaj zadatak."
     )
 
 
@@ -72,16 +93,17 @@ async def save(args: TaskArgs) -> dict:
         return {
             "status": "ranije_sacuvano_u_life",
             "notion": state["task"],
-            "napomena": "Ovaj predlog je ranije upisan u Life. Nije napravljen Work duplikat "
-            "niti novi podsetnik. Proveri link i premesti postojeći red u Work ako je još "
-            "u Life; postojeći podsetnik je nepromenjen.",
+            "poruka": "Zadatak već postoji. Proveri postojeći zapis preko linka; "
+            "novi zadatak i podsetnik nisu napravljeni.",
+            "napomena": "Raniji upis je koristio Life. Proveri da je postojeći zapis u Work-u.",
         }
     if claimed:
         try:
             task = await work.add_contract_task(
-                f"{p.tekst}\n[Ugovor: {review.naziv}; {p.izvor[:400]}]"[:1900],
+                title(p),
                 rok=p.rok,
                 destination=args._destination,
+                description=description(args),
             )
         except ValueError:
             await pool().execute("DELETE FROM kv_state WHERE key=$1", state_key)
@@ -114,7 +136,11 @@ async def save(args: TaskArgs) -> dict:
         "notion": state["task"],
         "odrediste": state["odrediste"],
         "podsetnik": p.podsetnik,
+        "poruka": ("Zadatak već postoji u Work-u: " if not claimed else "Sačuvano u Work-u: ")
+        + title(p)
+        + f"\nRok: {display_date(p.rok)}"
+        + (f"\nPodsetnik: {display_date(p.podsetnik)}" if p.podsetnik else ""),
         "napomena": "Automatsko slanje podsetnika je isključeno."
         if settings().scheduler_enabled == "off"
-        else "Podsetnik proverava postojeći posao obaveza.",
+        else "",
     }

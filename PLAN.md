@@ -562,6 +562,18 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > statusom. Stariji neidentifikovani zadaci nisu grupno premeštani; produkcioni
   > ENV ostaje za proveru preko /provera liste posle redeploy-a.
 
+- [x] **F7.6 Sažet prikaz zadatka i potvrde.** Naslov ugovornog zadatka je
+  kratak, bez citata i priloga; puna obaveza, iznos, ugovor i izvorni pasusi
+  upisuju se u telo Notion stranice u istom zahtevu. Telegram potvrda prikazuje
+  ishod, rok/podsetnik i kratak link, bez ponavljanja pregleda ili JSON rezultata.
+  > IZMENA 20.10.2026: korisnik je prijavio predugačak naslov i sirovi tehnički
+  > rezultat u poruci. Putanja Work ostaje u potvrdi; ID baze ostaje u internoj
+  > proveri i /provera liste. Važne napomene, delimičan uspeh i PDF prilozi ostaju.
+  > Puni tehnički rezultat ostaje u agentskoj napomeni, bez dodatnog LLM poziva.
+  > Raniji probni Notion red ručno je sređen: kratak naslov, podaci i citat u
+  > opisu, isti page ID, rok i status. Trajni ključevi i podsetnici nisu menjani.
+  > Ruff i 907 testova sa bazom prolaze; novi Telegram odgovor čeka redeploy.
+
 ## 5. Nove zavisnosti po fazama
 
 | Faza | Paket | Zašto |

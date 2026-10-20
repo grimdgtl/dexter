@@ -1114,12 +1114,22 @@ Svaki predlog ima svoja dugmad **Sačuvaj zadatak / Odbaci** i postojeće istica
 potvrde posle 30 minuta. Tek potvrda stvara red u poslovnom **Work TASK BOARD-u**
 (`NOTION_TASKS_DB_ID`, polje `Rok` tipa Date) i,
 ako je rok poznat, trajni Telegram podsetnik. Pre potvrde se proverava putanja
-pod Work i kolone `Name`/`Status`/`Rok`; izabrana putanja i ID baze su u pregledu.
+pod Work i kolone `Name`/`Status`/`Rok`; izabrana putanja je u pregledu.
+ID baze ostaje u internoj proveri i `/provera liste`.
 Promena odredišta između pregleda i potvrde odbija upis. Life nije rezervno
 odredište. Nedostajuća kolona se prijavljuje, bez automatske promene šeme.
 Ranije sačuvani predlog koji je koristio Life ne pravi novi Work red niti
 podsetnik: vraća postojeći link za proveru/premeštanje. Njegov trajni ključ
 i postojeći podsetnik ostaju sačuvani.
+Naslov zadatka ima do 100 znakova, bez prilepljenog citata i iznosa na kraju.
+Puna obaveza, iznos, naziv ugovora, rok/podsetnik i ceo izvorni citat nalaze se u
+telu Notion stranice. Kreiranje naslova, svojstava i opisa je jedan zahtev, bez
+naknadnog dopisivanja koje bi pri prekidu izgubilo izvor. Ova izmena ne menja
+ID predloga ni ključ za sprečavanje duplikata.
+Posle dugmeta bot prikazuje kratak ishod, rok/podsetnik i link; ne ponavlja ceo
+pregled niti prikazuje JSON, interne ID-jeve i podatke provajdera. Isto uklanjanje
+JSON ispisa važi za potvrde drugih alata, uz očuvane linkove i važne napomene.
+Delimično čuvanje fakture i neuspešna dostava konačnog PDF-a ostaju jasno označeni.
 Kod obaveze je podsetnik prethodnog dana; kod predloga pregleda ugovora tačno
 30 dana pre isteka. Postojeći posao `commitment_reminders` proverava izabrani dan, obično
 u 09:00 u TIMEZONE, uz tihe sate. SCHEDULER_ENABLED mora biti on; propušten dan

@@ -502,7 +502,7 @@ async def test_contract_confirm_not_cancel_creates_one_notion_task_and_exact_day
     first = await registry.execute("contract_task_create", raw)
     assert first.pending and route.call_count == 0
     assert "Work → TASK BOARD" in first.text
-    assert contract_notion.database in first.text
+    assert contract_notion.database not in first.pending[1]
     registry.cancel(first.pending[0])
     assert await db.fetchval("SELECT count(*) FROM commitments") == 0
     second, third = await asyncio.gather(
@@ -521,6 +521,11 @@ async def test_contract_confirm_not_cancel_creates_one_notion_task_and_exact_day
     assert body["parent"]["data_source_id"] == contract_notion.source
     assert "Name" in body["properties"] and "Zadatak" not in body["properties"]
     assert body["properties"]["Rok"]["date"]["start"] == "2030-12-01"
+    assert p.izvor in "\n".join(
+        fragment["text"]["content"]
+        for block in body["children"]
+        for fragment in block["paragraph"]["rich_text"]
+    )
     bot = SimpleNamespace(send_message=AsyncMock(return_value=SimpleNamespace(message_id=123)))
     tz = ZoneInfo("Europe/Belgrade")
     assert await commitments.remind(bot, datetime(2030, 11, 30, 9, tzinfo=tz)) == 0

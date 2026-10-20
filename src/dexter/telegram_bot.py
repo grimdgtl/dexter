@@ -21,6 +21,7 @@ from telegram.ext import (
 )
 
 from dexter import feedback, jobs, memory, receipts, status, tts, usage
+from dexter.actions import confirmation_text
 from dexter.agent import history, loop
 from dexter.config import settings
 from dexter.contracts import intake as contract_intake
@@ -415,6 +416,7 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if action == "ok":
         result = await registry.confirm(token)
         document = None
+        delivery_note = ""
         successful = True
         if isinstance(result, registry.ConfirmedAction):
             document, successful, result = result.document, result.successful, result.result
@@ -434,11 +436,11 @@ async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 )
             except Exception as exc:
                 log.warning("Konačni PDF nije poslat (%s).", type(exc).__name__)
-                result += (
-                    "\nPDF nije ponovo poslat u Telegram; preuzmi sačuvanu verziju sa Drive linka."
+                delivery_note = (
+                    "PDF nije ponovo poslat u Telegram; preuzmi sačuvanu verziju sa Drive linka."
                 )
-        reply = f"{q.message.text}\n\n{outcome}\n{u_latinicu(result)[:3000]}"
-        note = f"[Sistem: korisnik je potvrdio akciju. Rezultat: {result[:1500]}]"
+        reply = "\n".join(filter(None, (outcome, confirmation_text(result), delivery_note)))
+        note = f"[Sistem: korisnik je potvrdio akciju. Rezultat: {result[:1500]} {delivery_note}]"
     else:
         registry.cancel(token)
         reply = f"{q.message.text}\n\n❌ Otkazano."
