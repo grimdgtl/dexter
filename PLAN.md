@@ -509,6 +509,17 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > Tri izmišljena skenirana PDF-a su vizuelno proverena. Stvarni Claude OCR,
   > Telegram prikaz i privatni Notion upis čekaju redeploy i ručnu proveru.
 
+- [x] **F7.2 Komanda pre priloga i odgovor na fajl.** `/ugovor` čeka jedan
+  sledeći PDF/fotografiju 10 minuta; čekanje je u kv_state, preživljava restart
+  i troši se atomarno. `/ugovor otkazi`, `/reset` ili otvaranje ranijeg pregleda
+  prekida čekanje. Komanda kao odgovor na fajl otvara baš taj dokument.
+  > IZMENA 20.10.2026: korisnikov prvi test završio je običnim indeksiranjem i
+  > slobodnim sažetkom. U F7.1 je samo caption aktivirao pregled; zasebna komanda
+  > davala je uputstvo. Dorada uklanja taj nesporazum bez promene provere citata
+  > ili potvrda. Spoljni API-ji su mock-ovani; stvarni tok čeka redeploy i proveru.
+  > Ruff i 867 testova sa PostgreSQL/pgvector bazom prolaze; provereni su vlasnik,
+  > istek, konkurentno preuzimanje, restart, prekid i izostanak običnog indeksiranja.
+
 ## 5. Nove zavisnosti po fazama
 
 | Faza | Paket | Zašto |

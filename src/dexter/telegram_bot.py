@@ -23,6 +23,7 @@ from telegram.ext import (
 from dexter import feedback, jobs, memory, receipts, status, tts, usage
 from dexter.agent import history, loop
 from dexter.config import settings
+from dexter.contracts import intake as contract_intake
 from dexter.contracts import service as contract_service
 from dexter.pismo import u_latinicu
 from dexter.rag.ingest import ingest_file
@@ -215,14 +216,13 @@ async def on_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _owner(update):
         return
     msg = update.message
+    if await _route_contract_attachment(update, ctx):
+        return
     if msg.photo:
         file, mime = await msg.photo[-1].get_file(), "image/jpeg"
     else:
         file, mime = await msg.document.get_file(), msg.document.mime_type
     data = bytes(await file.download_as_bytearray())
-    if contract_requested(msg.caption):
-        await _contract_review(update, ctx, "ugovor.jpg", data, mime)
-        return
     blocks = [
         {"type": "image",
          "source": {"type": "base64", "media_type": mime, "data": base64.b64encode(data).decode()}},
@@ -236,12 +236,7 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _owner(update):
         return
     doc = update.message.document
-    if contract_requested(update.message.caption):
-        if (doc.file_size or 0) > contract_service.MAX_BYTES:
-            await update.message.reply_text("Ugovor mora biti manji od 10 MB.")
-            return
-        data = bytes(await (await doc.get_file()).download_as_bytearray())
-        await _contract_review(update, ctx, doc.file_name or "ugovor.pdf", data, doc.mime_type)
+    if await _route_contract_attachment(update, ctx):
         return
     data = bytes(await (await doc.get_file()).download_as_bytearray())
     try:
@@ -264,6 +259,54 @@ async def on_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 def contract_requested(caption: str | None) -> bool:
     parts = (caption or "").split(maxsplit=1)
     return bool(parts and parts[0].split("@")[0].lower() == "/ugovor")
+
+
+async def _route_contract_attachment(update, ctx):
+    msg = update.message
+    try:
+        if contract_requested(msg.caption):
+            await contract_intake.cancel(update.effective_chat.id)
+        elif not await contract_intake.consume(update.effective_chat.id, msg.message_id):
+            return False
+    except Exception as exc:
+        # Pri nepoznatom režimu ne šaljemo dokument u drugi, plaćeni tok obrade.
+        log.warning("Izbor pregleda ugovora nije uspeo (%s).", type(exc).__name__)
+        await msg.reply_text("⚠️ Ne mogu da proverim način obrade. Pošalji ponovo /ugovor pa fajl.")
+        return True
+    await _contract_attachment(update, ctx, msg)
+    return True
+
+
+async def _contract_attachment(update, ctx, msg):
+    doc = getattr(msg, "document", None)
+    photo = getattr(msg, "photo", None)
+    attachment = photo[-1] if photo else doc
+    name = (doc.file_name or "ugovor.pdf") if doc else "ugovor.jpg"
+    mime = doc.mime_type if doc else "image/jpeg"
+    if (getattr(attachment, "file_size", None) or 0) > contract_service.MAX_BYTES:
+        await update.message.reply_text(
+            "Ugovor mora biti manji od 10 MB. Pošalji manji fajl uz /ugovor."
+        )
+        return
+    if mime not in {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    } and not name.lower().endswith(".pdf"):
+        await update.message.reply_text(
+            "Za pregled ugovora pošalji PDF, JPG, PNG ili WebP uz /ugovor."
+        )
+        return
+    try:
+        data = bytes(await (await attachment.get_file()).download_as_bytearray())
+    except Exception as exc:
+        log.warning("Preuzimanje ugovora nije uspelo (%s).", type(exc).__name__)
+        await update.message.reply_text(
+            "⚠️ Preuzimanje nije uspelo. Pošalji fajl ponovo uz /ugovor."
+        )
+        return
+    await _contract_review(update, ctx, name, data, mime)
 
 
 async def _show_contract(update, ctx, review):
@@ -334,18 +377,33 @@ async def _contract_review(update, ctx, name, data, mime):
 async def cmd_contract(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _owner(update):
         return
-    if not ctx.args:
-        await update.message.reply_text(
-            "Pošalji PDF ili fotografiju ugovora uz opis /ugovor. Za ponovni pregled: /ugovor ID. Predloge zadataka potvrđuješ pojedinačno."
-        )
-        return
     try:
+        chat_id = update.effective_chat.id
+        if ctx.args == ["otkazi"]:
+            await contract_intake.cancel(chat_id)
+            await update.message.reply_text("Otkazano čekanje ugovora.")
+            return
+        if not ctx.args:
+            replied = getattr(update.message, "reply_to_message", None)
+            if replied and (getattr(replied, "document", None) or getattr(replied, "photo", None)):
+                await contract_intake.cancel(chat_id)
+                await _contract_attachment(update, ctx, replied)
+            else:
+                await contract_intake.arm(chat_id, update.message.message_id)
+                await update.message.reply_text(
+                    "Pošalji sledeći PDF ili fotografiju u narednih 10 minuta. Dobićeš pregled sa citatima i predloge za pojedinačnu potvrdu. Odustajanje: /ugovor otkazi. Možeš i da odgovoriš komandom /ugovor na već poslati fajl."
+                )
+            return
+        await contract_intake.cancel(chat_id)
         async with _chat_locks.setdefault(update.effective_chat.id, asyncio.Lock()):
             await _show_contract(update, ctx, await contract_service.load(ctx.args[0]))
     except ValueError:
         await update.message.reply_text(
             "Pregled nije pronađen. Koristi /ugovor ID ili pošalji dokument uz opis /ugovor."
         )
+    except Exception as exc:
+        log.warning("Komanda ugovor nije uspela (%s).", type(exc).__name__)
+        await update.message.reply_text("⚠️ Pregled nije dostupan. Probaj ponovo /ugovor.")
 
 
 async def on_button(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -405,6 +463,7 @@ async def cmd_reset(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         chat_id = update.effective_chat.id
         async with _chat_locks.setdefault(chat_id, asyncio.Lock()):
             await history.clear(chat_id)
+            await contract_intake.cancel(chat_id)
         await update.message.reply_text(
             "🧹 Istorija razgovora obrisana. Dugoročna memorija ostaje."
         )

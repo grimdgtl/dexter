@@ -14,6 +14,9 @@ from dexter.agent.loop import AgentResult
 def ctx(monkeypatch):
     monkeypatch.setattr(telegram_bot.settings(), "streaming", "off")
     monkeypatch.setattr(telegram_bot, "_chat_locks", {})
+    monkeypatch.setattr(telegram_bot.contract_intake, "arm", AsyncMock())
+    monkeypatch.setattr(telegram_bot.contract_intake, "cancel", AsyncMock())
+    monkeypatch.setattr(telegram_bot.contract_intake, "consume", AsyncMock(return_value=False))
     return SimpleNamespace(
         bot=SimpleNamespace(send_message=AsyncMock(), send_chat_action=AsyncMock())
     )
@@ -130,3 +133,137 @@ async def test_contract_photo_route_and_failure_are_latin_and_owner_only(ctx, mo
     await telegram_bot.on_photo(update, ctx)
     analyze.assert_awaited_once_with("ugovor.jpg", b"photo", "image/jpeg")
     ctx.bot.send_message.assert_any_await(1, "⚠️ Nečitljiv ugovor")
+
+
+def contract_message(**kwargs):
+    return SimpleNamespace(message_id=12, caption=None, reply_text=AsyncMock(), **kwargs)
+
+
+def contract_document(**kwargs):
+    values = dict(
+        file_name="ugovor.pdf",
+        mime_type="application/pdf",
+        file_size=4,
+        get_file=AsyncMock(
+            return_value=SimpleNamespace(download_as_bytearray=AsyncMock(return_value=b"scan"))
+        ),
+    )
+    return SimpleNamespace(**(values | kwargs))
+
+
+async def test_standalone_contract_command_arms_next_file(ctx, monkeypatch):
+    ctx.args = []
+    value = update(1)
+    value.message = contract_message()
+    await telegram_bot.cmd_contract(value, ctx)
+    telegram_bot.contract_intake.arm.assert_awaited_once_with(1, 12)
+    assert "10 minuta" in value.message.reply_text.call_args.args[0]
+    value.message = contract_message(document=contract_document())
+    telegram_bot.contract_intake.consume.return_value = True
+    review = AsyncMock()
+    ingest = AsyncMock()
+    monkeypatch.setattr(telegram_bot, "_contract_review", review)
+    monkeypatch.setattr(telegram_bot, "ingest_file", ingest)
+    await telegram_bot.on_document(value, ctx)
+    review.assert_awaited_once_with(value, ctx, "ugovor.pdf", b"scan", "application/pdf")
+    ingest.assert_not_awaited()
+
+
+@pytest.mark.parametrize("kind", ["document", "photo"])
+async def test_contract_command_as_reply_reads_replied_attachment(ctx, monkeypatch, kind):
+    ctx.args = []
+    doc = contract_document()
+    source = SimpleNamespace(**({"document": doc} if kind == "document" else {"photo": [doc]}))
+    value = update(1)
+    value.message = contract_message(reply_to_message=source)
+    review = AsyncMock()
+    monkeypatch.setattr(telegram_bot, "_contract_review", review)
+    await telegram_bot.cmd_contract(value, ctx)
+    review.assert_awaited_once_with(
+        value,
+        ctx,
+        "ugovor.pdf" if kind == "document" else "ugovor.jpg",
+        b"scan",
+        "application/pdf" if kind == "document" else "image/jpeg",
+    )
+    telegram_bot.contract_intake.arm.assert_not_awaited()
+    telegram_bot.contract_intake.cancel.assert_awaited_once_with(1)
+
+
+@pytest.mark.parametrize("mode", ["cancel", "id"])
+async def test_contract_cancel_or_existing_review_clears_intake(ctx, monkeypatch, mode):
+    ctx.args = ["otkazi" if mode == "cancel" else "review-id"]
+    value = update(1)
+    value.message = contract_message()
+    show = AsyncMock()
+    monkeypatch.setattr(telegram_bot, "_show_contract", show)
+    monkeypatch.setattr(telegram_bot.contract_service, "load", AsyncMock(return_value="saved"))
+    await telegram_bot.cmd_contract(value, ctx)
+    telegram_bot.contract_intake.cancel.assert_awaited_once_with(1)
+    assert show.await_count == (mode == "id")
+    telegram_bot.contract_intake.arm.assert_not_awaited()
+
+
+async def test_contract_command_and_pending_file_ignore_other_owner(ctx, monkeypatch):
+    ctx.args = []
+    value = update(999)
+    value.message = contract_message(document=contract_document())
+    await telegram_bot.cmd_contract(value, ctx)
+    await telegram_bot.on_document(value, ctx)
+    telegram_bot.contract_intake.arm.assert_not_awaited()
+    telegram_bot.contract_intake.consume.assert_not_awaited()
+    value.message.document.get_file.assert_not_awaited()
+
+
+@pytest.mark.parametrize("fault", ["oversize", "unsupported", "download"])
+async def test_pending_contract_errors_never_fall_back_to_generic_ingest(ctx, monkeypatch, fault):
+    telegram_bot.contract_intake.consume.return_value = True
+    doc = contract_document()
+    if fault == "oversize":
+        doc.file_size = telegram_bot.contract_service.MAX_BYTES + 1
+    elif fault == "unsupported":
+        doc.file_name, doc.mime_type = "test.docx", "application/other"
+    else:
+        doc.get_file.side_effect = RuntimeError("mreža")
+    value = update(1)
+    value.message = contract_message(document=doc)
+    review, ingest = AsyncMock(), AsyncMock()
+    monkeypatch.setattr(telegram_bot, "_contract_review", review)
+    monkeypatch.setattr(telegram_bot, "ingest_file", ingest)
+    await telegram_bot.on_document(value, ctx)
+    review.assert_not_awaited()
+    ingest.assert_not_awaited()
+    value.message.reply_text.assert_awaited_once()
+    if fault != "download":
+        doc.get_file.assert_not_awaited()
+
+
+async def test_pending_contract_photo_and_inactive_generic_file(ctx, monkeypatch):
+    value = update(1)
+    value.message = contract_message(photo=[contract_document()])
+    telegram_bot.contract_intake.consume.return_value = True
+    review, answer = AsyncMock(), AsyncMock()
+    monkeypatch.setattr(telegram_bot, "_contract_review", review)
+    monkeypatch.setattr(telegram_bot, "_answer", answer)
+    await telegram_bot.on_photo(value, ctx)
+    review.assert_awaited_once()
+    answer.assert_not_awaited()
+    telegram_bot.contract_intake.consume.return_value = False
+    ingest = AsyncMock(return_value=(1, "Indeksirano"))
+    monkeypatch.setattr(telegram_bot, "ingest_file", ingest)
+    value.message = contract_message(document=contract_document())
+    await telegram_bot.on_document(value, ctx)
+    ingest.assert_awaited_once_with("ugovor.pdf", b"scan")
+    assert review.await_count == 1
+
+
+async def test_unknown_intake_state_does_not_index_or_download(ctx, monkeypatch):
+    telegram_bot.contract_intake.consume.side_effect = RuntimeError("baza")
+    value = update(1)
+    value.message = contract_message(document=contract_document())
+    ingest = AsyncMock()
+    monkeypatch.setattr(telegram_bot, "ingest_file", ingest)
+    await telegram_bot.on_document(value, ctx)
+    ingest.assert_not_awaited()
+    value.message.document.get_file.assert_not_awaited()
+    assert "Ne mogu da proverim" in value.message.reply_text.call_args.args[0]

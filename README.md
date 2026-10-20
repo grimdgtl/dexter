@@ -1061,8 +1061,14 @@ potvrde; persona scenario proverava da se brisanje ne izvrši pre potvrde.
 
 ### Lični pregled ugovora (F7.1)
 
-Pošalji PDF ili fotografiju uz **opis `/ugovor`**. Komanda `/ugovor` bez priloga
-prikazuje uputstvo; `/ugovor ID` ponovo učitava raniji pregled i priprema dugmad.
+Pošalji **`/ugovor`, pa PDF ili fotografiju u narednih 10 minuta**. Važi za jedan
+sledeći prilog, a čekanje preživljava restart. `/ugovor otkazi` ili `/reset`
+prekida čekanje. Prevelik/nepodržan prilog ili neuspešno preuzimanje troši taj
+pokušaj; ponovi komandu ili dodaj opis `/ugovor` pri ponovnom slanju fajla.
+Možeš i da pošalješ fajl uz **opis `/ugovor`**, ili da odgovoriš komandom `/ugovor`
+na već poslati PDF/fotografiju. `/ugovor ID` ponovo učitava raniji pregled i
+priprema dugmad; time se takođe prekida čekanje novog fajla. Posle isteka čekanja
+prilog bez opisa `/ugovor` prati uobičajeni tok uvoza/slike.
 Pregled radi samo za vlasnika bota. Telegram ostaje interfejs, bez admin panela.
 Novi ključevi nisu potrebni. `CONTRACT_MAX_PAGES=5` je podrazumevano ograničenje
 ukupnih stranica, uz najviše 10 MB i 40000 znakova prepisa; `OCR_MAX_PAGES` takođe važi.
@@ -1117,7 +1123,7 @@ pozivi; neindeksiranje istog fajla čuva već napravljeni pregled.
 
 U lokalnom klonu `python -m scripts.make_contract_examples` generiše tri javna, izmišljena skenirana
 PDF-a u `output/pdf/`: uredan, nepotpun i sa uslovnim produženjem. Ne sadrže pravne
-savete ni stvarne poslovne podatke. Pošalji primer kao fajl sa opisom `/ugovor`,
+savete ni stvarne poslovne podatke. Pošalji `/ugovor`, zatim primer kao fajl,
 prvo proveri citate i odbaci predloge. Za proveru upisa potvrdi samo jedan probni
 zadatak. `python -m evals.contract_eval` bez API-ja proverava pet kontrolnih slučajeva
 verifikatora; ne meri kvalitet stvarnog OCR-a ili tumačenja modela.

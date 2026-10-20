@@ -1365,3 +1365,26 @@ Notion zadatka i lokalne obaveze nisu automatski sinhronizovana.
 Ruff prolazi; 853 testa sa PostgreSQL/pgvector bazom prolaze. Bez baze prolazi
 721 test, a 132 integraciona se preskaču. Provereno je i da deo većeg broja
 iza decimalnog/separatora hiljada ne bude prihvaćen kao ceo iznos.
+
+## F7.2 — zasebna komanda pre ugovora (20.10.2026)
+
+Prvi korisnički test je dao „Indeksirano 1 delova” i slobodan sažetak. To nije
+pregled sa proverom citata. U kodu F7.1 samo opis fajla `/ugovor` aktivira poseban
+tok; zasebna komanda ne pamti nameru za sledeći prilog. Verzija tada aktivnog
+produkcijskog kontejnera nije nezavisno proverena.
+
+Sada zasebna komanda čuva jednokratno čekanje u kv_state na 10 minuta. Sledeći
+prilog ide direktno u postojeći pregled. Odgovor komandom na već poslati fajl
+obrađuje upravo taj fajl. Caption ostaje podržan. Otkazivanje, reset i otvaranje
+ranijeg ID-ja prekidaju čekanje. Provere citata i potvrde upisa nisu menjane.
+
+Testovi sa stvarnim PostgreSQL-om proveravaju preživljavanje ponovnog učitavanja
+modula, vlasnički ključ, stariju/ponovljenu poruku, rok važenja, novo aktiviranje,
+prekid i dva konkurentna priloga (tačno jedan preuzima zahtev). Integracioni
+Telegram test reprodukuje komanda → PDF bez caption-a: nema generičkog uvoza;
+tek sledeći običan dokument ponovo prati generički tok. Jedinični testovi
+pokrivaju i fotografiju, reply, raniji ID, prevelik/nepodržan fajl, neuspešno
+preuzimanje i nedostupnu bazu bez prelaska na drugi plaćeni tok. Mreža je mock-ovana.
+
+Ruff i 867 testova sa PostgreSQL/pgvector bazom prolaze (16.93 s).
+Stvarna Telegram obrada, OCR i Notion potvrda čekaju redeploy i ručnu proveru.

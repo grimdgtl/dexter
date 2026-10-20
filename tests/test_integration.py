@@ -113,6 +113,69 @@ async def test_contract_scan_pipeline_persistence_and_reuse(
     assert "PODACI" in body["system"]
 
 
+async def test_contract_intake_is_atomic_scoped_and_survives_reload(db):
+    import importlib
+
+    from dexter.contracts import intake
+
+    await intake.arm(1, 20)
+    importlib.reload(intake)
+    assert not await intake.consume(999, 21)
+    assert not await intake.consume(1, 19)
+    assert not await intake.consume(1, 20)
+    results = await asyncio.gather(intake.consume(1, 21), intake.consume(1, 22))
+    assert sorted(results) == [False, True]
+    assert not await intake.consume(1, 23)
+
+
+async def test_contract_intake_expires_rearms_and_cancels(db):
+    from dexter.contracts import intake
+
+    await intake.arm(1, 20)
+    await db.execute(
+        "UPDATE kv_state SET updated_at=now()-interval '11 minutes' WHERE key=$1", intake.key(1)
+    )
+    assert not await intake.consume(1, 21)
+    await intake.arm(1, 22)
+    assert await intake.consume(1, 23)
+    await intake.arm(1, 24)
+    await intake.cancel(1)
+    assert not await intake.consume(1, 25)
+
+
+async def test_contract_standalone_command_then_file_routes_once_without_indexing(db, monkeypatch):
+    from dexter import telegram_bot
+
+    ctx = SimpleNamespace(args=[])
+    message = SimpleNamespace(message_id=10, reply_text=AsyncMock())
+    update = SimpleNamespace(effective_chat=SimpleNamespace(id=1), message=message)
+    review = AsyncMock()
+    ingest = AsyncMock(return_value=(1, "Indeksirano"))
+    monkeypatch.setattr(telegram_bot, "_contract_review", review)
+    monkeypatch.setattr(telegram_bot, "ingest_file", ingest)
+    await telegram_bot.cmd_contract(update, ctx)
+    update.message = SimpleNamespace(
+        message_id=11,
+        caption=None,
+        reply_text=AsyncMock(),
+        document=SimpleNamespace(
+            file_name="sken.pdf",
+            file_size=4,
+            mime_type="application/pdf",
+            get_file=AsyncMock(
+                return_value=SimpleNamespace(download_as_bytearray=AsyncMock(return_value=b"scan"))
+            ),
+        ),
+    )
+    await telegram_bot.on_document(update, ctx)
+    review.assert_awaited_once_with(update, ctx, "sken.pdf", b"scan", "application/pdf")
+    ingest.assert_not_awaited()
+    update.message.message_id = 12
+    await telegram_bot.on_document(update, ctx)
+    ingest.assert_awaited_once_with("sken.pdf", b"scan")
+    assert review.await_count == 1
+
+
 async def _stored_contract(db, value=None):
     from dexter.contracts import service
     from evals.contract_cases import review
@@ -3810,7 +3873,9 @@ async def test_manual_schema_command_does_not_consume_startup_notification(db, s
 async def test_legacy_reset_is_owner_only_and_preserves_facts_and_other_chat(db):
     from dexter import memory, telegram_bot
     from dexter.agent import history
+    from dexter.contracts import intake
 
+    await intake.arm(1, 10)
     await history.append(1, [{"role": "user", "content": "Prva poruka"}])
     await history.append(999, [{"role": "user", "content": "Drugi razgovor"}])
     await history.add_note(1, "Potvrđena proba")
@@ -3826,4 +3891,5 @@ async def test_legacy_reset_is_owner_only_and_preserves_facts_and_other_chat(db)
     assert not await db.fetchval("SELECT count(*) FROM pending_notes WHERE chat_id=1")
     assert await db.fetchval("SELECT count(*) FROM messages WHERE chat_id=999") == 1
     assert (await memory.list_all())[0]["id"] == fact["id"]
+    assert not await intake.consume(1, 11)
     assert "Dugoročna memorija ostaje" in update.message.reply_text.call_args.args[0]
