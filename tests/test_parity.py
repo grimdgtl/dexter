@@ -12,7 +12,7 @@ from dexter import scheduler, telegram_bot
 from dexter.config import Settings, settings
 from dexter.tools import registry
 
-CONTRACT = json.loads((Path(__file__).with_name("fixtures") / "apu_contract.json").read_text())
+CONTRACT = json.loads((Path(__file__).with_name("fixtures") / "tool_contract.json").read_text())
 TOOLS = CONTRACT["tools"]
 
 

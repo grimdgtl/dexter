@@ -11,8 +11,6 @@ Komunicira na srpskom, latinicom, kroz tekst, glas i priloge.
 
 Iza Telegram interfejsa je asinhroni Python backend sa LLM agentom, hibridnom RAG
 pretragom u PostgreSQL-u i pgvector-u, obradom skenova i proverom izdvojenih podataka.
-Razvijen je iz prethodnog Node.js asistenta [APU](https://github.com/grimdgtl/apu),
-uz prenos postojećih radnih tokova, testove i poređenje ponašanja.
 
 [Mogućnosti](#šta-dexter-radi) · [Pregled ugovora](#od-ugovora-do-proverenog-zadatka) ·
 [Arhitektura](#arhitektura) · [Rezultati](#testovi-i-eksperimenti) ·
@@ -220,8 +218,7 @@ pravi tri izmišljena skenirana PDF-a. Primeri ne sadrže stvarne poslovne podat
 
 Dexter radi na ličnom serveru kroz Coolify. Glavni tokovi sa Notion-om, Drive-om,
 kalendarom, mejlom i probnim ugovorom prošli su ručne provere. Projekat je u aktivnoj
-upotrebi i razvoju; završno posmatranje zakazanih poslova i prelazak sa prethodnog
-asistenta još traju.
+upotrebi i razvoju; posmatranje zakazanih poslova i operativne provere još traju.
 
 Sledeći koraci su veći označeni skup nad sopstvenim dokumentima, merenje stvarnog
 troška posle optimizacija i Whisper WER na ručno transkribovanim snimcima.
@@ -234,5 +231,4 @@ ostaju van repozitorijuma.
 
 - [Operativni vodič: integracije, komande, deploy i lokalni modeli](docs/OPERATIONS.md)
 - [Evaluacija: metodologija, rezultati i ograničenja](docs/EVAL.md)
-- [Paritet sa prethodnim asistentom i status ručnih provera](docs/PARITY.md)
-- [Plan razvoja](PLAN.md)
+- [Pokrivenost funkcija i status ručnih provera](docs/PARITY.md)

@@ -1,13 +1,11 @@
 # Uputstvo za AI agente (Codex i drugi)
 
-Pre bilo kakvog rada pročitaj `PLAN.md` ceo. On određuje šta radiš i kojim redom.
+Pre rada pročitaj `README.md` i relevantne delove `docs/OPERATIONS.md`.
 
 ## Kako radiš
-- Uzmi prvi neštikliran zadatak iz `PLAN.md` (redom, bez preskakanja faza).
-- Za prenos stare funkcije prvo pročitaj stari kod: https://github.com/grimdgtl/apu
-  (`src/services/<x>.js`, `src/tools/definitions.js`, README).
+- Radi prema aktuelnom zahtevu korisnika i proveri postojeću implementaciju pre izmene.
 - Jedan zadatak = jedan commit, poruka `F<id>: <kratko, srpski>`.
-- Kad završiš: štikliraj zadatak u `PLAN.md`.
+- Dokumentaciju uskladi sa konačnim ponašanjem i navedi izvršene provere.
 
 ## Komande
 ```bash

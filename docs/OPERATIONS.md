@@ -11,7 +11,7 @@ Komande se izvršavaju iz korena repozitorijuma, i kada je vodič otvoren iz `do
 - [Zakazani poslovi](#zakazani-poslovi-f1b8)
 - [Uvoz lokalnih dokumenata](#uvoz-lokalnih-dokumenata)
 - [Hetzner / Coolify](#deploy-na-hetzner--coolify)
-- [Probni period i prelazak](#probni-period-i-prelazak-f1b11)
+- [Operativne provere](#operativne-provere)
 - [Lokalni modeli i evaluacija](#lokalni-embeddinzi-i-promena-vektorskog-prostora)
 - [Pregled ugovora](#lični-pregled-ugovora-f71)
 
@@ -35,7 +35,7 @@ uv venv && uv pip install -e ".[dev]"
 DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter .venv/bin/dexter
 ```
 
-> Koristi **drugi Telegram bot token** dok stari APU radi — dva procesa na istom
+> Pokreni samo jedan polling proces po Telegram tokenu; dva procesa na istom
 > tokenu daju `409 Conflict`.
 
 ## Komande
@@ -438,8 +438,8 @@ uspešnog obilaska celog izvora. API verzija Notion-a je fiksirana na `2025-09-0
 
 Za Google uključi Calendar API i Drive API u istom Google Cloud projektu. Napravi OAuth
 klijenta tipa Web application i unesi tačan `GOOGLE_REDIRECT_URI` u dozvoljene redirect URI-je.
-Popuni client ID i secret, pa pokreni `python -m scripts.google_auth`. Skripta traži iste
-Calendar + Drive dozvole kao stari APU i ispisuje refresh token za `.env`.
+Popuni client ID i secret, pa pokreni `python -m scripts.google_auth`. Skripta traži
+Calendar + Drive dozvole i ispisuje refresh token za `.env`.
 Ako je stari token imao samo Calendar pristup, ponovi odobrenje. OAuth aplikacija u
 Testing režimu može da izgubi odobrenje posle sedam dana; za stalni rad koristi Production.
 
@@ -578,8 +578,8 @@ retry-ja; definitivno odbijen zahtev oslobađa pokušaj. Posle timeout-a ili pre
 ishod ostaje neizvestan, pa se isto slanje ne ponavlja naslepo; upozorenje i trag
 ostaju za pregled kroz `/poslovi` i logove. IMAP rezervacija tada ostaje sačuvana.
 Tragovi slanja čuvaju se 30 dana, a ID-jevi nepročitanih mejlova do čitanja.
-Uvoz stare JSON istorije izostavljen je po dogovoru (F1b.10). Uključivanje Dextera dok stari
-APU koristi iste rasporede može dati dve poruke ili upise iz dva različita bota.
+Automatiku za iste spoljne podatke prepusti jednoj instalaciji: nezavisni botovi
+ne dele lokalnu zaštitu od duplih podsetnika i upisa.
 
 ## Uvoz lokalnih dokumenata
 
@@ -635,9 +635,8 @@ integracije. Instalacija servera i kupovina resursa nisu deo ove procedure.
    `postgresql://dexter:<lozinka>@<interni-db-host>:5432/dexter`. Specijalne znakove u lozinci
    URL-kodiraj. Bota i bazu poveži u istoj Docker mreži. API ključevi se unose pri
    pokretanju, bez build argumenata i bez `.env` fajla u image-u.
-6. Koristi **drugi Telegram bot token dok stari APU radi**. Pokreni jednu repliku
-   novog bota. Dva procesa na istom tokenu izazivaju `409 Conflict`.
-   Audit prenosa je u docs/PARITY.md; prelazak čeka probni period iz F1b.11.
+6. Pokreni jednu repliku bota. Dva procesa na istom tokenu izazivaju `409 Conflict`.
+   Pokrivenost funkcija i status ručnih provera su u docs/PARITY.md.
    Za prvi test postavi **`SCHEDULER_ENABLED=off`**; to zaustavlja sve automatske
    poslove, uključujući indeksiranje i proaktivne poruke, dok razgovor i ručni alati
    ostaju dostupni. Promena na `on` zahteva restart/redeploy. Tajne i ovu zastavicu
@@ -660,58 +659,23 @@ Zadržavanje samo app volume-a ne čuva razgovore ni indeks — potreban je i Po
 Korisnik je 18/19.10.2026. potvrdio deploy, integracije i glavne ručne tokove;
 detalji i preostale operativne provere su u docs/PARITY.md i docs/EVAL.md.
 
-## Probni period i prelazak (F1b.11)
+## Operativne provere
 
-Audit u [docs/PARITY.md](PARITY.md) razlikuje preneti kod/testove od potvrde
-na stvarnom nalogu. Svih 46 starih alata, 14 rasporeda i pet komandi imaju zamenu.
-F1b.10 je izostavljena po dogovoru posle potvrde da stari bot nema trajnih
-činjenica. Skripta za uvoz nije implementirana; istorija sajtova/motivacija/
-čestitki/mejl obaveštenja nije preneta niti proglašena praznom. Stari volume ostaje.
+Posle deploy-a proveri `/status`, `/provera` i `/poslovi 24`. Osveži izabrani
+izvor znanja, pa traži poznatu belešku uz navođenje izvora. Pretraga praznog
+indeksa ne potvrđuje ispravan rad RAG-a.
 
-Pre završnog prelaska prvo popuni indeks: pošalji Dexteru „Osveži indeks samo
-za Notion.”, zatim /status. Broj dokumenata/delova treba da poraste; traži sadržaj
-poznate probne beleške preko knowledge_search uz izvor. Potom proveri i ostale
-izabrane izvore (Drive/mejl), uz iste OAuth/IMAP naloge. Pretraga praznog indeksa
-nije dokaz pariteta RAG-a. Ovo čita izvore i troši embeddinze; ne upisuje sadržaj
-u originalni Notion/Drive/mejl i ne šalje poruke drugim osobama.
+Prati pripremu dana i vezu dnevnika, jutarnji pregled, monitoring i večernje
+podsetnike. Uspešan tihi posao ne mora poslati poruku. Uslovni i mesečni poslovi
+zahtevaju zasebnu proveru kada nastupi odgovarajući datum ili uslov.
 
-Oba bota ostaju na različitim tokenima. Paralelan rad i Dexter scheduler on su
-odobreni i potvrđeni 19.10.2026. Za probnu nedelju računaj sedam punih dana:
-prvi završni pregled je najranije 26.10.2026, ako nema nerešenih grešaka.
-Svaki dan pregledaj /poslovi 24 i uporedi očekivane termine iz cron tabele.
-Prati pripremu dana/vezu dnevnika i nedeljni zadatak bez duplih redova,
-jutarnji pozdrav i poslovni pregled, tihi i puni monitoring, rođendane i
-večernje/nedeljne uslovne poruke. Uspešan tihi posao ne mora poslati poruku.
-Poreski termin 14. u mesecu nije deo ove probne nedelje; ostaje mock/DB provera
-ili posebno dogovorena proba. Greške i ispravke zabeleži pre završne odluke.
+Pre promene verzije sačuvaj proverenu kopiju PostgreSQL baze i app volume-a.
+Posle redeploy-a proveri očuvane činjenice, dokumente i naredno zakazano
+izvršavanje. Pri povratku verzije sačuvaj nove podatke i ne ponavljaj već
+potvrđene fakture ili mejlove. Povratak aplikacije ne poništava spoljne upise.
 
-Oba bota dele spoljne servise, a ne svoje lock-ove i evidencije. Za istu stvarnu
-fakturu ili mejl koristi izabrani bot, a u drugom probu završi sa Odbaci/Otkaži.
-Paralelan rad može dati duple podsetnike i upise dva nezavisna bota. Ocenjivanje
-jednog bota ne potvrđuje zaštitu drugog. Auto Deploy ostaje isključen tokom probe.
-
-Po završenoj nedelji prvo sačuvaj proverenu kopiju Dexter PostgreSQL baze i
-app volume-a; sačuvaj i stari APU volume za povratak. Pregledaj /status,
-/provera i /poslovi 168, broj dokumenata i preostale stavke iz matrice. Poznat
-neispravan tok se prvo rešava; zeleni automatski testovi ne zamenjuju ovaj pregled.
-Korisnik zatim potvrđuje završni prelazak i glavni Telegram identitet. Ako se
-preuzima stari token, zaustavi stari APU pre unošenja tog tokena u Dexter Runtime
-ENV, sačuvaj i redeploy. Ako se zadržava sadašnji Dexter bot kao glavni, njegov
-token ostaje, a stari APU se zaustavlja posle potvrde. Nikada ne pokreći dva
-polling procesa na istom tokenu. Odluka i stvarna promena još nisu izvršene.
-
-Posle prelaska proveri pozdrav, /status, /provera, očuvane činjenice/dokumente i
-sledeće zakazano izvršavanje. Za povratak prvo zaustavi Dexter, tek onda pokreni
-stari APU sa sačuvanim podešavanjima/volume-om. Sačuvaj novu bazu: ne vraćaj staru
-kopiju preko novih podataka naslepo i ne ponavljaj potvrđene fakture/mejlove.
-PostgreSQL i spoljne Notion/Drive upise ne poništava samo vraćanje tokena.
-Celokupan PLAN zahteva još najmanje dve nedelje stabilnog rada na glavnom botu
-i zasebna eval merenja koja su ranije ostala za korisnikove podatke/snimke.
-
-## Plan razvoja
-
-Ceo plan po fazama, sa kriterijumima prihvatanja, je u [`PLAN.md`](../PLAN.md).
-Pravila za AI agente (Codex) su u [`AGENTS.md`](../AGENTS.md).
+Matrica provera je u [PARITY.md](PARITY.md), a pravila razvoja u
+[AGENTS.md](../AGENTS.md).
 
 ## Struktura
 

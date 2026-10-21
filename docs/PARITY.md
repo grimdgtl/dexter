@@ -1,10 +1,7 @@
-# Paritet sa starim APU-om
+# Pokrivenost funkcija i ručne provere
 
 ## Završni audit F1b.11 — 19.10.2026.
 
-Referenca je [grimdgtl/apu, commit 2426415](https://github.com/grimdgtl/apu/tree/2426415e0000d70244be99216125d42c367eefd6).
-HEAD remote main je pročitan i odgovara tom commitu. Upoređeni su
-src/tools/definitions.js, services/scheduler.js, config.js, telegram.js i README.
 Katalog ima 46 alata, 14 rasporeda i pet komandi. Dexter ima 54 alata: svih 46
 zamena i osam novih (memory_search, commitments_list, commitment_done, proactive_log,
 receipt_extract, web_search, contract_get, contract_task_create).
@@ -19,8 +16,8 @@ znači da je funkcija preneta i automatski proverena; ne znači da je svaki pozi
 izvršen na privatnom nalogu. ✓ znači prosleđen stvarni rezultat ili potvrdu
 korisnika, △ posrednu proveru istog servisa, — preostalu ručnu proveru. Rubne
 greške, konkurentnost i backend varijante imaju mock/DB testove iz navedenih fajlova.
-`tests/fixtures/apu_contract.json` čuva 46 javnih v1 naziva i argumenata iz tog
-commita; `tests/test_parity.py` proverava zamene, sve argumente, potvrde, komande
+`tests/fixtures/tool_contract.json` čuva 46 javnih naziva i argumenata;
+`tests/test_parity.py` proverava zamene, sve argumente, potvrde, komande
 simbolički i registraciju svih rasporeda. Test ne zove prave API-jeve.
 
 ### Svih 46 starih alata
@@ -124,41 +121,12 @@ Uslovni posao može uspešno završiti bez poruke; proverava se /poslovi, ne sam
 Nove komande `/troskovi`, `/memorija`, `/duboko`, `/rashodi` ne zamenjuju ove komande.
 Sve komande su ograničene na vlasnika; dodatni argumenti /poslovi imaju kontrolu opsega.
 
-### F1b.10 — dogovoreno izostavljanje migracije
+### Operativne provere
 
-Korisnik je naveo da nema bitnu memoriju u starom APU-u. Na traženu proveru
-prosleđen je odgovor starog bota da nema nijednu trajnu činjenicu. Korisnik je
-zatim prihvatio predlog izostavljanja F1b.10 zahtevom da krenemo na F1b.11.
-Skripta migrate_from_v1.py nije napravljena niti je uvoz izvršen. Nije potvrđeno
-nezavisnim čitanjem da su ostali lokalni JSON fajlovi prazni: istorija sajtova,
-motivacije, čestitke i prijavljeni mejlovi se svesno ne prenose. Dexter ih beleži
-od početka svog rada. Notion/Google/IMAP podaci ostaju na povezanim servisima.
-Stari volume se ne briše; ostaje dostupan ako odluka o istoriji kasnije bude promenjena.
-
-### Operativni prelazak — još nije završen
-
-- [x] Katalog svih 46 alata, 14 rasporeda i pet komandi, uz dokaze i razlike.
-- [x] Dogovor o izostavljanju starog lokalnog stanja; bez brisanja starog volume-a.
-- [x] Integracije dostupne u /status; /provera vraća sedam ispravnih baza.
-- [x] Scheduler on i 18 registracija; stvarni mail_check i restart proba.
-- [ ] Stvarno indeksiranje i uspešna knowledge_search sa izvorom; poslednji status je imao nula dokumenata.
-- [ ] Posmatranje jutarnjih, večernjih, nedeljnih i uslovnih poslova tokom paralelnog rada.
-- [ ] Sedam punih dana paralelnog rada i završni pregled grešaka; ne proglašavati završenim unapred.
-- [ ] Potvrda izbora glavnog Telegram identiteta/tokena, pa jedna aktivna polling instanca na tom tokenu.
-- [ ] Najmanje dve nedelje stabilnog rada na glavnom botu (uslov celog projekta iz PLAN.md).
-
-Oba bota već rade uz odobrenje korisnika; uključivanje Dexter automatike je
-potvrđeno 19.10.2026. Planirani prvi pregled posle sedam punih dana je najranije
-26.10.2026, ako probe prođu i nema nerešenih grešaka. To nije dokaz da je period
-već protekao. Posle bitne ispravke ponovo proceniti dužinu probe. Mesečni poreski
-termin i uslovi koji se nisu javili ostaju mock/DB provere ili posebno dogovorene
-ručne probe; ne izmišljati njihovo stvarno izvršavanje.
-
-Postupak posmatranja i prelaska je u README-u. Sledeći konkretan korak je prvo
-indeksiranje Notion-a i provera poznate probne KB beleške, uz navođenje izvora.
-Tokene, ENV, bazu, račune i poslovne zapise ovaj audit nije menjao. F1b.11 ostaje
-otvorena do operativne potvrde; kod/test status svih funkcija nije isto što i
-završen prelazak.
+Automatski testovi i ručna provera dostupnosti integracija su odvojeni koraci.
+Pre završne procene stabilnosti treba posmatrati zakazane poslove, proveriti
+indeksiranje i pretragu sopstvenih izvora i pregledati neuspešna izvršavanja.
+Detaljan postupak je u [operativnom vodiču](OPERATIONS.md#operativne-provere).
 
 ## Beleške nastale tokom prenosa F1b.1–F1b.9
 
@@ -450,8 +418,8 @@ zadržava raniju zaštitu upisa i obaveštenje samo pri novom redu: ponovni poku
 ne pravi drugi red, ali posle greške obaveštenja ne šalje naknadnu potvrdu.
 Tragovi drugih slanja rotiraju se na 30 dana. Nema promene SYSTEM_PROMPT-a.
 Uvoz stare motivacione/mejl istorije i dalje čeka F1b.10. Prvi redeploy je
-proveren sa SCHEDULER_ENABLED=off, zatim je korisnik uključio on i izričito
-prihvatio paralelan rad sa starim APU-om. Produkcioni log 19.10.2026. potvrđuje
+proveren sa SCHEDULER_ENABLED=off, zatim je korisnik uključio on.
+Produkcioni log 19.10.2026. potvrđuje
 18 registrovanih poslova, a /poslovi uspešan zakazani mail_check. Uz privremeni
 minutni raspored novi probni mejl je prijavljen; korisnik je ostavio mejl
 nepročitan, restartovao Dexter po uputstvu i potvrdio da nema novog obaveštenja.

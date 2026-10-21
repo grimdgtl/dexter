@@ -40,9 +40,7 @@ def verify_report(report, before, after, rows, rubric) -> bool:
 
 async def check(base="HEAD", directory=HERE / "results") -> bool:
     before = SYSTEM_PROMPT if set(base) == {"0"} else await git_prompt(base)
-    # Jednokratno preimenovanje ne menja pravila persone; svaka druga izmena traži eval.
-    renamed = before.replace("Ti si APU,", "Ti si Dexter,", 1)
-    if before == SYSTEM_PROMPT or (before.startswith("Ti si APU,") and renamed == SYSTEM_PROMPT):
+    if before == SYSTEM_PROMPT:
         return True
     rows = await asyncio.to_thread(read_cases)
     rubric = json.loads(await asyncio.to_thread((HERE / "rubric.json").read_text))

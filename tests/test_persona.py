@@ -70,32 +70,33 @@ async def test_gate_requires_measurement_only_when_prompt_changes(monkeypatch, t
         await persona_gate.check(directory=tmp_path)
 
 
-async def test_name_only_change_keeps_persona_rules_and_static_prompt(monkeypatch, tmp_path):
+async def test_name_change_also_requires_persona_measurement(monkeypatch, tmp_path):
     assert SYSTEM_PROMPT.startswith("Ti si Dexter,")
-    before = SYSTEM_PROMPT.replace("Ti si Dexter,", "Ti si APU,", 1)
+    before = SYSTEM_PROMPT.replace("Ti si Dexter,", "Ti si Drugi asistent,", 1)
     monkeypatch.setattr(persona_gate, "git_prompt", AsyncMock(return_value=before))
-    assert await persona_gate.check(directory=tmp_path)
-    monkeypatch.setattr(
-        persona_gate, "git_prompt", AsyncMock(return_value=before + " Novo pravilo.")
-    )
     with pytest.raises(ValueError, match="stvarnog persona"):
         await persona_gate.check(directory=tmp_path)
 
 
-async def test_git_prompt_reads_legacy_package_path(monkeypatch):
+@pytest.mark.parametrize("missing", [False, True])
+async def test_git_prompt_reads_package_path_and_rejects_missing_ref(monkeypatch, missing):
     from types import SimpleNamespace
 
     from evals import persona_support
 
-    missing = SimpleNamespace(returncode=128, communicate=AsyncMock(return_value=(b"", b"")))
-    found = SimpleNamespace(
-        returncode=0, communicate=AsyncMock(return_value=(b'SYSTEM_PROMPT = "stari"', b""))
+    result = SimpleNamespace(
+        returncode=128 if missing else 0,
+        communicate=AsyncMock(return_value=(b'SYSTEM_PROMPT = "stari"', b"")),
     )
-    execute = AsyncMock(side_effect=[missing, found])
+    execute = AsyncMock(return_value=result)
     monkeypatch.setattr(persona_support.asyncio, "create_subprocess_exec", execute)
-    assert await git_prompt("HEAD^") == "stari"
-    assert execute.call_args_list[0].args[3] == "HEAD^:src/dexter/agent/prompts.py"
-    assert execute.call_args_list[1].args[3] == "HEAD^:src/apu/agent/prompts.py"
+    if missing:
+        with pytest.raises(ValueError, match="nema dostupan"):
+            await git_prompt("HEAD^")
+    else:
+        assert await git_prompt("HEAD^") == "stari"
+    execute.assert_awaited_once()
+    assert execute.call_args.args[3] == "HEAD^:src/dexter/agent/prompts.py"
 
 
 async def test_persona_refuses_production_database_before_connecting(monkeypatch):

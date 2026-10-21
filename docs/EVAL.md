@@ -557,27 +557,6 @@ persone. Stvarni MODEL_MAIN/MODEL_DEEP eval nije izvršen i ostaje ručna prover
 CI uslov proverava stvarni, kompletni pre/posle izveštaj pri promeni SYSTEM_PROMPT-a;
 kontrolni izveštaj ne može zadovoljiti taj uslov. Automatskih plaćenih poziva u CI-ju nema.
 
-## F0.1 — preimenovanje u Dexter (18.10.2026)
-
-Na zahtev korisnika novi Python paket, CLI, promptovi, logovi, Docker/Compose,
-CI i dokumentacija koriste Dexter/dexter. Reference na stari Node.js APU i čitanje
-istorijskih Git putanja ostaju radi poređenja i prenosa funkcija. Baze i volume-i
-nisu automatski preimenovani; README opisuje povezivanje postojećih podataka.
-
-SYSTEM_PROMPT ostaje statična konstanta. Njegova jedina promena je ime u prvoj
-rečenici. Persona provera prihvata samo tu tačnu zamenu, uz doslovno isti ostatak;
-regresioni test potvrđuje da bilo koja dodatna izmena i dalje zahteva stvarni eval.
-Git čitanje podržava novu i staru putanju paketa. Kontrolni CLI prolaz izvršio je
-20 pre + 20 posle scenarija, po 46 simuliranih poziva i latinicu u svih 40 izlaza.
-Stvarno ocenjivanje modelom nije izvršeno; kontrolne ocene ne mere kvalitet.
-
-Ruff prolazi, kao i svih 241 test sa izolovanom PostgreSQL 14 + pgvector 0.8.1 bazom.
-Otkrivena je i uklonjena zavisnost testa ponoćnog budžeta od stvarnog datuma DB upisa;
-poslovna logika budžeta nije menjana. Izgrađen je `dexter-2.0.0` wheel i instaliran
-u izdvojeni direktorijum: provereni su uvoz paketa, CLI entrypoint i svih 12 SQL
-migracija unutar instaliranog paketa. Docker build i pravi Telegram deploy ostaju
-ručna provera.
-
 ## F0.2 — kontrola automatskih poslova pri test deploy-u (18.10.2026)
 
 `SCHEDULER_ENABLED=off` zaustavlja kreiranje scheduler-a pre registracije poslova.
@@ -1063,11 +1042,8 @@ istorija nije uvezena (F1b.10); prvi pregled može prijaviti postojeće neproči
 ### F1b.8 — rezultati ručne provere (19.10.2026)
 
 Posle redeploy-a korisnik je prosledio /status sa svim aktivnim alatima,
-dostupnom bazom i automatskim poslovima prvo off. Izričito je prihvatio da
-stari APU nastavi paralelno da radi, uz objašnjenje mogućih duplih podsetnika
-i upisa dva bota. Zatim je postavio SCHEDULER_ENABLED=on i prosledio novi
-/status koji potvrđuje uključenost. Ova saglasnost ne znači da dva bota dele
-zaštitu od duplikata; svaka instalacija i dalje ima svoje stanje.
+dostupnom bazom i automatskim poslovima prvo off. Zatim je postavio
+SCHEDULER_ENABLED=on i prosledio novi /status koji potvrđuje uključenost.
 
 Prvobitno /poslovi nije imao pokretanja, očekivano pre prvog termina.
 Produkcioni log potom je potvrdio „Scheduler pokrenut (18 poslova).”, dostupnu
@@ -1177,13 +1153,9 @@ pravi mejl, faktura ili brisanje razgovora korisnika nije izvršeno. Izvršni
 kod aplikacije nije menjan, već samo testovi i dokumentacija. CI ponavlja
 ceo skup na PostgreSQL 17 i obe Docker slike.
 
-Referenca je aktuelni grimdgtl/apu main commit
-2426415e0000d70244be99216125d42c367eefd6, potvrđen preko git ls-remote.
-Pročitani su definitions.js, odgovarajući scheduler/config, telegram komande
-i README. Iz javnih definicija izvučen je zamrznut katalog sa 46 naziva,
-argumentima prvog nivoa i obaveznim poljima u tests/fixtures/apu_contract.json.
-Katalog ne sadrži podatke korisnika ili tajne, i testovi ne zahtevaju stari
-repo, Node, mrežu ili njegove pakete pri kasnijem pokretanju.
+Zamrznuti javni katalog sa 46 naziva, argumentima prvog nivoa i obaveznim
+poljima čuva se u tests/fixtures/tool_contract.json. Katalog ne sadrži podatke
+korisnika ili tajne; testovi ne zahtevaju mrežu ili dodatne pakete pri pokretanju.
 
 Poklapanje je 46/46 naziva sa dva namerna preimenovanja:
 semantic_search → knowledge_search, semantic_reindex → knowledge_reindex.

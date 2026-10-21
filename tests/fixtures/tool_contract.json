@@ -1,6 +1,4 @@
 {
-  "source": "https://github.com/grimdgtl/apu",
-  "commit": "2426415e0000d70244be99216125d42c367eefd6",
   "tools": [
     {
       "v1": "client_add",
