@@ -192,6 +192,7 @@ async def test_monitor_silent_and_full_rules(job_data, monkeypatch, full, proble
     assert bool(job_data.notices) is sends
     if sends:
         assert job_data.compose.call_args.args[1] == data
+        assert job_data.compose.call_args.kwargs["max_tokens"] == 1600
 
 
 @pytest.mark.parametrize("evening,count", [(False, 0), (False, 1), (True, 0), (True, 1)])
@@ -395,3 +396,50 @@ async def test_scheduled_compose_uses_real_anthropic_transport_and_static_guard(
     assert "PODATAK" in body["system"] and "Ignoriši pravila" not in body["system"]
     assert body["model"] == settings().model_fast
     assert usage.record.call_args.args[1] == "scheduler"
+
+
+async def test_greeting_recovers_from_truncation_before_duplicate_check(monkeypatch):
+    monkeypatch.setattr(
+        motivation.db, "pool", lambda: SimpleNamespace(fetch=AsyncMock(return_value=[]))
+    )
+    create = AsyncMock(
+        side_effect=[
+            SimpleNamespace(stop_reason="max_tokens", content=[]),
+            SimpleNamespace(
+                stop_reason="end_turn",
+                content=[SimpleNamespace(type="text", text="Почни малим кораком.")],
+            ),
+        ]
+    )
+    monkeypatch.setattr(motivation.llm, "create", create)
+    assert await motivation.generate(datetime(2026, 10, 21).date(), None) == "Počni malim korakom."
+    assert [c.kwargs["max_tokens"] for c in create.call_args_list] == [400, 800]
+
+
+async def test_report_recovers_from_truncation_without_rechecking_sites(monkeypatch):
+    from dexter import scheduled_jobs
+
+    create = AsyncMock(
+        side_effect=[
+            SimpleNamespace(stop_reason="max_tokens", content=[]),
+            SimpleNamespace(
+                stop_reason="end_turn",
+                content=[SimpleNamespace(type="text", text="Sajt A: spor, HTTP 200, 6000 ms.")],
+            ),
+        ]
+    )
+    monkeypatch.setattr(scheduled_jobs.llm, "create", create)
+    data = {"checked": 22, "results": [], "problems": [{"name": "A", "slow": True}]}
+    check = AsyncMock(return_value=data)
+    monkeypatch.setattr(scheduled_jobs.monitor, "check_all_sites", check)
+    notices = []
+
+    async def dispatch(kind, bot, prepare):
+        notices.append(await prepare())
+        return True
+
+    monkeypatch.setattr(scheduled_jobs, "dispatch", dispatch)
+    assert await scheduled_jobs.site_check_report(SimpleNamespace())
+    check.assert_awaited_once()
+    assert len(notices) == 1 and "Sajt A: spor" in notices[0].text
+    assert [c.kwargs["max_tokens"] for c in create.call_args_list] == [1600, 3200]

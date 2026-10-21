@@ -61,20 +61,28 @@ async def summarize(day: str, entries: list[str]) -> str:
     while True:
         summaries = []
         for part in parts:
-            response = await llm.create(
-                purpose="conversation_summary",
-                model=settings().model_fast,
-                max_tokens=1800,
-                system=SUMMARY_SYSTEM,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"Datum razgovora: {day}. Sažmi sledeće arhivske podatke:\n{part}",
-                    }
-                ],
-            )
-            summary = u_latinicu(llm.text_of(response))
-            if response.stop_reason != "end_turn" or not summary or len(summary) > SUMMARY_CHARS:
+            try:
+                summary = u_latinicu(
+                    await llm.create_text(
+                        purpose="conversation_summary",
+                        model=settings().model_fast,
+                        max_tokens=1800,
+                        retry_tokens=3600,
+                        max_chars=SUMMARY_CHARS,
+                        system=SUMMARY_SYSTEM,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": f"Datum razgovora: {day}. Sažmi sledeće arhivske podatke:\n{part}",
+                            }
+                        ],
+                    )
+                )
+            except llm.IncompleteText as exc:
+                raise RuntimeError(
+                    f"Sažetak razgovora za {day} nije potpun ili je predugačak."
+                ) from exc
+            if len(summary) > SUMMARY_CHARS:
                 raise RuntimeError(f"Sažetak razgovora za {day} nije potpun ili je predugačak.")
             summaries.append(summary)
         if len(summaries) == 1:

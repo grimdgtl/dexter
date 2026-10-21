@@ -351,6 +351,16 @@ za uspeh i bar jednu grešku, opis alata zadržava sva pravila iz starog opisa.
   > radimo F3.6 (Perplexity) i F3.7 (niži troškovi). Operativne provere i datum
   > prelaska ostaju otvoreni; nove funkcije ne predstavljaju završetak F1b.11.
 
+- [x] **F1b.12 Pouzdani kratki pozadinski odgovori.** Uskladi Haiku 5.5
+  pozive za dnevne/tekuće sažetke i zakazane poruke sa podrazumevanim thinking-om.
+  Najviše jedan veći pokušaj posle `max_tokens`, bez prihvatanja nepotpunog teksta,
+  sa dijagnostikom bez privatnog sadržaja i evidencijom oba naplaćena poziva.
+  Punom izveštaju sajtova daj dovoljan limit i sažet format.
+
+  > IZMENA 21.10.2026: korisnik je prijavio četiri neuspešna dnevna posla;
+  > log potvrđuje `max_tokens`, uključujući nula vidljivih znakova. Ispravka
+  > tokom F1b.11, koja ostaje otvorena do završetka stvarnog paralelnog rada.
+
 ### Faza 2 — Kvalitet pretrage (3.11–9.11)
 
 Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).

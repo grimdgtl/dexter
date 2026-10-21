@@ -1512,3 +1512,40 @@ Regresija sa pravim PostgreSQL/pgvector-om proverava naslov, sirovi tekst,
 embedding ulaz, kanonski heš, pretragu i preskakanje ponovnog embeddinga.
 Ruff i svih 908 testova sa bazom prolaze (19,13 s). Produkcioni reindex
 čeka redeploy; nema merenja promene kvaliteta retrieval-a nad ličnim podacima.
+
+## F1b.12 — kratki odgovori pozadinskih poslova (21.10.2026)
+
+Produkcioni log potvrđuje da tekući sažetak staje na `max_tokens`: 0 vidljivih
+znakova uz limit 1800, zatim 4890 znakova uz 3600. Večernji izveštaj sajtova
+tri puta pada na proveri dovršenosti odgovora. Snimci pokazuju i neuspešan dnevni
+sažetak i jutarnji pozdrav. Bez jutarnjeg loga ne tvrdimo da su svi prekidi imali
+isti stop_reason.
+
+[Anthropic migracija za Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide)
+navodi podrazumevano adaptive razmišljanje koje deli max_tokens sa vidljivim tekstom.
+[Podržana podešavanja](https://platform.claude.com/docs/en/build-with-claude/thinking-troubleshooting)
+razlikuju Haiku disabled i Sonnet between_tools. Politika važi samo za nezavisne
+pozive scheduler/conversation_summary/history_summary bez alata i bez eksplicitnog
+thinking/effort podešavanja. Bira se posle budžetske zamene modela; drugi modeli
+i chat ostaju bez novih parametara. Za ove zadatke koristi se effort low.
+
+Pre: dnevni sažetak, pozdrav i izveštaj odbacuju prvi nepotpun odgovor, pa posao
+ponavlja celu pripremu. Posle: max_tokens dobija jedan veći pokušaj nad istim
+ulazom (pozdrav 400→800, poruke 800→1600, sažetak 1800→3600). Puni izveštaj
+sajtova koristi 1600→3200, jedan kratak red po sajtu, razlikuje spor od nedostupnog.
+Refusal, prazan end_turn i predugačak dovršen tekst ne dobijaju dodatni pokušaj.
+Nijedan delimičan tekst se ne šalje ili upisuje kao završen. Beleže se samo
+namena, stop_reason, broj znakova i limit; svaki SDK odgovor i dalje ulazi u usage.
+Dostava ostaje iza postojećeg trajnog claim-a, bez ponavljanja neizvesnog slanja.
+
+Ruff i 929 testova sa PostgreSQL/pgvector bazom prolaze (17,92 s). SDK/mock
+provere pokrivaju različite modele i budžetsku zamenu, thinking-only prekid pa
+uspeh, oba usage zapisa, privatnost logova, ograničen retry, dnevni sažetak,
+pozdrav i izveštaj bez ponovnog HTTP merenja unutar tekstualnog retry-a. Postojeće
+DB provere očuvanja istorije i zaštite od duplog slanja prolaze.
+Nema novog ENV-a, migracije ni izmene persona SYSTEM_PROMPT-a.
+
+Stvarna stopa uspeha i cena pre/posle još nisu izmerene: čekaju redeploy i
+naredna zakazana pokretanja. Današnje neuspešne poruke se ne šalju naknadno
+automatski; dnevni sažeci mogu da se nadoknade pri narednom indeksiranju.
+F1b.11 ostaje otvorena.

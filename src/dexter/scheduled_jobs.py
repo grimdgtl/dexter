@@ -30,6 +30,7 @@ Koristi samo date činjenice, brojeve i datume. Ne izmišljaj obaveze, vreme, ra
 napredak ili obećanje budućih radnji. Nepodešen/nedostupan izvor nije prazan izvor.
 Neoznačena navika nije dokaz neuspeha; uporedi isključivo zabeležene podatke.
 Ne otkrivaj implementacione detalje. Poštuj napomene o nepotpunim listama i uzorcima.
+Odgovor ograniči na 3000 znakova; bez uvoda i ponavljanja istih podataka.
 """
 
 
@@ -41,17 +42,20 @@ async def compose(instruction: str, data: dict, *, max_tokens=800) -> str:
     raw = json.dumps(data, ensure_ascii=False, default=str)
     if len(raw) > 60000:
         raise ValueError("Previše podataka za jednu zakazanu poruku; slanje je preskočeno.")
-    response = await llm.create(
-        purpose="scheduler",
-        model=settings().model_fast,
-        max_tokens=max_tokens,
-        system=SYSTEM,
-        messages=[{"role": "user", "content": f"{instruction}\n\nPodaci:\n{raw}"}],
-    )
-    text = u_latinicu(llm.text_of(response)).strip()
-    if response.stop_reason != "end_turn" or not text:
-        raise ValueError("Zakazana poruka nije dovršena; ništa nije poslato.")
-    return text
+    try:
+        return u_latinicu(
+            await llm.create_text(
+                purpose="scheduler",
+                model=settings().model_fast,
+                max_tokens=max_tokens,
+                retry_tokens=max_tokens * 2,
+                max_chars=3500,
+                system=SYSTEM,
+                messages=[{"role": "user", "content": f"{instruction}\n\nPodaci:\n{raw}"}],
+            )
+        )
+    except llm.IncompleteText as exc:
+        raise ValueError("Zakazana poruka nije dovršena; ništa nije poslato.") from exc
 
 
 async def morning_greeting(bot):
@@ -208,10 +212,13 @@ async def site_check(bot, full):
         return Notice(
             "🌐 "
             + await compose(
-                "Pun izveštaj svih sajtova, problemi prvi."
+                "Pun izveštaj svih sajtova, problemi prvi. Jedan kratak red po sajtu: "
+                "naziv, status, vreme odziva; bez ponavljanja domena i bez zaključnog pasusa. "
+                "HTTP 200 sa sporim odzivom označi kao spor, ne kao nedostupan."
                 if full
                 else "Javi samo probleme sa sajtovima i napomene provere.",
                 data,
+                max_tokens=1600,
             )
         )
 

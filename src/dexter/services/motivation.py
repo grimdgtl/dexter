@@ -49,32 +49,39 @@ async def generate(day, weather: dict | None) -> str:
         )
     ]
     for attempt in range(2):
-        response = await llm.create(
-            purpose="scheduler",
-            model=settings().model_fast,
-            max_tokens=400,
-            system=SYSTEM,
-            messages=[
-                {
-                    "role": "user",
-                    "content": json.dumps(
-                        {
-                            "datum": day.isoformat(),
-                            "ugao": ANGLES[(day.timetuple().tm_yday - 1) % len(ANGLES)],
-                            "prognoza": weather,
-                            "ne_ponavljaj": previous,
-                            "napomena": "Prethodni pokušaj se ponovio; napiši sasvim drugačije."
-                            if attempt
-                            else "",
-                        },
-                        ensure_ascii=False,
-                    ),
-                }
-            ],
-        )
-        text = u_latinicu(llm.text_of(response)).strip().strip("\"'„“”").strip()
-        if response.stop_reason != "end_turn" or not text:
-            raise ValueError("Jutarnja poruka nije dovršena; ništa nije poslato.")
-        if not repeated(text, previous):
+        try:
+            text = await _generate_text(day, weather, previous, attempt)
+        except llm.IncompleteText as exc:
+            raise ValueError("Jutarnja poruka nije dovršena; ništa nije poslato.") from exc
+        text = u_latinicu(text).strip().strip("\"'„“”").strip()
+        if text and not repeated(text, previous):
             return text
     raise ValueError("Jutarnja poruka ponavlja prethodnu; ništa nije poslato.")
+
+
+async def _generate_text(day, weather, previous, attempt):
+    return await llm.create_text(
+        purpose="scheduler",
+        model=settings().model_fast,
+        max_tokens=400,
+        retry_tokens=800,
+        max_chars=1200,
+        system=SYSTEM,
+        messages=[
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "datum": day.isoformat(),
+                        "ugao": ANGLES[(day.timetuple().tm_yday - 1) % len(ANGLES)],
+                        "prognoza": weather,
+                        "ne_ponavljaj": previous,
+                        "napomena": "Prethodni pokušaj se ponovio; napiši sasvim drugačije."
+                        if attempt
+                        else "",
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        ],
+    )

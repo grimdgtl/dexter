@@ -81,3 +81,10 @@ async def test_conversation_job_uses_timezone_and_job_wrapper_without_external_s
     assert job.trigger.get_next_fire_time(None, now) == datetime(2026, 10, 17, 3, 30, tzinfo=tz)
     assert await job.func(*job.args) == {"razgovor": {"indeksirano": 1}}
     reindex.assert_awaited_once_with("razgovor")
+
+
+async def test_daily_summary_recovers_from_thinking_only_truncation(monkeypatch):
+    create = AsyncMock(side_effect=[response("", "max_tokens"), response("Proveren dogovor.")])
+    monkeypatch.setattr(conversations.llm, "create", create)
+    assert await conversations.summarize("2026-10-18", ["Dogovor"]) == "Proveren dogovor."
+    assert [c.kwargs["max_tokens"] for c in create.call_args_list] == [1800, 3600]
