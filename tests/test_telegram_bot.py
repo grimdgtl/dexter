@@ -26,6 +26,50 @@ def update(chat_id):
     return SimpleNamespace(effective_chat=SimpleNamespace(id=chat_id))
 
 
+async def test_failed_typing_status_does_not_fail_successful_answer(ctx, monkeypatch, caplog):
+    entered = asyncio.Event()
+
+    async def typing(*args):
+        entered.set()
+        raise RuntimeError("PRIVATNI_ODGOVOR_PROVAJDERA")
+
+    async def run(*args):
+        await entered.wait()
+        return AgentResult(text="Odgovor je spreman.", model="test")
+
+    ctx.bot.send_chat_action.side_effect = typing
+    monkeypatch.setattr(telegram_bot.loop, "run", run)
+    await telegram_bot._answer(update(1), ctx, "Pitanje")
+    ctx.bot.send_message.assert_awaited_once_with(1, "Odgovor je spreman.")
+    assert "Status kucanja nije dostupan (RuntimeError)" in caplog.text
+    assert "PRIVATNI_ODGOVOR_PROVAJDERA" not in caplog.text
+
+
+async def test_failed_typing_does_not_mask_agent_error(ctx, monkeypatch):
+    entered = asyncio.Event()
+
+    async def typing(*args):
+        entered.set()
+        raise RuntimeError("Status nije dostupan")
+
+    async def run(*args):
+        await entered.wait()
+        raise ValueError("Greška agenta")
+
+    ctx.bot.send_chat_action.side_effect = typing
+    monkeypatch.setattr(telegram_bot.loop, "run", run)
+    await telegram_bot._answer(update(1), ctx, "Pitanje")
+    ctx.bot.send_message.assert_awaited_once_with(
+        1, "⚠️ Nešto je puklo. Probaj ponovo za koji trenutak."
+    )
+
+
+async def test_typing_cancellation_is_preserved(ctx):
+    ctx.bot.send_chat_action.side_effect = asyncio.CancelledError
+    with pytest.raises(asyncio.CancelledError):
+        await telegram_bot._keep_typing(ctx.bot, 1, asyncio.Event())
+
+
 async def test_different_chats_run_in_parallel(ctx, monkeypatch):
     entered = {chat_id: asyncio.Event() for chat_id in (1, 2)}
 

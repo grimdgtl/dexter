@@ -113,7 +113,12 @@ def _split(text: str, limit: int = TG_LIMIT) -> list[str]:
 async def _keep_typing(bot, chat_id: int, stop: asyncio.Event) -> None:
     """Telegram gasi 'kuca…' posle 5 s, pa ga obnavljamo dok agent radi."""
     while not stop.is_set():
-        await bot.send_chat_action(chat_id, ChatAction.TYPING)
+        try:
+            await bot.send_chat_action(chat_id, ChatAction.TYPING)
+        except Exception as exc:
+            # Status je pomoćni prikaz; njegov kvar ne sme poništiti odgovor ili pregled.
+            log.warning("Status kucanja nije dostupan (%s).", type(exc).__name__)
+            return
         try:
             await asyncio.wait_for(stop.wait(), timeout=4)
         except TimeoutError:
