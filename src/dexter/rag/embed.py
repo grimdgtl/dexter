@@ -4,7 +4,7 @@
   local  — intfloat/multilingual-e5-small sa Hugging Face-a (384 dim), radi na
            Hetzneru bez API ključa. Traži `pip install ".[local]"`.
 
-Faza 4 plana: isti eval set pusti kroz oba i uporedi kvalitet i cenu.
+Izbor provajdera proverava se na istom evaluacionom skupu i uz kalibraciju praga.
 
 E5 modeli traže prefiks "query: " za pitanja i "passage: " za dokumente —
 bez toga kvalitet pretrage primetno pada. Zato `embed` zna da li vektorizuje

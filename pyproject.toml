@@ -2,6 +2,7 @@
 name = "dexter"
 version = "2.0.0"
 description = "Dexter — lični AI asistent na Telegramu (Python verzija): agent, RAG, dugoročna memorija, glas i slike."
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "anthropic>=0.70",
@@ -26,7 +27,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Lokalni modeli sa Hugging Face-a (faza 4). Teški su (~2 GB sa torch-om),
+# Lokalni modeli sa Hugging Face-a imaju velike zavisnosti sa PyTorch-om,
 # zato nisu podrazumevani.
 local = [
   "sentence-transformers>=3.0",
@@ -48,6 +49,11 @@ dev = [
 
 [project.scripts]
 dexter = "dexter.main:run"
+
+[project.urls]
+Repository = "https://github.com/grimdgtl/dexter"
+Documentation = "https://github.com/grimdgtl/dexter/blob/main/README.md"
+Issues = "https://github.com/grimdgtl/dexter/issues"
 
 [build-system]
 requires = ["hatchling"]

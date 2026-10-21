@@ -1,15 +1,13 @@
 """Seckanje dokumenata na delove (chunks) pre vektorizacije.
 
-Stara verzija je pravila JEDAN vektor od prvih 2000 znakova dokumenta — sve
-posle toga pretraga nije videla. Ovde se dokument deli na delove iz CHUNK_CHARS
-znakova (oko 300 tokena), sa preklapanjem, da rečenica koja pada na granicu
-ne izgubi kontekst.
+Dokument se deli na delove do CHUNK_CHARS znakova, sa preklapanjem radi očuvanja
+konteksta na granici. Broj znakova nije isto što i broj tokena embedding modela.
 
 Redosled sečenja: prvo po naslovima/praznim redovima (prirodne celine), pa
 tek ako je pasus predugačak — po rečenicama, pa po rečima. Svaki deo dobija
 naslov dokumenta na početak, da vektor "zna" odakle je deo.
 
-Ovo su parametri koje vredi menjati i meriti eval setom (faza 2).
+Veličina i preklapanje biraju se poređenjem rezultata na istom evaluacionom skupu.
 """
 
 import re

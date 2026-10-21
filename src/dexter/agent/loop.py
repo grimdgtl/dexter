@@ -1,6 +1,6 @@
 """Agentska petlja: model → alati → model … → odgovor.
 
-Razlike u odnosu na claude.js:
+Odgovornosti petlje:
   - prompt caching na tri mesta: alati, system prompt, istorija
   - nezavisni alati se izvršavaju paralelno (asyncio.gather)
   - memorija se ubacuje po relevantnosti, ne cela

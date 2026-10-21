@@ -47,6 +47,31 @@ jobs:
         run: ruff format --check src tests evals scripts
       - name: Ruff
         run: ruff check src tests evals scripts
+      - name: Sastavljanje instalacionog paketa
+        run: python -m pip wheel --no-deps --wheel-dir dist .
+      - name: Provera sadržaja paketa
+        run: |
+          python - <<'PY'
+          from email.parser import Parser
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheels = list(Path("dist").glob("dexter-*.whl"))
+          assert len(wheels) == 1, "Očekivan je jedan wheel."
+          with ZipFile(wheels[0]) as package:
+              names = set(package.namelist())
+              expected = {"dexter/migrations/" + p.name for p in Path("migrations").glob("*.sql")}
+              actual = {n for n in names if n.startswith("dexter/migrations/") and n.endswith(".sql")}
+              assert expected and actual == expected, "Nedostaju SQL migracije u paketu."
+              for font in ("Regular.ttf", "Medium.ttf", "SemiBold.ttf", "Bold.ttf", "OFL.txt"):
+                  assert "dexter/assets/fonts/Montserrat-" + font in names
+              metadata_path = next(n for n in names if n.endswith(".dist-info/METADATA"))
+              metadata = Parser().parsestr(package.read(metadata_path).decode())
+              assert metadata["Name"] == "dexter"
+              assert metadata["Description-Content-Type"] == "text/markdown"
+              assert "# Dexter" in metadata.get_payload()
+              assert not any(n.startswith(("data/", "tests/", "evals/")) for n in names)
+          PY
       - name: Testovi sa bazom
         run: pytest
       - name: Persona pre i posle izmene sistemskog prompta

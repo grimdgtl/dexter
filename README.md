@@ -14,7 +14,8 @@ pretragom u PostgreSQL-u i pgvector-u, obradom skenova i proverom izdvojenih pod
 
 [Mogućnosti](#šta-dexter-radi) · [Pregled ugovora](#od-ugovora-do-proverenog-zadatka) ·
 [Arhitektura](#arhitektura) · [Rezultati](#testovi-i-eksperimenti) ·
-[Pokretanje](#pokretanje) · [Operativni vodič](docs/OPERATIONS.md)
+[Proba bez ključeva](#proba-bez-api-ključeva) · [Pokretanje](#pokretanje) ·
+[Operativni vodič](docs/OPERATIONS.md)
 
 ## Šta Dexter radi
 
@@ -107,6 +108,7 @@ flowchart TD
 Aplikacija je modularni Python servis uz zasebnu PostgreSQL bazu. Telegram long
 polling je korisnički interfejs; administracija ide kroz komande, logove i Coolify.
 Integracije sa spoljnim REST API-jima odvojene su od agentske petlje i alata.
+Tokovi, trajno stanje i granice potvrda opisani su u [arhitekturi sistema](docs/ARCHITECTURE.md).
 
 **Tehničke odluke:**
 
@@ -140,7 +142,7 @@ Integracije sa spoljnim REST API-jima odvojene su od agentske petlje i alata.
 
 ## Testovi i eksperimenti
 
-Na dan **21.10.2026. prolazi 929 testova** sa PostgreSQL/pgvector bazom.
+Na dan **22.10.2026. prolazi 933 testa** sa PostgreSQL/pgvector bazom.
 CI proverava formatiranje, statičku analizu, integracione testove i obe Docker
 varijante — osnovnu i sa lokalnim ML bibliotekama. Spoljni API odgovori u testovima
 su mock-ovani; stvarne provere integracija beleže se zasebno.
@@ -158,6 +160,28 @@ Svaki eksperiment ima opis skupa, uslova i ograničenja u
 [dnevniku evaluacije](docs/EVAL.md). Dostupni su alati za poređenje seckanja,
 embedding modela, rutiranja i keširanja, izvoz skupa za ručnu anotaciju i trening
 klasifikatora. Simulirani troškovi su odvojeni od stvarno izmerenih API troškova.
+
+## Proba bez API ključeva
+
+Za prvi pregled dovoljan je Python 3.12. Iz korena kloniranog repozitorijuma:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+pytest
+python -m evals.contract_eval
+python -m scripts.make_contract_examples
+```
+
+Ova proba ne zahteva `.env`, Telegram nalog ili bazu. `pytest` izvršava testove
+bez baze i preskače DB slučajeve kada `TEST_DATABASE_URL` nije postavljen.
+Ugovorni eval proverava pet kontrolnih slučajeva, a poslednja komanda pravi tri
+izmišljena skena u `output/pdf/`. Stvarni OCR i razgovor sa botom koriste API-je
+i pripadaju zasebnoj ručnoj proveri. [Vodič za testiranje](docs/TESTING.md) opisuje
+integracione testove i granice evaluacije.
+
+[Gotovi izmišljeni PDF primeri](examples/contracts/) dostupni su i bez instalacije.
 
 ## Pokretanje
 
@@ -230,5 +254,7 @@ ne znače da je ceo tok lokalni. Privatni dokumenti, ključevi i trenirani artef
 ostaju van repozitorijuma.
 
 - [Operativni vodič: integracije, komande, deploy i lokalni modeli](docs/OPERATIONS.md)
+- [Arhitektura: obrada poruke, RAG, potvrde i trajno stanje](docs/ARCHITECTURE.md)
+- [Testiranje i reprodukcija eksperimenata](docs/TESTING.md)
 - [Evaluacija: metodologija, rezultati i ograničenja](docs/EVAL.md)
 - [Pokrivenost funkcija i status ručnih provera](docs/PARITY.md)

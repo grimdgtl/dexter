@@ -1,5 +1,9 @@
 # Pokrivenost funkcija i ručne provere
 
+Ovo je istorijska matrica sa datiranim beleškama, ne prikaz trenutnog stanja
+privatnih naloga. Aktuelni postupak i obim automatskih provera su u
+[TESTING.md](TESTING.md); rezultati eksperimenata su u [EVAL.md](EVAL.md).
+
 ## Završni audit F1b.11 — 19.10.2026.
 
 Katalog ima 46 alata, 14 rasporeda i pet komandi. Dexter ima 54 alata: svih 46

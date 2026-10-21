@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.py[cod]
@@ -10,3 +12,10 @@ evals/voice/*
 !evals/voice/README.md
 !evals/voice/manifest.example.jsonl
 dist/
+build/
+*.egg-info/
+output/
+.coverage
+.coverage.*
+htmlcov/
+.DS_Store

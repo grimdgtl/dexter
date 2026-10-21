@@ -10,3 +10,10 @@ evals/questions.jsonl
 evals/voice
 evals/results
 dist
+build
+*.egg-info
+output
+.coverage
+.coverage.*
+htmlcov
+.DS_Store

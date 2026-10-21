@@ -42,6 +42,7 @@ DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter .venv/bin/dexter
 
 | Komanda | Šta radi |
 |---|---|
+| `/start` | Pozdrav i početak razgovora |
 | `/status` | Aktivni i ugašeni alati, nedostajuća podešavanja, modeli i stanje baze |
 | `/poslovi [sati]` | Evidencija zakazanih poslova, uspeha i grešaka (24h podrazumevano) |
 | `/provera` | Notion baze: nedostajuće kolone, pogrešni tipovi i nepraćene checkbox stavke |
@@ -50,6 +51,8 @@ DATABASE_URL=postgresql://dexter:dexter@localhost:5432/dexter .venv/bin/dexter
 | `/memorija` | Sve što Dexter pamti o tebi |
 | `/reset` | Briše istoriju razgovora (memorija ostaje) |
 | `/duboko <pitanje>` | Forsira najjači model |
+| `/ugovor` | Čeka sledeći PDF/fotografiju za pregled citata i predloge zadataka |
+| `/rashodi [mesec]` | Pregled potvrđeno sačuvanih rashoda, odvojen od API troškova |
 
 Pošalji PDF ili .txt → ide u bazu znanja i pretraživ je odmah.
 
@@ -89,6 +92,8 @@ naslepo; `/provera` ostaje dostupna. Definitivno odbijeno prvo slanje može se
 ponoviti na narednom startu. Novi ENV i migracija baze nisu potrebni.
 
 ## Testovi i evaluacija
+
+Za prvi prolaz bez naloga i kompletnu matricu provera vidi [TESTING.md](TESTING.md).
 
 GitHub Actions pokreće ruff i ceo pytest skup uz `pgvector/pgvector:pg17`, uključujući
 integracione testove. Koriste se samo test kredencijali i mock odgovori spoljnih API-ja.

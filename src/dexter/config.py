@@ -1,8 +1,7 @@
 """Konfiguracija iz .env-a, sa tipovima i proverom pri pokretanju.
 
-U staroj verziji je config.js ručno čitao process.env. Ovde pydantic-settings
-radi isto, ali pukne odmah pri startu ako nešto obavezno fali ili ima pogrešan
-tip — umesto da bot padne tek kad prvi put zatreba ta vrednost.
+Pydantic Settings proverava obavezne vrednosti, tipove i opsege pri pokretanju.
+Opcione integracije ostaju isključene dok ne dobiju potrebnu konfiguraciju.
 """
 
 from decimal import Decimal

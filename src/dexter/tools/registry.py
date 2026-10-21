@@ -1,9 +1,7 @@
 """Registar alata: jedna definicija → šema za model, validacija, izvršavanje.
 
-U staroj verziji je svaki alat bio opisan na dva mesta: šema u
-definitions.js (950 linija) i funkcija u tools/index.js. Lako se raziđu.
-Ovde je alat jedna Python funkcija sa dekoratorom; JSON šemu za model
-pravi pydantic iz tipa argumenata, pa šema i kod ne mogu da se raziđu.
+Alat je Python funkcija sa dekoratorom i Pydantic modelom ulaza. JSON šema
+za LLM izvodi se iz tog modela, umesto odvojenog održavanja definicije i validacije.
 
     class Args(BaseModel):
         grad: str = Field(description="Ime grada")

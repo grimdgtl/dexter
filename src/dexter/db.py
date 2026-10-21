@@ -1,8 +1,6 @@
-"""PostgreSQL + pgvector: jedna baza za sve što je ranije bilo u JSON fajlovima.
+"""PostgreSQL + pgvector: migracije, pool i trajno stanje aplikacije.
 
-Stara verzija je čuvala istoriju, činjenice i indeks pretrage kao JSON na
-disku. To radi za jednog korisnika, ali nema pretrage, nema upita i ceo fajl
-se učitava u memoriju. Ovde je sve u tabelama:
+Osnovne tabele razdvajaju razgovor, memoriju, pretragu i obračun potrošnje:
 
   messages   — istorija razgovora (svaka poruka jedan red)
   pending_notes — ishodi potvrda za kontekst sledeće korisničke poruke
