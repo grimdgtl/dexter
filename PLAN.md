@@ -591,6 +591,18 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
   > opisu, isti page ID, rok i status. Trajni ključevi i podsetnici nisu menjani.
   > Ruff i 907 testova sa bazom prolaze; novi Telegram odgovor čeka redeploy.
 
+### Faza 8 — Dokumentacija projekta
+
+- [x] **F8.1 README za javno predstavljanje.** Predstavi ličnu namenu, mogućnosti,
+  arhitekturu, ugovorni tok i proverljive rezultate; odvoji operativnu konfiguraciju
+  u povezan vodič. Jasno razlikuj upotrebljene funkcije, eksperimente i neizmereno.
+
+  > IZMENA 21.10.2026: na izričit zahtev korisnika ovaj dokumentacioni zadatak
+  > ima prioritet radi slanja repozitorijuma uz CV. F1b.11 ostaje otvorena.
+  > README vodi do koda i rezultata; docs/OPERATIONS.md čuva konfiguraciju i
+  > postupke. Proverena su lokalna sidra/linkovi i očuvanje ENV referenci.
+  > Ruff, svih 929 testova sa bazom i 5/5 offline ugovornih slučajeva prolaze.
+
 ## 5. Nove zavisnosti po fazama
 
 | Faza | Paket | Zašto |
