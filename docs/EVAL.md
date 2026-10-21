@@ -1502,3 +1502,13 @@ Postojeći probni Notion red ručno je sređen kroz native UI: naslov
 Not started i rok 15.03.2030. Lokalni podsetnik nije menjan. Novi automatski upis
 i Telegram prikaz zahtevaju redeploy i ručnu proveru; postojeći red se ne kreira
 ponovo radi testiranja.
+
+## F2.7 — NUL znak pri indeksiranju (21.10.2026)
+
+Pre: naslov ili tekst sa NUL znakom ruši PostgreSQL upis (`UTF8: 0x00`),
+pa zakazani reindex ne završava. Posle: NUL se zamenjuje razmakom na RAG granici,
+pre heša i embeddinga; upit koristi isti postupak. Izvorni fajl ostaje isti.
+Regresija sa pravim PostgreSQL/pgvector-om proverava naslov, sirovi tekst,
+embedding ulaz, kanonski heš, pretragu i preskakanje ponovnog embeddinga.
+Ruff i svih 908 testova sa bazom prolaze (19,13 s). Produkcioni reindex
+čeka redeploy; nema merenja promene kvaliteta retrieval-a nad ličnim podacima.

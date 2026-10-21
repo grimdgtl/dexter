@@ -377,6 +377,13 @@ Svaki zadatak završava unosom u `docs/EVAL.md` (pre/posle).
 - [x] **F2.6 Filtriranje po vremenu.** `documents.modified_at`; `knowledge_search`
   dobija opcione `od` / `do`.
 
+- [x] **F2.7 NUL znak u indeksiranom tekstu.** Očisti naslov, tekst i upit pre
+  heširanja, embeddinga i PostgreSQL upisa/pretrage. Proveri idempotentnost
+  ponovnog indeksiranja nad stvarnom test bazom.
+
+  > IZMENA 21.10.2026: produkcioni reindex pada na `UTF8: 0x00`.
+  > Ispravka tokom otvorene operativne provere F1b.11; izvorni fajl se ne menja.
+
 ### Faza 3 — Brzina i cena (10.11–16.11)
 
 - [x] **F3.1 Benchmark troška.** `evals/cost_bench.py` pušta fiksnih 50 poruka

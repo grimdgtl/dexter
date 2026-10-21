@@ -663,6 +663,22 @@ async def test_rag_index_and_hybrid_search(db):
     assert any("Pasus 79" in h.text for h in hits)
 
 
+async def test_rag_nul_is_cleaned_before_embedding_hash_and_postgres(db, monkeypatch):
+    from dexter.rag import store
+
+    embed = AsyncMock(side_effect=store.embed)
+    monkeypatch.setattr(store, "embed", embed)
+    assert await store.upsert_document("nul:pdf", "test", "Ugovor\x00Orion", "Prvi\x00pasus.") > 0
+    row = await db.fetchrow("SELECT * FROM documents WHERE id='nul:pdf'")
+    assert row["title"] == "Ugovor Orion" and row["content_text"] == "Prvi pasus."
+    assert row["content_hash"] == hashlib.sha256(b"Ugovor Orion\nPrvi pasus.").hexdigest()
+    assert all("\x00" not in part for part in embed.call_args.args[0])
+    assert await store.upsert_document("nul:pdf", "test", "Ugovor Orion", "Prvi pasus.") == 0
+    assert embed.await_count == 1
+    hits = await store.search("Prvi\x00pasus")
+    assert hits[0].document_id == "nul:pdf"
+
+
 async def test_memory_dedupes(db):
     from dexter import memory
 

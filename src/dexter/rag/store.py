@@ -61,6 +61,10 @@ async def upsert_document(
     modified_at: datetime | None = None,
 ) -> int:
     """Indeksira dokument. Ako se sadržaj nije promenio, preskače ga (0 novih delova)."""
+    # PDF/Office ekstrakcija može vratiti NUL, koji PostgreSQL text ne prihvata.
+    # Razmak čuva granicu reči; isti tekst mora ići u heš, embedding i bazu.
+    title = title.replace("\x00", " ")
+    text = text.replace("\x00", " ")
     content_hash = hashlib.sha256(f"{title}\n{text}".encode()).hexdigest()
     modified_at = timestamp(modified_at)
     db = pool()
@@ -126,6 +130,7 @@ async def search(
     lower, upper = period_bounds(date_from, date_to)
     if limit < 1:
         raise ValueError("Limit mora biti pozitivan.")
+    query = query.replace("\x00", " ")
     db = pool()
     qvec = await embed_one(query, kind="query")
 
